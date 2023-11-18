@@ -10,11 +10,11 @@ public class InitGlobal extends Struct {
 	
 	public InitGlobal() {}
 	
-	public InitGlobal(DataType type, String name, Object val) {
+	public InitGlobal(DataType type, String name, float val) {
 		this.type = type;
 		switch (type) {
 			case FLOAT:
-				floatVal = (Float)val;
+				floatVal = val;
 				break;
 			default:
 				throw new RuntimeException("Unsupported type "+type+" in init global");

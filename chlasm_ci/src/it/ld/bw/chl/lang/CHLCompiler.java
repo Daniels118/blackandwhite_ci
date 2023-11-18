@@ -33,7 +33,9 @@ import java.util.Map;
 import it.ld.bw.chl.exceptions.ParseError;
 import it.ld.bw.chl.exceptions.ParseException;
 import it.ld.bw.chl.model.CHLFile;
+import it.ld.bw.chl.model.DataType;
 import it.ld.bw.chl.model.Header;
+import it.ld.bw.chl.model.InitGlobal;
 import it.ld.bw.chl.model.Instruction;
 import it.ld.bw.chl.model.NativeFunction;
 import it.ld.bw.chl.model.OPCodeFlag;
@@ -73,6 +75,7 @@ public class CHLCompiler implements Compiler {
 	private boolean sealed = false;
 	private LinkedHashMap<String, Integer> strings = new LinkedHashMap<>();
 	private ByteBuffer dataBuffer = ByteBuffer.allocate(INITIAL_BUFFER_SIZE);
+	private final List<InitGlobal> initGlobals;
 	private Map<String, Integer> constants = new HashMap<>();
 	private LinkedHashMap<String, Var> localMap = new LinkedHashMap<>();
 	private Map<String, Integer> localConst = new HashMap<>();
@@ -82,7 +85,6 @@ public class CHLCompiler implements Compiler {
 	private List<ScriptToResolve> calls = new LinkedList<>();
 	private String challengeName;
 	private Integer challengeId;
-	private int scriptId = 1;
 	private boolean inCinemaBlock;
 	private boolean inCameraBlock;
 	private boolean inDialogueBlock;
@@ -98,11 +100,13 @@ public class CHLCompiler implements Compiler {
 	public CHLCompiler(PrintStream outStream) {
 		this.out = outStream;
 		dataBuffer.order(ByteOrder.LITTLE_ENDIAN);
-		chl.getHeader().setVersion(Header.BW1);
+		chl.getHeader().setVersion(Header.BWCI);
 		instructions = chl.getCode().getItems();
 		/* This will help the disassembler when guessing string values, because it increases the pointer
 		 * of the first string (low values are too common and would lead to a lot of bad guessing) */
-		storeStringData("Compiled with CHL Compiler developed by Daniele Lombardi");
+		//storeStringData("Compiled with CHL Compiler developed by Daniele Lombardi");
+		initGlobals = chl.getInitGlobals().getItems();
+		initGlobals.add(new InitGlobal("Null variable", 0));
 	}
 	
 	public boolean isVerboseEnabled() {
@@ -159,13 +163,6 @@ public class CHLCompiler implements Compiler {
 	
 	public void setSharedStringsEnabled(boolean sharedStringsEnabled) {
 		this.sharedStringsEnabled = sharedStringsEnabled;
-	}
-	
-	public void setFirstScriptId(int id) throws IllegalStateException {
-		if (!chl.getScriptsSection().getItems().isEmpty()) {
-			throw new IllegalStateException("Some scripts have already been parsed");
-		}
-		scriptId = id;
 	}
 	
 	/**Finalize the CHL file. No more files can be parsed after finalization.
@@ -252,15 +249,13 @@ public class CHLCompiler implements Compiler {
 	public void loadHeader(File headerFile) throws FileNotFoundException, IOException, ParseException {
 		info("loading "+headerFile.getName()+"...");
 		CHeaderParser parser = new CHeaderParser();
-		Map<String, Integer> hconst = parser.parse(headerFile);
-		constants.putAll(hconst);
+		parser.parse(headerFile, constants);
 	}
 	
 	public void loadInfo(File infoFile) throws FileNotFoundException, IOException, ParseException {
 		info("loading "+infoFile.getName()+"...");
 		InfoParser2 parser = new InfoParser2();
-		Map<String, Integer> hconst = parser.parse(infoFile);
-		constants.putAll(hconst);
+		parser.parse(infoFile, constants);
 	}
 	
 	public CHLFile compile(Project project) throws IOException, ParseException {
@@ -366,10 +361,13 @@ public class CHLCompiler implements Compiler {
 		Var var = globalMap.get(name);
 		if (var == null) {
 			List<String> chlVars = chl.getGlobalVariables().getNames();
+			List<InitGlobal> chlInits = initGlobals;
 			chlVars.add(name);
+			chlInits.add(new InitGlobal(DataType.FLOAT, name, val));
 			int varId = chlVars.size();
 			for (int i = 1; i < size; i++) {
 				chlVars.add("LHVMA");
+				chlInits.add(new InitGlobal(DataType.FLOAT, "LHVMA", 0));
 			}
 			//
 			var = new Var(name, varId, size, val);
@@ -408,8 +406,10 @@ public class CHLCompiler implements Compiler {
 			symbol = peek(false);
 			if (symbol.is("=")) {
 				//global IDENTIFIER = NUMBER
-				symbol = parse("= NUMBER EOL")[1];
+				accept("=");
+				symbol = accept(TokenType.NUMBER);
 				val = symbol.token.floatVal();
+				accept(TokenType.EOL);
 			} else if (symbol.is("[")) {
 				//global IDENTIFIER\[NUMBER\]
 				accept("[");
@@ -479,7 +479,7 @@ public class CHLCompiler implements Compiler {
 		try {
 			Script script = new Script();
 			currentScript = script;
-			script.setScriptID(scriptId++);
+			script.setScriptID(chl.getScriptsSection().getItems().size() + 1);
 			script.setGlobalCount(chl.getGlobalVariables().getNames().size());
 			script.setSourceFilename(sourceFilename);
 			script.setInstructionAddress(getIp());
@@ -511,7 +511,6 @@ public class CHLCompiler implements Compiler {
 			}
 			parse("start EOL");
 			free();
-			script.getVariables().addAll(localMap.keySet());
 			chl.getScriptsSection().getItems().add(script);
 			//STATEMENTS
 			parseStatements();
@@ -654,7 +653,12 @@ public class CHLCompiler implements Compiler {
 		if (localMap.containsKey(name)) {
 			throw new ParseException("Duplicate local variable: "+name, file, line, col);
 		}
-		int id = currentScript.getGlobalCount() + 1 + localMap.size();
+		List<String> scriptVars = currentScript.getVariables();
+		scriptVars.add(name);
+		int id = currentScript.getGlobalCount() + scriptVars.size();
+		for (int i = 1; i < size; i++) {
+			scriptVars.add("LHVMA");
+		}
 		Var var = new Var(name, id, size, 0);
 		localMap.put(name, var);
 		return var;
@@ -687,11 +691,7 @@ public class CHLCompiler implements Compiler {
 				int size = symbol.token.intVal();
 				accept("]");
 				accept(TokenType.EOL);
-				Var var = addLocalVar(name, size);
-				for (int i = 0; i < var.size; i++) {
-					pushf(0);
-					popf(var.index + i);
-				}
+				addLocalVar(name, size);
 			} else {
 				throw new ParseException("Unexpected token: "+symbol+". Expected: =|[", lastParseException, file, symbol.token.line, symbol.token.col);
 			}
@@ -850,23 +850,15 @@ public class CHLCompiler implements Compiler {
 	private SymbolInstance parseObjectPlay() throws ParseException {
 		final int start = it.nextIndex();
 		//OBJECT play CONST_EXPR [loop EXPRESSION]
-		SymbolInstance symbol = accept(TokenType.IDENTIFIER);
-		String var = symbol.token.value;
-		pushf(var);
-		pusho(var);
-		parse("play CONST_EXPR [loop EXPRESSION] EOL", 1);
-		casti();
-		//TODO sys(SET_SCRIPT_ULONG);
-		pushi(200);
-		sys(SET_SCRIPT_STATE);
-		throw new ParseException("Statement not implemented", file, line, col);
-		//return replace(start, "STATEMENT");
+		parse("VARIABLE play CONST_EXPR [loop EXPRESSION] EOL", 1);
+		sys(THING_PLAY_ANIM);
+		return replace(start, "STATEMENT");
 	}
 	
 	private SymbolInstance parseRemove() throws ParseException {
 		final int start = it.nextIndex();
-		parse("remove resource CONST_EXPR EXPRESSION from OBJECT EOL");
 		//remove resource CONST_EXPR EXPRESSION from OBJECT
+		parse("remove resource CONST_EXPR EXPRESSION from OBJECT EOL");
 		sys(REMOVE_RESOURCE);
 		popf();
 		return replace(start, "STATEMENT");
@@ -985,19 +977,19 @@ public class CHLCompiler implements Compiler {
 						if (symbol.is(TokenType.IDENTIFIER)) {
 							String varName = symbol.token.value;
 							pushf(varName);
-							swapf(4);
+							swap(4);
 							pushf(varName);
 						} else if (symbol.is(TokenType.NUMBER)) {
 							float timeVal = symbol.token.floatVal();
 							pushf(timeVal);
-							swapf(4);
+							swap(4);
 							pushf(timeVal);
 						} else {
 							throw new ParseException("Unexpected token: "+symbol+". Expected: NUMBER|IDENTIFIER", lastParseException, file, symbol.token.line, symbol.token.col);
 						}
 					} else {
 						parse("time EXPRESSION EOL");
-						swapf(4);
+						swap(4);
 					}
 					sys(MOVE_CAMERA_POSITION);
 					sys(MOVE_CAMERA_FOCUS);
@@ -1018,16 +1010,20 @@ public class CHLCompiler implements Compiler {
 		final int start = it.nextIndex();
 		accept("set");
 		SymbolInstance symbol = peek();
-		if (symbol.is("player_creature")) {
-			parse("player_creature to OBJECT EOL");
-			//set player_creature to OBJECT
-			sys(CREATURE_SET_PLAYER);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("player")) {
-			parse("player EXPRESSION ally with player EXPRESSION percentage EXPRESSION EOL");
-			//set player EXPRESSION ally with player EXPRESSION percentage EXPRESSION
-			sys(SET_PLAYER_ALLY);
-			return replace(start, "STATEMENT");
+		if (symbol.is("player")) {
+			parse("player EXPRESSION");
+			symbol = peek();
+			if (symbol.is("creature")) {
+				//set player EXPRESSION creature to OBJECT
+				parse("creature to OBJECT EOL");
+				sys(CREATURE_SET_PLAYER);
+				return replace(start, "STATEMENT");
+			} else {
+				//set player EXPRESSION ally with player EXPRESSION percentage EXPRESSION
+				parse("ally with player EXPRESSION percentage EXPRESSION EOL");
+				sys(SET_PLAYER_ALLY);
+				return replace(start, "STATEMENT");
+			}
 		} else if (symbol.is("computer")) {
 			parse("computer player EXPRESSION");
 			symbol = peek();
@@ -1305,6 +1301,9 @@ public class CHLCompiler implements Compiler {
 				} else if (symbol.is("velocity")) {
 					parse("velocity heading COORD_EXPR speed EXPRESSION EOL");
 					//set OBJECT velocity heading COORD_EXPR speed EXPRESSION
+					pushf(0);
+					pushf(0);
+					pushf(0);
 					sys(SET_HEADING_AND_SPEED);
 					return replace(start, "STATEMENT");
 				} else if (symbol.is("target")) {
@@ -1386,11 +1385,10 @@ public class CHLCompiler implements Compiler {
 					sys(SET_MAGIC_PROPERTIES);
 					return replace(start, "STATEMENT");
 				} else if (symbol.is("all")) {
-					parse("all desires CONST_EXPR EOL");
 					//set OBJECT all desires CONST_EXPR
-					//TODO sys(CREATURE_SET_DESIRE_ACTIVATED2);
-					throw new ParseException("Statement not implemented", file, line, col);
-					//return replace(start, "STATEMENT");
+					parse("all desires CONST_EXPR EOL");
+					sys(CREATURE_SET_DESIRE_ACTIVATED);
+					return replace(start, "STATEMENT");
 				} else if (symbol.is("priority")) {
 					parse("priority EXPRESSION EOL");
 					//set OBJECT priority EXPRESSION
@@ -1495,8 +1493,7 @@ public class CHLCompiler implements Compiler {
 			return replace(start, "STATEMENT");
 		} else {
 			//delete OBJECT [with fade]
-			symbol = parse("VARIABLE")[0];
-			String var = symbol.token.value;
+			parse("VARIABLE");
 			symbol = peek();
 			if (symbol.is("with")) {
 				accept("with");
@@ -1518,7 +1515,6 @@ public class CHLCompiler implements Compiler {
 			}
 			accept(TokenType.EOL);
 			sys(OBJECT_DELETE);
-			zero(var);
 			return replace(start, "STATEMENT");
 		}
 	}
@@ -1603,8 +1599,8 @@ public class CHLCompiler implements Compiler {
 		} else if (symbol.is("help")) {
 			parse("help system EOL");
 			//enable|disable help system
-			throw new ParseException("Statement not implemented", lastParseException, file, line, col);
-			//return replace(start, "STATEMENT");
+			sys(SET_HELP_SYSTEM);
+			return replace(start, "STATEMENT");
 		} else if (symbol.is("creature")) {
 			accept("creature");
 			symbol = peek();
@@ -1706,6 +1702,7 @@ public class CHLCompiler implements Compiler {
 		} else if (symbol.is("jc")) {
 			parse("jc special CONST_EXPR on OBJECT EOL");
 			//enable|disable jc special CONST_EXPR on OBJECT
+			pushf(0);
 			sys(THING_JC_SPECIAL);
 			return replace(start, "STATEMENT");
 		} else {
@@ -1830,6 +1827,16 @@ public class CHLCompiler implements Compiler {
 					//enable|disable OBJECT affected by wind
 					sys(SET_AFFECTED_BY_WIND);
 					return replace(start, "STATEMENT");
+				} else if (symbol.is("can")) {
+					parse("can be leashed to EOL");
+					//enable|disable OBJECT can be leashed to
+					sys(CAN_BE_LEASHED);
+					return replace(start, "STATEMENT");
+				} else if (symbol.is("tattoo")) {
+					parse("tattoo CONST_EXPR EOL");
+					//enable|disable OBJECT tattoo CONST_EXPR
+					sys(SET_OBJECT_TATTOO);
+					return replace(start, "STATEMENT");
 				} else {
 					throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
 				}
@@ -1880,6 +1887,7 @@ public class CHLCompiler implements Compiler {
 		} else {
 			parse("CONST_EXPR CONST_EXPR CONST_EXPR EOL");
 			//teach OBJECT CONST_EXPR CONST_EXPR CONST_EXPR
+			pushf(1);
 			sys(CREATURE_SET_KNOWS_ACTION);
 			return replace(start, "STATEMENT");
 		}
@@ -2010,8 +2018,8 @@ public class CHLCompiler implements Compiler {
 				} else {
 					parse("OBJECT EOL");
 					//attach OBJECT leash to OBJECT
-					throw new ParseException("Statement not implemented", file, line, col);
-					//return replace(start, "STATEMENT");
+					sys(ATTACH_OBJECT_LEASH_TO_OBJECT);
+					return replace(start, "STATEMENT");
 				}
 			} else if (symbol.is("to")) {
 				accept("to");
@@ -2137,6 +2145,7 @@ public class CHLCompiler implements Compiler {
 			if (symbol.is("move")) {
 				parse("move CONST_EXPR EOL");
 				//queue OBJECT fight move FIGHT_MOVE
+				pushf(0);
 				sys(SET_CREATURE_QUEUE_FIGHT_MOVE);
 				return replace(start, "STATEMENT");
 			} else if (symbol.is("step")) {
@@ -2170,8 +2179,8 @@ public class CHLCompiler implements Compiler {
 		if (symbol.is("computer")) {
 			parse("computer player EXPRESSION personality STRING EOL");
 			//load computer player EXPRESSION personality STRING
-			throw new ParseException("Statement not implemented", file, line, col);
-			//return replace(start, "STATEMENT");
+			sys(LOAD_COMPUTER_PLAYER_PERSONALITY);
+			return replace(start, "STATEMENT");
 		} else if (symbol.is("map")) {
 			parse("map STRING EOL");
 			//load map STRING
@@ -2342,6 +2351,7 @@ public class CHLCompiler implements Compiler {
 		} else if (symbol.is("music")) {
 			parse("music CONST_EXPR EOL");
 			//start music CONST_EXPR
+			pushf(0);
 			sys(START_MUSIC);
 			return replace(start, "STATEMENT");
 		} else if (symbol.is("hand")) {
@@ -2406,8 +2416,8 @@ public class CHLCompiler implements Compiler {
 	
 	private SymbolInstance parseSnapshot() throws ParseException {
 		final int start = it.nextIndex();
-		//snapshot quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
-		parse("snapshot quest|challenge");
+		//snapshot CONST_EXPR quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
+		parse("snapshot CONST_EXPR quest|challenge");
 		sys(GET_CAMERA_POSITION);
 		sys(GET_CAMERA_FOCUS);
 		SymbolInstance script = parse("[success EXPRESSION] [alignment EXPRESSION] CONST_EXPR IDENTIFIER")[5];
@@ -2422,7 +2432,6 @@ public class CHLCompiler implements Compiler {
 		}
 		accept(TokenType.EOL);
 		pushi(argc);
-		pushChallengeId();
 		sys(SNAPSHOT);
 		return replace(start, "STATEMENT");
 	}
@@ -2432,16 +2441,17 @@ public class CHLCompiler implements Compiler {
 		parse("update snapshot");
 		SymbolInstance symbol = peek();
 		if (symbol.is("details")) {
-			//update snapshot details [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR [taking picture]
-			sys(GET_CAMERA_POSITION);
+			//TODO update snapshot details [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR [taking picture]
+			throw new ParseError("Statement not implemented", file, line, col);
+			/*sys(GET_CAMERA_POSITION);
 			sys(GET_CAMERA_FOCUS);
 			parse("details [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR [taking picture] EOL");
 			pushChallengeId();
 			sys(UPDATE_SNAPSHOT_PICTURE);
-			return replace(start, "STATEMENT");
+			return replace(start, "STATEMENT");*/
 		} else {
-			//update snapshot [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
-			SymbolInstance script = parse("[success EXPRESSION] [alignment EXPRESSION] CONST_EXPR IDENTIFIER")[5];
+			//update snapshot CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
+			SymbolInstance script = parse("CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR IDENTIFIER")[6];
 			String scriptName = script.token.value;
 			int strptr = storeStringData(scriptName);
 			strptrInstructions.add(getIp());
@@ -2453,7 +2463,6 @@ public class CHLCompiler implements Compiler {
 			}
 			accept(TokenType.EOL);
 			pushi(argc);
-			pushChallengeId();
 			sys(UPDATE_SNAPSHOT);
 			return replace(start, "STATEMENT");
 		}
@@ -2549,34 +2558,17 @@ public class CHLCompiler implements Compiler {
 	
 	private SymbolInstance parseState() throws ParseException {
 		final int start = it.nextIndex();
-		//state OBJECT CONST_EXPR [position COORD_EXPR] [float EXPRESSION] [ulong EXPRESSION, EXPRESSION]
-		SymbolInstance symbol = parse("state VARIABLE CONST_EXPR")[1];
-		String object = symbol.token.value;
-		if (peek().is("position")) {
-			accept("position");
-			pushiVar(object);
-			parse("COORD_EXPR");
-			//TODO sys(SET_SCRIPT_STATE_POS);
-			throw new ParseException("Statement not implemented", file, line, col);
+		parse("state VARIABLE CONST_EXPR");
+		SymbolInstance symbol = peek(false);
+		if (symbol.is(TokenType.EOL)) {
+			//state OBJECT CONST_EXPR
+			accept(TokenType.EOL);
+			sys(SET_SCRIPT_STATE);
+		} else if (symbol.is("position")) {
+			//state OBJECT CONST_EXPR position COORD_EXPR float EXPRESSION ulong EXPRESSION, EXPRESSION
+			parse("position COORD_EXPR float EXPRESSION ulong EXPRESSION , EXPRESSION EOL");
+			sys(SET_SCRIPT_STATE_WITH_PARAMS);
 		}
-		if (peek().is("float")) {
-			accept("float");
-			pushiVar(object);
-			parse("EXPRESSION");
-			//TODO sys(SET_SCRIPT_FLOAT);
-			throw new ParseException("Statement not implemented", file, line, col);
-		}
-		if (peek().is("ulong")) {
-			accept("ulong");
-			pushiVar(object);
-			parseExpression(true);
-			casti();
-			parse(", EXPRESSION EOL");
-			casti();
-			//TODO sys(SET_SCRIPT_ULONG);
-			throw new ParseException("Statement not implemented", file, line, col);
-		}
-		sys(SET_SCRIPT_STATE);
 		return replace(start, "STATEMENT");
 	}
 	
@@ -2706,6 +2698,7 @@ public class CHLCompiler implements Compiler {
 				} else {
 					pushi(0);
 				}
+				pusho(0);
 				accept(TokenType.EOL);
 				sys(TEMP_TEXT);
 				return replace(start, "STATEMENT");
@@ -2715,6 +2708,7 @@ public class CHLCompiler implements Compiler {
 					//say CONST_EXPR with number EXPRESSION
 					parse("with number EXPRESSION EOL");
 					pushi(0);
+					pusho(0);
 					sys(RUN_TEXT_WITH_NUMBER);
 					return replace(start, "STATEMENT");
 				} else {
@@ -2729,6 +2723,7 @@ public class CHLCompiler implements Compiler {
 					} else {
 						pushi(0);
 					}
+					pusho(0);
 					accept(TokenType.EOL);
 					sys(RUN_TEXT);
 					return replace(start, "STATEMENT");
@@ -2830,16 +2825,13 @@ public class CHLCompiler implements Compiler {
 	
 	private SymbolInstance parseAssignment() throws ParseException {
 		final int start = it.nextIndex();
-		SymbolInstance symbol = peek(1);
-		if (symbol.is("of")) {
-			SymbolInstance[] symbols = parse("CONSTANT of VARIABLE");
-			int constant = getConstant(symbols[0]);
-			String var = symbols[2].token.value;
-			pushi(constant);
-			pushf(var);
+		if (peek(1).is("of")) {
+			parse("CONSTANT of VARIABLE");
+			dup(1);
+			dup(1);
 			sys2(GET_PROPERTY);
 			//
-			symbol = next();
+			SymbolInstance symbol = next();
 			if (symbol.is("=")) {
 				popi();
 			}
@@ -2863,68 +2855,80 @@ public class CHLCompiler implements Compiler {
 			}
 			sys2(SET_PROPERTY);
 			return replace(start, "STATEMENT");
-		} else if (symbol.is("=")) {
-			//IDENTIFIER = EXPRESSION
-			symbol = parse("VARIABLE =")[0];
-			String var = symbol.token.value;
-			popi();
-			symbol = parseExpression(false);
-			if (symbol == null) {
-				symbol = parseObject(false);
-				if (symbol == null) {
-					symbol = peek();
-					throw new ParseException("Expected: EXPRESSION|OBJECT", lastParseException, file, symbol.token.line, symbol.token.col);
-				}
-			}
-			accept(TokenType.EOL);
-			popf(var);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("+=")) {
-			//VARIABLE += EXPRESSION
-			symbol = parse("VARIABLE += EXPRESSION EOL")[0];
-			String var = symbol.token.value;
-			addf();
-			popf(var);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("-=")) {
-			//VARIABLE -= EXPRESSION
-			symbol = parse("VARIABLE -= EXPRESSION EOL")[0];
-			String var = symbol.token.value;
-			subf();
-			popf(var);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("*=")) {
-			//VARIABLE *= EXPRESSION
-			symbol = parse("VARIABLE *= EXPRESSION EOL")[0];
-			String var = symbol.token.value;
-			mul();
-			popf(var);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("/=")) {
-			//VARIABLE /= EXPRESSION
-			symbol = parse("VARIABLE /= EXPRESSION EOL")[0];
-			String var = symbol.token.value;
-			div();
-			popf(var);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("++")) {
-			//VARIABLE++
-			symbol = parse("VARIABLE ++ EOL")[0];
-			String var = symbol.token.value;
-			pushf(1);
-			addf();
-			popf(var);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("--")) {
-			//VARIABLE--
-			symbol = parse("VARIABLE -- EOL")[0];
-			String var = symbol.token.value;
-			pushf(1);
-			subf();
-			popf(var);
-			return replace(start, "STATEMENT");
 		} else {
-			throw new ParseException("Unexpected token: "+symbol+". Expected: =|+=|-=|*=|/=|++|--", lastParseException, file, symbol.token.line, symbol.token.col);
+			SymbolInstance symbol = accept(TokenType.IDENTIFIER);
+			String varName = symbol.token.value;
+			symbol = peek();
+			if (symbol.is("[")) {
+				//IDENTIFIER\[EXPRESSION\]
+				accept("[");
+				parseExpression(true);
+				accept("]");
+				pushvAddr(varName);
+				ref_and_offset_push();
+			} else {
+				//IDENTIFIER
+				pushf(0);
+				pushvAddr(varName);
+				ref_and_offset_push();
+			}
+			symbol = peek();
+			if (symbol.is("=")) {
+				//VARIABLE = EXPRESSION
+				popi();
+				accept("=");
+				symbol = parseExpression(false);
+				if (symbol == null) {
+					symbol = parseObject(false);
+					if (symbol == null) {
+						symbol = peek();
+						throw new ParseException("Expected: EXPRESSION|OBJECT", lastParseException, file, symbol.token.line, symbol.token.col);
+					}
+				}
+				accept(TokenType.EOL);
+				ref_and_offset_pop();
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("+=")) {
+				//VARIABLE += EXPRESSION
+				parse("+= EXPRESSION EOL");
+				addf();
+				ref_and_offset_pop();
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("-=")) {
+				//VARIABLE -= EXPRESSION
+				parse("-= EXPRESSION EOL");
+				subf();
+				ref_and_offset_pop();
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("*=")) {
+				//VARIABLE *= EXPRESSION
+				parse("*= EXPRESSION EOL");
+				mul();
+				ref_and_offset_pop();
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("/=")) {
+				//VARIABLE /= EXPRESSION
+				parse("/= EXPRESSION EOL");
+				div();
+				ref_and_offset_pop();
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("++")) {
+				//VARIABLE++
+				parse("++ EOL");
+				pushf(1);
+				addf();
+				ref_and_offset_pop();
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("--")) {
+				//VARIABLE--
+				parse("-- EOL");
+				pushf(1);
+				subf();
+				ref_and_offset_pop();
+				return replace(start, "STATEMENT");
+			} else {
+				throw new ParseException("Unexpected token: "+symbol+". Expected: =|+=|-=|*=|/=|++|--", lastParseException, file, symbol.token.line, symbol.token.col);
+			}
 		}
 	}
 	
@@ -3049,12 +3053,12 @@ public class CHLCompiler implements Compiler {
 			inCameraBlock = true;
 			inDialogueBlock = true;
 			parse("cinema EOL");
-			final int lblRetry1 = getIp();
-			sys(START_CAMERA_CONTROL);
-			jz(lblRetry1);
 			final int lblRetry2 = getIp();
 			sys(START_DIALOGUE);
 			jz(lblRetry2);
+			final int lblRetry1 = getIp();
+			sys(START_CAMERA_CONTROL);
+			jz(lblRetry1);
 			sys(START_GAME_SPEED);
 			pushb(true);
 			sys(SET_WIDESCREEN);
@@ -3092,12 +3096,12 @@ public class CHLCompiler implements Compiler {
 			}
 			inCameraBlock = true;
 			parse("camera EOL");
-			final int lblRetry1 = getIp();
-			sys(START_CAMERA_CONTROL);
-			jz(lblRetry1);
 			final int lblRetry2 = getIp();
 			sys(START_DIALOGUE);
 			jz(lblRetry2);
+			final int lblRetry1 = getIp();
+			sys(START_CAMERA_CONTROL);
+			jz(lblRetry1);
 			sys(START_GAME_SPEED);
 			//
 			parseStatements();
@@ -3612,11 +3616,10 @@ public class CHLCompiler implements Compiler {
 				sys(ID_POISONED_SIZE);
 				return replace(start, "EXPRESSION");
 			} else if (symbol.is("square")) {
-				parse("square root EXPRESSION");
 				//square root EXPRESSION
-				//TODO sys(SQUARE_ROOT);
-				throw new ParseException("Statement not implemented", file, line, col);
-				//return replace(start, "EXPRESSION");
+				parse("square root EXPRESSION");
+				sqrt();
+				return replace(start, "EXPRESSION");
 			} else if (symbol.is("-")) {
 				//-EXPRESSION
 				accept("-");
@@ -3642,18 +3645,16 @@ public class CHLCompiler implements Compiler {
 				SymbolInstance id1 = accept(TokenType.IDENTIFIER);
 				symbol = peek();
 				if (symbol.is("of")) {
-					SymbolInstance id2 = parse("of IDENTIFIER")[1];
 					//[get] CONSTANT of OBJECT
 					int property = getConstant(id1.token.value);
-					String object = id2.token.value;
 					pushi(property);
-					pushf(object);
+					parse("of OBJECT");
 					sys(GET_PROPERTY);
 					return replace(start, "EXPRESSION");
 				} else {
 					//IDENTIFIER
 					String var = id1.token.value;
-					pushf(var);
+					pushvVal(var);
 					return replace(start, "EXPRESSION");
 				}
 			}
@@ -3908,6 +3909,11 @@ public class CHLCompiler implements Compiler {
 				//music line EXPRESSION
 				sys(LAST_MUSIC_LINE);
 				return replace(start, "CONDITION");
+			} else if (symbol.is("in")) {
+				parse("in widescreen");
+				//in widescreen
+				sys(IN_WIDESCREEN);
+				return replace(start, "CONDITION");
 			} else if (symbol.is("not")) {
 				//not CONDITION
 				accept("not");
@@ -4112,7 +4118,7 @@ public class CHLCompiler implements Compiler {
 					} else if (symbol.is("not")) {
 						parse("not CONST_EXPR");
 						//OBJECT is not CONST_EXPR
-						swapi();
+						swap();
 						sys2(GET_PROPERTY);
 						castb();
 						not();
@@ -4120,7 +4126,7 @@ public class CHLCompiler implements Compiler {
 					} else {
 						parseConstExpr(true);
 						//OBJECT is CONST_EXPR
-						swapi();
+						swap();
 						sys2(GET_PROPERTY);
 						castb();
 						return replace(start, "CONDITION");
@@ -4177,8 +4183,8 @@ public class CHLCompiler implements Compiler {
 				} else if (symbol.is("clicked")) {
 					parse("clicked radius EXPRESSION");
 					//COORD_EXPR clicked radius EXPRESSION
-					throw new ParseException("Statement not implemented", lastParseException, file, line, col);
-					//return replace(start, "CONDITION");
+					sys(POSITION_CLICKED);
+					return replace(start, "CONDITION");
 				} else if (symbol.is("near")) {
 					//COORD_EXPR near COORD_EXPR [radius EXPRESSION]
 					parse("near COORD_EXPR");
@@ -4328,11 +4334,10 @@ public class CHLCompiler implements Compiler {
 					sys(CALL_COMPUTER_PLAYER);
 					return replace(start, "OBJECT");
 				} else if (symbol.is("held")) {
-					parse("held by OBJECT");
 					//get held by OBJECT
-					//TODO sys(GET_OBJECT_HELD2);
-					throw new ParseException("Statement not implemented", file, line, col);
-					//return replace(start, "OBJECT");
+					parse("held by OBJECT");
+					sys(GET_OBJECT_HELD);
+					return replace(start, "OBJECT");
 				} else if (symbol.is("dropped")) {
 					parse("dropped by OBJECT");
 					//get dropped by OBJECT
@@ -4507,9 +4512,8 @@ public class CHLCompiler implements Compiler {
 					sys(CREATE_RANDOM_VILLAGER_OF_TRIBE);
 					return replace(start, "OBJECT");
 				} else if (symbol.is("highlight")) {
-					parse("highlight CONST_EXPR at COORD_EXPR");
-					//create highlight HIGHLIGHT_INFO at COORD_EXPR
-					pushChallengeId();
+					parse("highlight CONST_EXPR CONST_EXPR at COORD_EXPR");
+					//create highlight CONST_EXPR HIGHLIGHT_INFO at COORD_EXPR
 					sys(CREATE_HIGHLIGHT);
 					return replace(start, "OBJECT");
 				} else if (symbol.is("mist")) {
@@ -4583,6 +4587,11 @@ public class CHLCompiler implements Compiler {
 					} else {
 						throw new ParseException("Unexpected token: "+symbol+". Expected: at|on", lastParseException, file, symbol.token.line, symbol.token.col);
 					}
+				} else if (symbol.is("young")) {
+					//create young creature from OBJECT with OBJECT knowledge at COORD_EXPR
+					parse("young creature from OBJECT with OBJECT knowledge at COORD_EXPR");
+					sys(CREATURE_CREATE_YOUNG_WITH_KNOWLEDGE);
+					return replace(start, "OBJECT");
 				} else {
 					parseConstExpr(true);
 					symbol = peek();
@@ -4653,11 +4662,13 @@ public class CHLCompiler implements Compiler {
 				if (symbol.is("on")) {
 					parse("on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION");
 					//cast CONST_EXPR spell on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION
+					pushb(true);
 					sys(SPELL_AT_THING);
 					return replace(start, "OBJECT");
 				} else if (symbol.is("at")) {
 					parse("at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION");
 					//cast CONST_EXPR spell at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION
+					pushb(true);
 					sys(SPELL_AT_POS);
 					return replace(start, "OBJECT");
 				} else {
@@ -4871,7 +4882,7 @@ public class CHLCompiler implements Compiler {
 				} else if (symbol.is("]")) {
 					accept("]");
 					pushc(0);
-					swapi();
+					swap();
 					//[EXPRESSION, EXPRESSION]
 					return replace(start, "COORD_EXPR");
 				} else {
@@ -5142,21 +5153,17 @@ public class CHLCompiler implements Compiler {
 	 * @throws ParseException
 	 */
 	private int getVarId(String name) throws ParseException {
-		int varId = -1;
 		Var var = localMap.get(name);
 		if (var == null) {
 			var = globalMap.get(name);
-			if (var != null) {
-				varId = var.index;
-			}
 		}
-		if (varId < 0) {
+		if (var == null) {
 			lastParseException = new ParseException("Undefined variable: "+name, file, line, col);
 			throw lastParseException;
 		} else {
 			lastParseException = null;
 		}
-		return varId;
+		return var.index;
 	}
 	
 	private SymbolInstance next() {
@@ -5325,7 +5332,18 @@ public class CHLCompiler implements Compiler {
 			} else if ("VARIABLE".equals(symbol)) {
 				r[i] = accept(TokenType.IDENTIFIER);
 				String name = r[i].token.value;
-				pushf(name);
+				SymbolInstance sInst = peek();
+				if (sInst.is("[")) {
+					accept("[");
+					parseExpression(true);
+					accept("]");
+					int varId = getVarId(name);
+					pushf(varId);
+					addf();
+					ref_push2();
+				} else {
+					pushvVal(name);
+				}
 			} else if ("CONSTANT".equals(symbol)) {
 				r[i] = acceptAny(TokenType.NUMBER, TokenType.IDENTIFIER);
 				int val = getConstant(r[i]);
@@ -5589,18 +5607,6 @@ public class CHLCompiler implements Compiler {
 		instructions.add(instruction);
 	}
 	
-	private void pushChallengeId() throws ParseError {
-		if (challengeId == null) {
-			throw new ParseError("Challenge id not set", file, line, col);
-		} else if (challengeId < 0) {
-			throw new ParseError("Challenge id \""+challengeName+"\" is dummy", file, line, col);
-		}
-		Instruction instruction = Instruction.fromKeyword("PUSHI");
-		instruction.intVal = challengeId;
-		instruction.lineNumber = line;
-		instructions.add(instruction);
-	}
-	
 	private void pushf(float val) {
 		Instruction instruction = Instruction.fromKeyword("PUSHF");
 		instruction.floatVal = val;
@@ -5636,14 +5642,6 @@ public class CHLCompiler implements Compiler {
 		instructions.add(instruction);
 	}
 	
-	private void pushiVar(String variable) throws ParseException {
-		Instruction instruction = Instruction.fromKeyword("PUSHI");
-		instruction.flags = OPCodeFlag.REF;
-		instruction.intVal = getVarId(variable);
-		instruction.lineNumber = line;
-		instructions.add(instruction);
-	}
-	
 	private void pushf(String variable) throws ParseException {
 		Instruction instruction = Instruction.fromKeyword("PUSHF");
 		instruction.flags = OPCodeFlag.REF;
@@ -5652,8 +5650,15 @@ public class CHLCompiler implements Compiler {
 		instructions.add(instruction);
 	}
 	
-	private void pusho(String variable) throws ParseException {
-		Instruction instruction = Instruction.fromKeyword("PUSHO");
+	private void pushvAddr(String variable) throws ParseException {
+		Instruction instruction = Instruction.fromKeyword("PUSHV");
+		instruction.intVal = getVarId(variable);
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void pushvVal(String variable) throws ParseException {
+		Instruction instruction = Instruction.fromKeyword("PUSHV");
 		instruction.flags = OPCodeFlag.REF;
 		instruction.intVal = getVarId(variable);
 		instruction.lineNumber = line;
@@ -5871,13 +5876,6 @@ public class CHLCompiler implements Compiler {
 		instructions.add(instruction);
 	}
 	
-	private void zero(String var) throws ParseException {
-		Instruction instruction = Instruction.fromKeyword("ZERO");
-		instruction.intVal = getVarId(var);
-		instruction.lineNumber = line;
-		instructions.add(instruction);
-	}
-	
 	private void call(String scriptname, int argc) {
 		final int ip = getIp();
 		Instruction instruction = Instruction.fromKeyword("CALL");
@@ -5920,20 +5918,44 @@ public class CHLCompiler implements Compiler {
 		instructions.add(instruction);
 	}
 	
-	private void swapi() {
-		swapi(0);
+	private void swap() {
+		swap(0);
 	}
 	
-	private void swapi(int offset) {
-		Instruction instruction = Instruction.fromKeyword("SWAPI");
+	private void swap(int offset) {
+		Instruction instruction = Instruction.fromKeyword("SWAP");
 		instruction.intVal = offset;
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}
 	
-	private void swapf(int offset) {
-		Instruction instruction = Instruction.fromKeyword("SWAPF");
+	private void dup(int offset) {
+		Instruction instruction = Instruction.fromKeyword("DUP");
 		instruction.intVal = offset;
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void ref_and_offset_push() {
+		Instruction instruction = Instruction.fromKeyword("REF_AND_OFFSET_PUSH");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void ref_and_offset_pop() {
+		Instruction instruction = Instruction.fromKeyword("REF_AND_OFFSET_POP");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void ref_push2() {
+		Instruction instruction = Instruction.fromKeyword("REF_PUSH2");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void sqrt() {
+		Instruction instruction = Instruction.fromKeyword("SQRT");
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}

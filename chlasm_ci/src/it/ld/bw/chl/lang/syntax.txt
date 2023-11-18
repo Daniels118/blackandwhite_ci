@@ -132,7 +132,7 @@ STATEMENT: {
 	set OBJECT all desires CONST_EXPR EOL
 	set OBJECT desire maximum CONST_EXPR to EXPRESSION EOL
 	set OBJECT priority EXPRESSION EOL
-	set player_creature to OBJECT EOL
+	set player EXPRESSION creature to OBJECT EOL
 	teach OBJECT CONST_EXPR CONST_EXPR CONST_EXPR EOL
 	teach OBJECT everything EOL
 	teach OBJECT all excluding CONST_EXPR EOL
@@ -161,6 +161,8 @@ STATEMENT: {
 	set OBJECT name CONST_EXPR EOL
 	enable OBJECT auto scale EXPRESSION EOL
 	disable OBJECT auto scale EOL
+	enable|disable OBJECT can be leashed to
+	enable|disable OBJECT tattoo CONST_EXPR
 	set computer player EXPRESSION position to COORD_EXPR [with fixed height] EOL
 	move computer player EXPRESSION to COORD_EXPR speed EXPRESSION [with fixed height] EOL
 	enable|disable computer player EXPRESSION EOL
@@ -205,7 +207,7 @@ STATEMENT: {
 	enable|disable creature sound EOL
 	enable|disable sound effects EOL
 	set interaction CONST_EXPR EOL
-	snapshot quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)] EOL
+	snapshot CONST_EXPR quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)] EOL
 	update snapshot [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)] EOL
 	update snapshot details [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR [taking picture] EOL
 	set game speed to EXPRESSION EOL
@@ -479,6 +481,7 @@ CONDITION: {
 	can skip creature training
 	is keeping old creature
 	current profile has creature
+	in widescreen
 	not CONDITION
 	CONDITION and CONDITION
 	CONDITION or CONDITION
@@ -513,7 +516,7 @@ OBJECT: {
 	get computer player EXPRESSION
 	create CONST_EXPR [CONST_EXPR] at COORD_EXPR
 	create random villager of tribe CONST_EXPR at COORD_EXPR
-	create highlight CONST_EXPR at COORD_EXPR
+	create highlight CONST_EXPR CONST_EXPR at COORD_EXPR
 	create mist at COORD_EXPR scale EXPRESSION red EXPRESSION green EXPRESSION blue EXPRESSION transparency EXPRESSION height ratio EXPRESSION
 	create with angle EXPRESSION and scale EXPRESSION CONST_EXPR CONST_EXPR at COORD_EXPR
 	create_creature_from_creature OBJECT EXPRESSION at COORD_EXPR CONST_EXPR
@@ -552,6 +555,7 @@ OBJECT: {
 	get first in OBJECT
 	get next in OBJECT after OBJECT
 	get dead at COORD_EXPR radius EXPRESSION
+	create young creature from OBJECT with OBJECT knowledge at COORD_EXPR
 	IDENTIFIER
 }
 

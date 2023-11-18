@@ -119,7 +119,7 @@ public enum OPCode {
 	static String[][][] keywords = new String[][][] {
 /* 0*/	{{"END"}},
 /* 1*/	{null, {null, "JZ"}, {null, "JZ"}},
-/* 2*/	{null, {null, "PUSHI", "PUSHF", "PUSHC", "PUSHO", null, "PUSHB", "PUSHV"}, {null, null, null, null, null, null, null, "PUSHV"}},
+/* 2*/	{null, {null, "PUSHI", "PUSHF", "PUSHC", "PUSHO", null, "PUSHB", "PUSHV"}, {null, null, "PUSHF", null, null, null, null, "PUSHV"}},
 /* 3*/	{null, {null, "POPI", "POPF", null, "POPO"}, {null, null, "POPF"}},
 /* 4*/	{null, {null, null, "ADDF", "ADDC"}},
 /* 5*/	{null, {"SYS", null, "SYS2"}},
@@ -138,7 +138,7 @@ public enum OPCode {
 /*18*/	{null, {null, null, "GT"}},
 /*19*/	{null, {null, null, "LT"}},
 /*20*/	{null, {null, "JMP"}, {null, "JMP"}},
-/*21*/	{null, {null, null, "SLEEPF"}},
+/*21*/	{null, {null, null, "SLEEP"}},
 /*22*/	{null, {null, "EXCEPT"}},
 /*23*/	{null, {null, "CASTI", "CASTF", "CASTC", "CASTO", null, "CASTB"}},
 /*24*/	{null, {null, "CALL"}, {null, "START"}},

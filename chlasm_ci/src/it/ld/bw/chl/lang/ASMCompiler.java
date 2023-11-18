@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import it.ld.bw.chl.exceptions.ParseException;
 import it.ld.bw.chl.model.CHLFile;
@@ -63,8 +62,8 @@ public class ASMCompiler implements Compiler {
 	private final DataSection dataSection;
 	private final List<InitGlobal> initGlobals;
 	private final HashMap<Integer, String> labels = new HashMap<>();
-	private final Map<String, SourceConst> globalConstants = new HashMap<>();
-	private final Map<String, SourceConst> localConstants = new HashMap<>();
+	private final Map<String, Integer> globalConstants = new HashMap<>();
+	private final Map<String, Integer> localConstants = new HashMap<>();
 	private final Map<String, Integer> globalMap = new HashMap<>();
 	private final Map<String, Integer> labelMap = new HashMap<>();
 	private final Map<String, Integer> scriptMap = new HashMap<>();
@@ -117,33 +116,16 @@ public class ASMCompiler implements Compiler {
 		}
 	}
 	
-	public void defineConstant(String name, Object value) {
-		SourceConst newConst = new SourceConst(name, value);
-		SourceConst oldConst = globalConstants.get(name);
-		if (oldConst == null) {
-			globalConstants.put(newConst.name, newConst);
-		} else if (!(oldConst.value.equals(newConst.value))) {
-			warning("WARNING: redefinition of global constant "+name);
-			globalConstants.put(newConst.name, newConst);
-		}
-	}
-	
 	public void loadHeader(File headerFile) throws FileNotFoundException, IOException, ParseException {
 		info("loading "+headerFile.getName()+"...");
 		CHeaderParser parser = new CHeaderParser();
-		Map<String, Integer> hconst = parser.parse(headerFile);
-		for (Entry<String, Integer> e : hconst.entrySet()) {
-			defineConstant(e.getKey(), e.getValue());
-		}
+		parser.parse(headerFile, globalConstants);
 	}
 	
 	public void loadInfo(File infoFile) throws FileNotFoundException, IOException, ParseException {
 		info("loading "+infoFile.getName()+"...");
 		InfoParser2 parser = new InfoParser2();
-		Map<String, Integer> hconst = parser.parse(infoFile);
-		for (Entry<String, Integer> e : hconst.entrySet()) {
-			defineConstant(e.getKey(), e.getValue());
-		}
+		parser.parse(infoFile, globalConstants);
 	}
 	
 	/**Finalize the CHL file. No more files can be parsed after finalization.
@@ -265,7 +247,7 @@ public class ASMCompiler implements Compiler {
 										}
 										try {
 											SourceConst c = parseConst(tksb[1]);
-											globalConstants.put(c.name, c);
+											globalConstants.put(c.name, (Integer)c.value);
 										} catch (Exception e) {
 											throw new ParseException(e.getMessage(), file, lineno);
 										}
@@ -380,7 +362,7 @@ public class ASMCompiler implements Compiler {
 									}
 									try {
 										SourceConst c = parseConst(tks[1]);
-										localConstants.put(c.name, c);
+										localConstants.put(c.name, (Integer)c.value);
 									} catch (Exception e) {
 										throw new ParseException(e.getMessage(), file, lineno);
 									}
@@ -391,9 +373,11 @@ public class ASMCompiler implements Compiler {
 									labelMap.put(label, ip);
 								} else {									//Instructions
 									String operand = tks.length < 2 ? null : tks[1];
-									Instruction instr = Instruction.fromKeyword(keyword);
-									if (instr == null) {
-										throw new ParseException("Unknown opcode '" + keyword + "'", file, lineno);
+									Instruction instr;
+									try {
+										instr = Instruction.fromKeyword(keyword);
+									} catch (IllegalArgumentException e) {
+										throw new ParseException(e.getMessage(), file, lineno);
 									}
 									instr.lineNumber = lineno;
 									if (instr.opcode.hasArg || instr.isZero()) {
@@ -643,11 +627,11 @@ public class ASMCompiler implements Compiler {
 			throw new Exception("Expected expression after '='");
 		}
 		if (isValidIdentifier(expr)) {
-			SourceConst c = globalConstants.get(expr);
-			if (c == null) {
+			Integer val = globalConstants.get(expr);
+			if (val == null) {
 				throw new Exception(expr + " has not been defined previously");
 			}
-			return new SourceConst(name, c.value);
+			return new SourceConst(name, val);
 		} else {
 			Object value = parseImmed(expr);
 			if (value == null) {
@@ -658,22 +642,22 @@ public class ASMCompiler implements Compiler {
 	}
 	
 	@SuppressWarnings("unchecked")
-	private <E> E parseImmed(Class<E> type, String s, Map<String, SourceConst> localConstants) {
+	private <E> E parseImmed(Class<E> type, String s, Map<String, Integer> localConstants) {
 		Object r = parseImmed(s, localConstants);
 		if (r == null) return null;
 		if (type.isAssignableFrom(r.getClass())) return (E) r;
 		return null;
 	}
 	
-	private Object parseImmed(String s, Map<String, SourceConst> localConstants) {
+	private Object parseImmed(String s, Map<String, Integer> localConstants) {
 		if (isValidIdentifier(s)) {
 			if (localConstants != null) {
-				SourceConst c = localConstants.get(s);
-				if (c != null) return c.value;
+				Integer val = localConstants.get(s);
+				if (val != null) return val;
 			}
 			if (globalConstants != null) {
-				SourceConst c = globalConstants.get(s);
-				if (c != null) return c.value;
+				Integer val = globalConstants.get(s);
+				if (val != null) return val;
 			}
 		}
 		return parseImmed(s);

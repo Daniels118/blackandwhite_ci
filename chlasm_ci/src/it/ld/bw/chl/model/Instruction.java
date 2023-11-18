@@ -442,10 +442,11 @@ public class Instruction extends Struct {
 	 * datatype already initialized. Flags and datatype may require further modifications depending on the operand.
 	 * @param keyword
 	 * @return
+	 * @throws IllegalArgumentException
 	 */
-	public static Instruction fromKeyword(String keyword) {
+	public static Instruction fromKeyword(String keyword) throws IllegalArgumentException {
 		Instruction m = model.get(keyword);
-		if (m == null) return null;
+		if (m == null) throw new IllegalArgumentException("Unknown opcode: "+keyword);
 		Instruction r = new Instruction();
 		r.opcode = m.opcode;
 		r.flags = m.flags;

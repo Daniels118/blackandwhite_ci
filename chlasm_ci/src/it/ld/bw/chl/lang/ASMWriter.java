@@ -370,7 +370,7 @@ public class ASMWriter {
 			}
 		}
 		//Signature
-		str.write("begin "+script.getSignature());
+		str.write("begin "+script.getSignature()+"\r\n");
 		if (printBinInfoEnabled) str.write("//global count: " + script.getGlobalCount() + "\r\n");
 		//Local variables
 		ListIterator<String> varIt = script.getVariables().listIterator(script.getParameterCount());

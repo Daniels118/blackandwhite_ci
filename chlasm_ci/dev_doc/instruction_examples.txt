@@ -239,7 +239,10 @@ set Person velocity heading [DirectionPos] speed Velocity
 	PUSHF [DirectionPos]
 	SYS GET_POSITION			//[1, 3] (Object object) returns (Coord)
 	PUSHF [Velocity]			//speed val
-	SYS SET_HEADING_AND_SPEED	//[5, 0] (Object object, Coord position, float speed)
+	PUSHF 0.0
+	PUSHF 0.0
+	PUSHF 0.0
+	SYS SET_HEADING_AND_SPEED	//[8, 0] (Object object, Coord position, float speed, float a, float b, float c)
 ___________________________________________
 
 3.1.13 set OBJECT target COORD_EXPR time EXPRESSION
@@ -537,14 +540,15 @@ set CreatureGuardian priority 0.00001
 	SYS CREATURE_SET_AGENDA_PRIORITY	//[2, 0] (Object creature, float priority)
 ___________________________________________
 
-3.2.15 set player_creature to OBJECT
+3.2.15 set player EXPRESSION creature to OBJECT
 
 Assigns a particular creature to a player (used when choosing a creature for the first time).
 
-set player_creature to CreatureCow
+set player 1 creature to MyCreature		//#SetupCreatureIsle1.txt:278
 
-	PUSHF [CreatureCow]		//creature
-	SYS CREATURE_SET_PLAYER	//[1, 0] (Object creature)
+	PUSHF 1.0				//player
+	PUSHV [MyCreature]		//creature
+	SYS CREATURE_SET_PLAYER	//[2, 0] (float player, Object creature)
 ___________________________________________
 
 3.2.16 teach OBJECT CONST_EXPR CONST_EXPR CONST_EXPR
@@ -553,13 +557,14 @@ Teach creature a specific lesson. First argument is type of action: INTELLECTUAL
 Second argument is which action, eg: CREATURE_INTELLECTUAL_ACTION_KNOWN_ABOUT_FISH (in Enum.h).
 Third argument is bool (true or false - whether he knows the lesson or unlearns the lesson).
 
-teach Guide MAGICAL MAGIC_TYPE_HEAL_PU_ONE SCRIPT_TRUE
+teach MyCreature INTELLECTUAL CREATURE_ACTION_KNOWN_ABOUT_USE_FIELD SCRIPT_TRUE		//#SetupCreatureIsle1.txt:287
 
-	PUSHF [Guide]					//creature
-	PUSHI 1							//typeOfAction
-	PUSHI 11						//action
+	PUSHV [MyCreature]				//creature
+	PUSHI 0							//typeOfAction
+	PUSHI 1							//action
 	PUSHI 1							//knows
-	SYS CREATURE_SET_KNOWS_ACTION	//[4, 0] (Object creature, CREATURE_ACTION_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows)
+	PUSHF 1.0						//fixed
+	SYS CREATURE_SET_KNOWS_ACTION	//[5, 0] (Object creature, CREATURE_ACTION_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float alwaysOne)
 ___________________________________________
 
 3.2.17 teach OBJECT everything
@@ -660,7 +665,11 @@ ___________________________________________
 
 Attaches a creatures leash to the passed object.
 
-Never found (ATTACH_OBJECT_LEASH_TO_OBJECT)
+attach Creature leash to Citadel		//#CustomHardModeApplier.txt:513
+
+	PUSHV [Creature]					//creature
+	PUSHV [Citadel]						//target
+	SYS ATTACH_OBJECT_LEASH_TO_OBJECT	//[2, 0] (Object creature, Object target)
 ___________________________________________
 
 3.2.28 attach OBJECT leash to hand
@@ -783,7 +792,8 @@ queue Guide fight move CTR_HIT_BLOCK
 
 	PUSHF [Guide]						//creature
 	PUSHI 3								//3=CTR_HIT_BLOCK
-	SYS SET_CREATURE_QUEUE_FIGHT_MOVE	//[2, 0] (Object creature, FIGHT_MOVE move)
+	PUSHF 0.0							//fixed
+	SYS SET_CREATURE_QUEUE_FIGHT_MOVE	//[3, 0] (Object creature, FIGHT_MOVE move, float zero)
 ___________________________________________
 
 3.2.40 queue OBJECT fight step CONST_EXPR
@@ -833,6 +843,29 @@ disable Guide auto scale		//#CreatureGuide.txt:1182
 	PUSHF [Guide]			//object
 	PUSHF 0.0				//fixed 0
 	SYS CREATURE_AUTOSCALE	//[3, 0] (bool enable, Object creature, float size)
+___________________________________________
+
+3.2.45 enable|disable OBJECT can be leashed to
+
+?
+
+disable TheCreature can be leashed to		//#CreatureActions.txt:8
+
+	PUSHB false
+	PUSHV [TheCreature]
+	SYS CAN_BE_LEASHED	//[2, 0] (bool enable, Object creature)
+___________________________________________
+
+3.2.46 enable|disable OBJECT tattoo CONST_EXPR
+
+?
+
+enable TheCreature tattoo CREATURE_TATTOO_TYPE_THE_BROTHERHOOD		//#CreatureActions.txt:9
+
+	PUSHB true
+	PUSHV [TheCreature]
+	PUSHI 1
+	SYS SET_OBJECT_TATTOO	//[3, 0] (bool enable, Object creature, int tattoo)
 ___________________________________________
 
 3.3.1 set computer player EXPRESSION position to COORD_EXPR [with fixed height]
@@ -974,7 +1007,11 @@ ___________________________________________
 
 Loads in a computer player personality.
 
-Never found (LOAD_COMPUTER_PLAYER_PERSONALITY)
+load computer player 2 personality "HardModeAI.dat" //Taken from Land 3 Lethys. Don't think this actually makes a difference?		//#CustomHardModeApplier.txt:293
+
+	PUSHF 2.0								//player
+	PUSHI 7150								//filename
+	SYS LOAD_COMPUTER_PLAYER_PERSONALITY	//[2, 0] (float player, StrPtr filename)
 ___________________________________________
 
 3.3.13 save computer player EXPRESSION personality STRING
@@ -1183,7 +1220,10 @@ ___________________________________________
 
 Sets the help system on/off.
 
-Never found (SET_HELP_SYSTEM)
+disable help system		//#SetupCreatureIsle1.txt:283
+
+	PUSHB false
+	SYS SET_HELP_SYSTEM	//[1, 0] (bool enable)
 ___________________________________________
 
 3.8.5 enable|disable OBJECT skeleton
@@ -1298,42 +1338,27 @@ set interaction SCRIPT_INTERFACE_LEVEL_NORMAL		//#LandControlT.txt:48
 	SYS2 SET_INTERFACE_INTERACTION	//[1, 0] (SCRIPT_INTERFACE_LEVEL level)
 ___________________________________________
 
-3.8.15 snapshot quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
+3.8.15 snapshot CONST_EXPR quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
 
 This is used to take a photo for inside the temple so the player can call a reminder script to find out
 what they should be doing in the game to complete any script. You don't have to pass the position of the
 snapshot. If you don't, the current camera position is passed. Not sending the success value defaults to
 0.5 and the alignment not being sent defaults to 0.0.
 
-snapshot quest success 0.9 alignment 0 HELP_TEXT_TITLE_105 StandardReminder(variable HELP_TEXT_GUIDE_DIES_14)
+snapshot CHALLENGE_CREATURE_DEVELOPMENT quest success 0 alignment 0 HELP_TEXT_TITLE_105 StandardReminder(variable HELP_TEXT_NEW_DEVELOPMENT_STAGE_INITIAL_05)		//#CreatureDevelopment.txt:442
 
-	PUSHB true		//quest
+	PUSHI 64		//challengeID
+	PUSHB true		//quest|challenge
 	SYS GET_CAMERA_POSITION	//[0, 3] () returns (Coord)
 	SYS GET_CAMERA_FOCUS	//[0, 3] () returns (Coord)
-	PUSHF 0.9		//success val
-	PUSHF 0.0		//alignment val
-	PUSHI 2465		//2465=HELP_TEXT_TITLE_105
-	PUSHI 1192		//"StandardReminder"
-	PUSHI 4713		//args[0]=HELP_TEXT_GUIDE_DIES_14
+	PUSHF 0.0		//success
+	PUSHF 0.0		//alignment
+	PUSHI 2469		//text
+	PUSHI 109		//script name
+	PUSHI 3881		//argv
 	CASTF
 	PUSHI 1			//argc
-	PUSHI 64		//challengeID set by previous "challenge" statement at compile time
-	SYS SNAPSHOT	//[?, 0] (bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, StrPtr reminderScript, float...args, int argc, int challengeID)
-
-snapshot challenge success 0.0 alignment 0 HELP_TEXT_TITLE_01 StandardReminder(variable HELP_TEXT_BAYWATCH_36)
-
-	PUSHB false		//quest
-	SYS GET_CAMERA_POSITION	//[0, 3] () returns (Coord)
-	SYS GET_CAMERA_FOCUS	//[0, 3] () returns (Coord)
-	PUSHF 0.0		//success val
-	PUSHF 0.0		//alignment val
-	PUSHI 2423		//HELP_TEXT_TITLE_01
-	PUSHI 3621		//"StandardReminder"
-	PUSHI 1602		//args[0]
-	CASTF
-	PUSHI 1			//argc
-	PUSHI 9			//challengeID set by previous "challenge" statement at compile time
-	SYS SNAPSHOT	//[?, 0] (bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, StrPtr reminderScript, float...args, int argc, int challengeID)
+	SYS SNAPSHOT	//[13+, 0] (int challengeID, bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, StrPtr reminderScript, float... args, int argc)
 ___________________________________________
 
 3.8.16 update snapshot [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
@@ -2096,10 +2121,11 @@ ___________________________________________
 
 Only one script tune can play at once, this function starts a script tune which has no 3d position in the world.
 
-start music MUSIC_TYPE_SCRIPT_CREATURE_GUIDE		//#CreatureDevelopment.txt:400
+start music MUSIC_TYPE_SCRIPT_FAILURE		//#GameOver.txt:17
 
-	PUSHI 67
-	SYS START_MUSIC	//[1, 0] (int music)
+	PUSHI 78		//music
+	PUSHF 0.0		//fixed
+	SYS START_MUSIC	//[2, 0] (int music, float zero)
 ___________________________________________
 
 3.12.2 stop music
@@ -2351,19 +2377,19 @@ the game is returned to non widescreen, the spirits are sent home, and the game 
 If you don't want the spririts to go home and wish to keep dialogue control then you can do
 "end cinema with spirits".
 
-begin cinema		//#SwapCreatures.txt:156
+begin cinema			//#Reward.txt:73
 
-lbl39:
-	SYS START_CAMERA_CONTROL	//[0, 1] () returns (bool)
-	JZ lbl39
-lbl3A:
+rewardfromsky_loop_7:
 	SYS START_DIALOGUE	//[0, 1] () returns (bool)
-	JZ lbl3A
+	JZ rewardfromsky_loop_7
+rewardfromsky_loop_8:
+	SYS START_CAMERA_CONTROL	//[0, 1] () returns (bool)
+	JZ rewardfromsky_loop_8
 	SYS START_GAME_SPEED	//[0, 0] ()
 	PUSHB true
 	SYS SET_WIDESCREEN	//[1, 0] (bool enabled)
 
-end cinema			//#SwapCreatures.txt:176
+end cinema		//#Reward.txt:147
 
 	PUSHB false
 	SYS SET_WIDESCREEN	//[1, 0] (bool enabled)
@@ -2381,12 +2407,12 @@ do "end camera with spirits".
 
 begin camera		//#HandDemos.txt:545
 
-lbl4B2:
-	SYS START_CAMERA_CONTROL	//[0, 1] () returns (bool)
-	JZ lbl4B2
 lbl4B3:
 	SYS START_DIALOGUE	//[0, 1] () returns (bool)
 	JZ lbl4B3
+lbl4B2:
+	SYS START_CAMERA_CONTROL	//[0, 1] () returns (bool)
+	JZ lbl4B2
 	SYS START_GAME_SPEED	//[0, 0] ()
 
 end camera			//#HandDemos.txt:552
@@ -2607,7 +2633,8 @@ say single line "Sorry, the boss got the cheat removed"		//#LandControlAll.txt:2
 	PUSHB true		//singleLine
 	PUSHI 10804		//"Sorry, the boss got the cheat removed"
 	PUSHI 0			//withInteraction
-	SYS TEMP_TEXT	//[3, 0] (bool singleLine, StrPtr string, int withInteraction)
+	PUSHO 0			//object
+	SYS TEMP_TEXT	//[3, 0] (bool singleLine, StrPtr string, int withInteraction, Object zero)
 ___________________________________________
 
 3.16.2.2 say STRING with number EXPRESSION
@@ -2623,12 +2650,13 @@ ___________________________________________
 
 This displays text predefined which may have sound attached to it which will be automatically played.
 
-say HELP_TEXT_DYK_EXPLAINED_01		//#DidYouKnow.txt:12
+say HELP_TEXT_HAND_DEMO_ROTATING_01		// Move the hand to the side of the screen		//#HandDemos.txt:19
 
 	PUSHB false		//singleLine
-	PUSHI 6421		//textID
+	PUSHI 5131		//textID
 	PUSHI 0			//withInteraction
-	SYS RUN_TEXT	//[3, 0] (bool singleLine, int textID, int withInteraction)
+	PUSHO 0			//fixed?
+	SYS RUN_TEXT	//[4, 0] (bool singleLine, int textID, int withInteraction, Object object)
 ___________________________________________
 
 3.16.2.4 say CONST_EXPR with number EXPRESSION
@@ -2640,11 +2668,12 @@ $d-decimal $p-percentage (Gets the number followed by a '%' drawn).
 say constant StatText with number Need		//#HelpSystem.txt:108
 
 	PUSHB false					//
-	PUSHF [StatText]			//string
-	CASTI						//
-	PUSHF [Need]				//number
+	PUSHV [StatText]			//string
+	CASTI
+	PUSHV [Need]				//number
 	PUSHI 0						//fixed 0
-	SYS RUN_TEXT_WITH_NUMBER	//[4, 0] (bool alwaysFalse, int string, float number, int alwaysZero)
+	PUSHO 0						//fixed?
+	SYS RUN_TEXT_WITH_NUMBER	//[5, 0] (bool alwaysFalse, int string, float number, int alwaysZero, Object obj)
 ___________________________________________
 
 3.16.2.5 clear dialogue
@@ -3082,7 +3111,8 @@ disable jc special SJC_BLEND_ANGLE on Villager					// Villager turn		//#Creature
 	PUSHB false				//enable
 	PUSHI 8					//feature
 	PUSHF [Villager]		//target
-	SYS THING_JC_SPECIAL	//[3, 0] (bool enable, int feature, Object target)
+	PUSHF 0.0				//fixed
+	SYS THING_JC_SPECIAL	//[3, 0] (bool enable, int feature, Object target, float zero)
 ___________________________________________
 
 3.18.31 set camera position COORD_EXPR focus COORD_EXPR lens EXPRESSION
@@ -3361,7 +3391,12 @@ ___________________________________________
 If the last position clicked (if in the last few seconds) is within the defined radius of the defined
 position this check is true.
 
-Never found (guess POSITION_CLICKED[4, 1])
+[Highlight] clicked radius 5		//#ChallengeHighlightNotify.txt:216
+
+	PUSHV [Highlight]
+	SYS GET_POSITION		//position
+	PUSHF 5.0				//radius
+	SYS POSITION_CLICKED	//[4, 1] (Coord position, float radius) returns (bool)
 ___________________________________________
 
 6.15 hand demo played
@@ -4120,6 +4155,15 @@ current profile has creature		//#setupland1.txt:85
 	SYS CURRENT_PROFILE_HAS_CREATURE	//[0, 1] () returns (bool)
 ___________________________________________
 
+6.78 in widescreen
+
+?
+
+in widescreen		//#ChallengeHighlightNotify.txt:90
+
+	SYS IN_WIDESCREEN	//[0, 1] () returns (bool)
+___________________________________________
+
 7 remove resource CONST_EXPR EXPRESSION from OBJECT
 
 Removes an amount of resource from an object, and returns the amount removed. If the amount asked for
@@ -4368,18 +4412,22 @@ Child = create random villager of tribe TRIBE_TYPE_NORSE at [CaveFlock]		//#pied
 	POPF Child
 ___________________________________________
 
-9.16 create highlight HIGHLIGHT_INFO at COORD_EXPR
+9.16 create highlight CONST_EXPR HIGHLIGHT_INFO at COORD_EXPR
 
 Creates a game highlight object (scroll) at a position.
 
-Highlight = create highlight HIGHLIGHT_CHALLENGE at [VillagerHutPos]
+Highlight = create highlight CHALLENGE_NONE HIGHLIGHT_TIPS at [Location]		//#DidYouKnow.txt:31
 
-	PUSHI 2					//2=HIGHLIGHT_CHALLENGE=SCRIPT_HIGHLIGHT_INFO_SCRIPT_SILVER
-	PUSHF [VillagerHutPos]
+	PUSHF 0.0
+	PUSHV Highlight
+	REF_AND_OFFSET_PUSH
+	POPI
+	PUSHI 0					//challengeID
+	PUSHI 0					//type
+	PUSHV [Location]
 	SYS GET_POSITION		//position
-	PUSHI 9					//challengeID set by previous "challenge" statement at compile time
-	SYS CREATE_HIGHLIGHT	//[5, 1] (HIGHLIGHT_INFO type, Coord position, int challengeID) returns (Object)
-	POPF Highlight
+	SYS CREATE_HIGHLIGHT	//[5, 1] (int challengeID, HIGHLIGHT_INFO type, Coord position) returns (Object)
+	REF_AND_OFFSET_POP
 ___________________________________________
 
 9.17 create mist at COORD_EXPR scale EXPRESSION red EXPRESSION green EXPRESSION blue EXPRESSION transparency EXPRESSION height ratio EXPRESSION
@@ -4756,7 +4804,8 @@ StrengthSpell = cast CREATURE_SPELL_STRONG spell on LCreature from [LCreature] r
 	PUSHF 1.0
 	NEG					//duration
 	PUSHF 0.0			//curl
-	SYS SPELL_AT_THING	//[8, 1] (MAGIC_TYPE spell, Object target, Coord from, float radius, float duration, float curl) returns (Object)
+	PUSHB true			//fixed
+	SYS SPELL_AT_THING	//[9, 1] (MAGIC_TYPE spell, Object target, Coord from, float radius, float duration, float curl, bool alwaysTrue) returns (Object)
 	POPF StrengthSpell
 ___________________________________________
 
@@ -4771,18 +4820,30 @@ naturally finishes. Most spells automatically delete themselves after the cast, 
 sensible for LIGHTNING, SHIELD and TORNADO spells
 curl EXPRESSION - -1 -> +1 percentage anticlockwise->clockwise. 0 is no curl.
 
-LightningAttack1 = cast SPELL_LIGHTNING_LEVEL_3 spell at [Guide] from [LightPos1] radius 5.0 time 3 curl 1		//#CreatureGuide.txt:559
+LightningAttack1 = cast SPELL_LIGHTNING_LEVEL_3 spell at [Guide] from [LightPos1]+[0,60,0] radius 5.0 time 3 curl 1		//#CreatureGuide.txt:559
 
+	PUSHF 0.0
+	PUSHV LightningAttack1
+	REF_AND_OFFSET_PUSH
+	POPI
 	PUSHI 6				//spell
-	PUSHF [Guide]
+	PUSHV [Guide]
 	SYS GET_POSITION	//target
-	PUSHF [LightPos1]
+	PUSHV [LightPos1]
 	SYS GET_POSITION	//from
+	PUSHF 0.0
+	CASTC
+	PUSHF 60.0
+	CASTC
+	PUSHF 0.0
+	CASTC
+	ADDC
 	PUSHF 5.0			//radius
-	PUSHF 3.0			//duration
+	PUSHF 3.0			//time
 	PUSHF 1.0			//curl
-	SYS SPELL_AT_POS	//[10, 1] (MAGIC_TYPE spell, Coord target, Coord from, float radius, float duration, float curl) returns (Object)
-	POPF LightningAttack1
+	PUSHB true			//fixed
+	SYS SPELL_AT_POS	//[11, 1] (MAGIC_TYPE spell, Coord target, Coord from, float radius, float duration, float curl, bool alwaysTrue) returns (Object)
+	REF_AND_OFFSET_POP
 ___________________________________________
 
 9.44.3 get spell CONST_EXPR at COORD_EXPR radius EXPRESSION
@@ -4900,6 +4961,24 @@ DeadThing=get dead at [CreatePos] radius 10		//#SingingStonesSongs.txt:169
 	PUSHF 10.0
 	SYS GET_DEAD_LIVING	//[4, 1] (Coord position, float radius) returns (Object)
 	POPF DeadThing
+___________________________________________
+
+9.52 create young creature from OBJECT with OBJECT knowledge at COORD_EXPR
+
+?
+
+Tyke = create young creature from P1Creature with NewApprenticeCreature knowledge at [Egg]		//#CustomTykeEggHatch.txt:146
+
+	PUSHF 0.0
+	PUSHV Tyke
+	REF_AND_OFFSET_PUSH
+	POPI
+	PUSHV [P1Creature]				//creature1
+	PUSHV [NewApprenticeCreature]	//creature2
+	PUSHV [Egg]
+	SYS GET_POSITION				//position
+	SYS CREATURE_CREATE_YOUNG_WITH_KNOWLEDGE	//[5, 1] (Object creature1, Object creature2, Coord pos) returns (Object)
+	REF_AND_OFFSET_POP
 ___________________________________________
 
 ### 10 Constants

@@ -1,0 +1,146 @@
+# Black & White 1 challenge project
+
+# How to use this file:
+# 1) copy into this folder all the source files taken from B&W Ultimate;
+# 2) open a command prompt, cd into this directory, and run the following command:
+#    chlasm -compile -p _project.txt -o _challenge.chl
+
+headers_path ../../headers
+header AllMeshes.h
+header AudioMusic.h
+header AudioSFX.h
+header CameraPosEnum.h
+header CreatureEnum.h
+header CreatureSpec.h
+header Enum.h
+header GStates.h
+header HelpTextEnums.h
+header HitRegions.h
+header LHKeyBoard.h
+header LHSample.h
+header ScriptChallengeEnums.h
+header ScriptEnums.h
+header ScriptEnumstwo.h
+
+info_path ../../headers
+info InfoScript1.txt
+info _constants.txt
+
+source_path .
+
+### Source files ###
+source IsleHeaders.txt
+source GlobalDLLVariables.txt
+
+source HandDemos.txt
+source StandardReminder.txt
+source CreatureActions.txt
+source DidYouKnow.txt
+source HelpSystem.txt
+source Reward.txt
+source GameOver.txt
+source PlaceDidYouKnows.txt
+source SetupCreatureIsle1.txt
+source CreatureHelp.txt
+
+source Headers.txt
+source ChallengeHighlightNotify.txt
+source ChallengeNotify.txt
+source SwapCreatures.txt
+source CreatureDevelopment.txt
+source CreatureBreeder.txt
+source SetupLand1.txt
+source SetupComputerCreatures.txt
+source VortexEntry.txt
+source CustomTykeEggHatch.txt
+source KillCreatureForever.txt
+source ProtectGateKeys.txt
+source CreatureGuide.txt
+source CreatureSavingPeople.txt
+source FollowUs.txt
+source LeaveThroughVortexl1.txt
+source CitadelGuide.txt
+source LostBrother.txt
+source TheSculptor.txt
+source ChooseYourCreature.txt
+source CreatureGuardian.txt
+source TheHermit.txt
+source TheLostFlock.txt
+source PiedPiper.txt
+source SingingStoneCircle.txt
+source ThrowingStones.txt
+source TheMissionaries.txt
+source MagicMushroom.txt
+source SetupLand2.txt
+source Sacrifice.txt
+source BayWatch.txt
+source Land2ShieldChallenge.txt
+source Land2FireballChallenge.txt
+source Land2ComputerAI.txt
+source LostTreasure.txt
+source LearnGestures.txt
+source LearnInfluence.txt
+source BeginLand2.txt
+source LearnWorshipping.txt
+source GreedyFarmer.txt
+source IdolPyre.txt
+source LethysVortex.txt
+source KillKhazar.txt
+source leavethroughvortexl2.txt
+source TheSlavers.txt
+source SingingStonesSongs.txt
+source Plague.txt
+source SpiritualHealer.txt
+source TheWorkshop.txt
+source HanoiFlood.txt
+source TreePuzzleOne.txt
+source FinalGoldScroll.txt
+source CustomHardModeLand2.txt
+source SetupLand3.txt
+source CustomHardModeLand3.txt
+source Shaolin.txt
+source LeaveThroughVortexL3.txt
+source FreeTheCreature.txt
+source GetThroughVortexL2.txt
+source SwapToApe.txt
+source TreePuzzleTwo.txt
+source throwbloke.txt
+source SetupLand4.txt
+source Land4Meteorites.txt
+source Land4Ogre.txt
+source BeginLand4.txt
+source LeaveThroughVortexl4.txt
+source FishPuzzle.txt
+source BlindWoman.txt
+source ThesiusPuzzleLand4.txt
+source BeginLand5.txt
+source CustomHardModeLand5.txt
+source FireOnHigh.txt
+source LionPuzzle.txt
+source MissionariesReturned.txt
+source SwapToBrownBear.txt
+source TheBigFight.txt
+source ThrowThroughShield.txt
+source Volcano.txt
+source FinalCreatureSequence.txt
+source JapaneseTraitor.txt
+source SetupLand5.txt
+source CreatureCurse.txt
+source Crusaders.txt
+source HelloWorld.txt
+source CustomKillCreatureFix.txt
+source CustomHardModeApplier.txt
+source CustomLoadPlayerColour.txt
+source LandControl5.txt
+source LandControl4.txt
+source LandControl3.txt
+source LandControl2.txt
+source LandControl1.txt
+source CustomLandController.txt
+source COOPBeginLand2.txt
+source COOPLandControl2.txt
+source CustomBlackAndWhiteIntroMenu.txt
+source CustomMultiplayerPlayerColour.txt
+source CustomMultiplayerSaving.txt
+source CustomMultiplayerAutoRun.txt
+source IsleControl.txt
