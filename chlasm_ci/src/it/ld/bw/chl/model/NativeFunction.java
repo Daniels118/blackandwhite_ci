@@ -550,7 +550,7 @@ public enum NativeFunction {
 	/*501*/ SET_CREATURE_CAN_DROP(2, 0),
 	/*502*/ PLAY_SPIRIT_ANIM_IN_WORLD("HELP_SPIRIT_TYPE spirit, int animation, Coord position, float inWorld"),
 	/*503*/ SET_OBJECT_COLOUR("Object object, float red, float green, float blue"),
-	/*504*/ EFFECT_FROM_FILE(1, 1),
+	/*504*/ EFFECT_FROM_FILE("StrPtr filename", "Object"),
 	/*505*/ ALEX_SPECIAL_EFFECT_POSITION("int effect, Coord position", "Object"),
 	/*506*/ DELETE_FRAGMENTS_IN_RADIUS(4, 0),
 	/*507*/ DELETE_FRAGMENTS_FOR_OBJECT(1, 0),

@@ -27,7 +27,8 @@ import it.ld.utils.EndianDataOutputStream;
  * 
  */
 public abstract class Struct {
-	protected static final Charset ASCII = Charset.forName("US-ASCII");
+	//protected static final Charset ASCII = Charset.forName("US-ASCII");
+	protected static final Charset ASCII = Charset.forName("windows-1252");
 	
 	/**Returns the length of this struct in bytes.
 	 * @return

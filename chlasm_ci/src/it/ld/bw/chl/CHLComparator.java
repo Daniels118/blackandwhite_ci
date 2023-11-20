@@ -203,11 +203,11 @@ public class CHLComparator {
 											}
 										} catch (InvalidScriptIdException e) {
 											out.println(e.getMessage() + " in file 1");
-											eq = false;
+											res = false;
 										}
 									} catch (InvalidScriptIdException e) {
 										out.println(e.getMessage() + " in file 2");
-										eq = false;
+										res = false;
 									}
 								} else if (instr1.isReference() || instr1.opcode == OPCode.PUSH && instr1.dataType == DataType.VAR) {
 									try {
@@ -218,14 +218,12 @@ public class CHLComparator {
 												eq = false;
 											}
 										} catch (InvalidVariableIdException e) {
-											System.err.println("Invalid variable in "+script2.getSourceFilename()+":"+instr2.lineNumber);
-											e.printStackTrace();
-											eq = false;
+											out.println("ERROR: invalid variable id in "+script2.getSourceFilename()+":"+instr2.lineNumber);
+											res = false;
 										}
 									} catch (InvalidVariableIdException e) {
-										System.err.println("Invalid variable in "+script1.getSourceFilename()+":"+instr1.lineNumber);
-										e.printStackTrace();
-										eq = false;
+										out.println("ERROR: invalid variable id in "+script1.getSourceFilename()+":"+instr1.lineNumber);
+										res = false;
 									}
 								} else if (instr1.intVal != instr2.intVal) {
 									/*If 2 instructions that are supposed to be functionally identical have different

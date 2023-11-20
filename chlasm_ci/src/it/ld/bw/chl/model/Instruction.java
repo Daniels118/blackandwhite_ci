@@ -466,6 +466,7 @@ public class Instruction extends Struct {
 	 * @return
 	 */
 	private static String format(float v) {
+		//return Integer.toHexString(Float.floatToRawIntBits(v));
 		decimalFormat.setMaximumFractionDigits(SIGNIFICANT_DIGITS - 1);
 		String r = decimalFormat.format(v);
 		int nInt = r.indexOf('.');	//Compute the number of int digits

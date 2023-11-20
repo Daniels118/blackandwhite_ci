@@ -5198,6 +5198,16 @@ Epiceffekt = create alex special effect SPOT_VISUAL_ALEX_HULAHOOP at [Tempelpos]
 	REF_AND_OFFSET_POP
 ___________________________________________
 
+9.45.4 create special effect from file STRING
+
+?
+
+create special effect from file "racetrack1.exc"
+
+	PUSHI 0					//filename
+	SYS EFFECT_FROM_FILE	//[1, 1] (StrPtr filename) returns (Object)
+___________________________________________
+
 9.46 attach OBJECT to OBJECT [as leader]
 
 No doc.

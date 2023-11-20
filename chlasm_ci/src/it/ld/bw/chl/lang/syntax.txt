@@ -582,6 +582,7 @@ OBJECT: {
 	create young creature from OBJECT with OBJECT knowledge at COORD_EXPR
 	create player EXPRESSION temple at COORD_EXPR
 	get object which hit land
+	create special effect from file STRING
 	IDENTIFIER
 }
 

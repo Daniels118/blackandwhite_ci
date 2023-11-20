@@ -50,7 +50,8 @@ public class CHLCompiler implements Compiler {
 	private static final String DEFAULT_SOUNDBANK_NAME = "AUDIO_SFX_BANK_TYPE_IN_GAME";
 	private static final String DEFAULT_SUBTYPE_NAME = "SCRIPT_FIND_TYPE_ANY";
 	
-	private static final Charset ASCII = Charset.forName("US-ASCII");
+	//private static final Charset ASCII = Charset.forName("US-ASCII");
+	private static final Charset ASCII = Charset.forName("windows-1252");
 	private static final int INITIAL_BUFFER_SIZE = 16 * 1024;
 	private static final int MAX_BUFFER_SIZE = 2 * 1024 * 1024;
 	
@@ -65,6 +66,7 @@ public class CHLCompiler implements Compiler {
 	private boolean fixBugsEnabled = false;
 	private boolean ignoreMissingScriptsEnabled = false;
 	private boolean sharedStringsEnabled = true;
+	private boolean staticArrayCheckEnabled = true;
 	
 	private PrintStream out;
 	private boolean verboseEnabled;
@@ -165,6 +167,14 @@ public class CHLCompiler implements Compiler {
 		this.sharedStringsEnabled = sharedStringsEnabled;
 	}
 	
+	public boolean isStaticArrayCheckEnabled() {
+		return staticArrayCheckEnabled;
+	}
+
+	public void setStaticArrayCheckEnabled(boolean staticArrayCheckEnabled) {
+		this.staticArrayCheckEnabled = staticArrayCheckEnabled;
+	}
+
 	/**Finalize the CHL file. No more files can be parsed after finalization.
 	 * @throws ParseException
 	 */
@@ -1598,9 +1608,9 @@ public class CHLCompiler implements Compiler {
 			SymbolInstance action = next();
 			accept("countdown");
 			if (action.is("enable")) {
-				parse("timer down with EXPRESSION seconds EOL");
 				//enable countdown timer down with EXPRESSION seconds
 				pushb(false);
+				parse("timer down with EXPRESSION seconds EOL");
 				sys(START_COUNTDOWN_TIMER);
 				return replace(start, "STATEMENT");
 			} else {
@@ -3437,10 +3447,16 @@ public class CHLCompiler implements Compiler {
 						symbol = peek();
 						throw new ParseException("Expected: EXPRESSION", lastParseException, file, line, col);
 					}
-					symbol = peek();
+					/*symbol = peek();
 					if (symbol.is("*") || symbol.is("/") || symbol.is("%")) {
 						prev();
 						parseExpression(true);
+					}*/
+					symbol = peek();
+					while (symbol.is("*") || symbol.is("/") || symbol.is("%")) {
+						prev();
+						parseExpression1();
+						symbol = peek();
 					}
 					//< alternate method
 					if (operator.is("+")) {
@@ -3955,17 +3971,23 @@ public class CHLCompiler implements Compiler {
 					return replace(start, "CONDITION");
 				} else if (symbol.is("or")) {
 					//CONDITION or CONDITION
-					//parseCondition(true);	<- good, but doesn't match the original compiler behavior
+					//parseCondition(true);	//<- good, but doesn't match the original compiler behavior
 					//> alternate method
 					symbol = parseCondition1();
 					if (symbol == null) {
 						symbol = peek();
 						throw new ParseException("Expected: CONDITION", lastParseException, file, line, col);
 					}
-					symbol = peek();
+					/*symbol = peek();
 					if (symbol.is("and")) {
 						prev();
 						parseCondition(true);
+					}*/
+					symbol = peek();
+					while (symbol.is("and")) {
+						prev();
+						parseCondition1();
+						symbol = peek();
 					}
 					//< alternate method
 					or();
@@ -4856,20 +4878,29 @@ public class CHLCompiler implements Compiler {
 						throw new ParseException("Unexpected token: "+symbol+". Expected: on|at", lastParseException, file, symbol.token.line, symbol.token.col);
 					}
 				} else if (symbol.is("special")) {
-					parse("special effect CONST_EXPR");
+					parse("special effect");
 					symbol = peek();
-					if (symbol.is("at")) {
-						//create special effect CONST_EXPR at COORD_EXPR [time EXPRESSION]
-						parse("at COORD_EXPR [time EXPRESSION]", 1.0);
-						sys(SPECIAL_EFFECT_POSITION);
-						return replace(start, "OBJECT");
-					} else if (symbol.is("on")) {
-						//create special effect CONST_EXPR on OBJECT [time EXPRESSION]
-						parse("on OBJECT [time EXPRESSION]", 1.0);
-						sys(SPECIAL_EFFECT_OBJECT);
+					if (symbol.is("from")) {
+						//create special effect from file STRING
+						parse("from file STRING");
+						sys(EFFECT_FROM_FILE);
 						return replace(start, "OBJECT");
 					} else {
-						throw new ParseException("Unexpected token: "+symbol+". Expected: at|on", lastParseException, file, symbol.token.line, symbol.token.col);
+						parseConstExpr(true);
+						symbol = peek();
+						if (symbol.is("at")) {
+							//create special effect CONST_EXPR at COORD_EXPR [time EXPRESSION]
+							parse("at COORD_EXPR [time EXPRESSION]", 1.0);
+							sys(SPECIAL_EFFECT_POSITION);
+							return replace(start, "OBJECT");
+						} else if (symbol.is("on")) {
+							//create special effect CONST_EXPR on OBJECT [time EXPRESSION]
+							parse("on OBJECT [time EXPRESSION]", 1.0);
+							sys(SPECIAL_EFFECT_OBJECT);
+							return replace(start, "OBJECT");
+						} else {
+							throw new ParseException("Unexpected token: "+symbol+". Expected: at|on", lastParseException, file, symbol.token.line, symbol.token.col);
+						}
 					}
 				} else if (symbol.is("young")) {
 					//create young creature from OBJECT with OBJECT knowledge at COORD_EXPR
@@ -5138,7 +5169,8 @@ public class CHLCompiler implements Compiler {
 				throw new ParseException("Statement not implemented", lastParseException, file, line, col);
 				//return replace(start, "COORD_EXPR");
 			} else if (symbol.is("+") || symbol.is("-")) {
-				parseCoordExpr(true);
+				//parseCoordExpr(true);
+				parseCoordExpr1();
 				if (symbol.is("+")) {
 					//COORD_EXPR + COORD_EXPR
 					addc();
@@ -5392,6 +5424,16 @@ public class CHLCompiler implements Compiler {
 	 * @throws ParseException
 	 */
 	private int getVarId(String name) throws ParseException {
+		return getVarId(name, 0);
+	}
+	
+	/**Returns the ID of the given variable.
+	 * @param name
+	 * @param index
+	 * @return
+	 * @throws ParseException
+	 */
+	private int getVarId(String name, int index) throws ParseException {
 		Var var = localMap.get(name);
 		if (var == null) {
 			var = globalMap.get(name);
@@ -5402,7 +5444,15 @@ public class CHLCompiler implements Compiler {
 		} else {
 			lastParseException = null;
 		}
-		return var.index;
+		if (index < 0 || index >= var.size) {
+			if (staticArrayCheckEnabled) {
+				lastParseException = new ParseException("Index "+index+" out of bounds for "+name+"["+var.size+"]", file, line, col);
+				throw lastParseException;
+			} else {
+				warning("WARNING: Index "+index+" out of bounds for "+name+"["+var.size+"] in "+file.getName()+":"+line+":"+col);
+			}
+		}
+		return var.index + index;
 	}
 	
 	private SymbolInstance next() {
@@ -5574,12 +5624,21 @@ public class CHLCompiler implements Compiler {
 				SymbolInstance sInst = peek();
 				if (sInst.is("[")) {
 					accept("[");
-					parseExpression(true);
-					accept("]");
-					int varId = getVarId(name);
-					pushf(varId);
-					addf();
-					ref_push2();
+					if (checkAhead("NUMBER ]")) {
+						//IDENTIFIER\[NUMBER\]
+						sInst = next();
+						accept("]");
+						int index = sInst.token.intVal();
+						pushvVal(name, index);
+					} else {
+						//IDENTIFIER\[EXPRESSION\]
+						parseExpression(true);
+						accept("]");
+						int varId = getVarId(name);
+						pushf(varId);
+						addf();
+						ref_push2();
+					}
 				} else {
 					pushvVal(name);
 				}
@@ -5897,7 +5956,7 @@ public class CHLCompiler implements Compiler {
 	
 	private void pushvAddr(String variable, int index) throws ParseException {
 		Instruction instruction = Instruction.fromKeyword("PUSHV");
-		instruction.intVal = getVarId(variable) + index;
+		instruction.intVal = getVarId(variable, index);
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}
@@ -5909,7 +5968,7 @@ public class CHLCompiler implements Compiler {
 	private void pushvVal(String variable, int index) throws ParseException {
 		Instruction instruction = Instruction.fromKeyword("PUSHV");
 		instruction.flags = OPCodeFlag.REF;
-		instruction.intVal = getVarId(variable) + index;
+		instruction.intVal = getVarId(variable, index);
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}
