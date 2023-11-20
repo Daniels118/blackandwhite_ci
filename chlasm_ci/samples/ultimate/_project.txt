@@ -1,4 +1,4 @@
-# Black & White 1 challenge project
+# Black & White Ultimate challenge project
 
 # How to use this file:
 # 1) copy into this folder all the source files taken from B&W Ultimate;

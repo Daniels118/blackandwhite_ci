@@ -103,7 +103,7 @@ STATEMENT: {
 	delete OBJECT EOL
 	delete OBJECT with fade EOL
 	delete OBJECT with explosion EOL
-	delete OBJECT with temple explode EOL
+	delete OBJECT with temple explode|explosion EOL
 	set OBJECT properties inner EXPRESSION outer EXPRESSION [calm EXPRESSION] EOL
 	set OBJECT text property text CONST_EXPR category CONST_EXPR EOL
 	set OBJECT velocity heading COORD_EXPR speed EXPRESSION EOL
@@ -135,6 +135,7 @@ STATEMENT: {
 	set player EXPRESSION creature to OBJECT EOL
 	teach OBJECT CONST_EXPR CONST_EXPR CONST_EXPR EOL
 	teach OBJECT everything EOL
+	teach OBJECT all EOL
 	teach OBJECT all excluding CONST_EXPR EOL
 	force OBJECT CONST_EXPR OBJECT [with OBJECT] EOL
 	enable|disable OBJECT friends with OBJECT EOL
@@ -163,6 +164,7 @@ STATEMENT: {
 	disable OBJECT auto scale EOL
 	enable|disable OBJECT can be leashed to
 	enable|disable OBJECT tattoo CONST_EXPR
+	clear spells on OBJECT
 	set computer player EXPRESSION position to COORD_EXPR [with fixed height] EOL
 	move computer player EXPRESSION to COORD_EXPR speed EXPRESSION [with fixed height] EOL
 	enable|disable computer player EXPRESSION EOL
@@ -223,6 +225,7 @@ STATEMENT: {
 	clear clicked object EOL
 	clear clicked position EOL
 	clear hit object EOL
+	clear hit land object EOL
 	enable|disable CONST_EXPR avi sequence EOL
 	run CONST_EXPR developer function EOL
 	run map script line STRING EOL
@@ -301,6 +304,7 @@ STATEMENT: {
 	begin known dialogue STATEMENTS end known dialogue EOL
 	begin known cinema STATEMENTS end known cinema EOL
 	begin dual camera to OBJECT OBJECT STATEMENTS end dual camera EOL
+	begin cannon STATEMENTS end cannon EOL
 	make SPIRIT_TYPE spirit point to OBJECT [in world] EOL
 	make SPIRIT_TYPE spirit point at COORD_EXPR EOL
 	make SPIRIT_TYPE spirit play across EXPRESSION down EXPRESSION CONST_EXPR [speed EXPRESSION] EOL
@@ -315,13 +319,13 @@ STATEMENT: {
 	make SPIRIT_TYPE spirit appear EOL
 	make SPIRIT_TYPE spirit disappear EOL
 	send SPIRIT_TYPE spirit home EOL
-	say [single line] STRING EOL
-	say [single line] STRING with interaction EOL
-	say [single line] STRING without interaction EOL
-	say STRING with number EXPRESSION EOL
-	say [single line] CONST_EXPR EOL
-	say [single line] CONST_EXPR with interaction EOL
-	say [single line] CONST_EXPR without interaction EOL
+	say [single line] STRING [by OBJECT] EOL
+	say [single line] STRING with interaction [by OBJECT] EOL
+	say [single line] STRING without interaction [by OBJECT] EOL
+	say [single line] STRING with number EXPRESSION EOL
+	say [single line] CONST_EXPR [by OBJECT] EOL
+	say [single line] CONST_EXPR with interaction [by OBJECT] EOL
+	say [single line] CONST_EXPR without interaction [by OBJECT] EOL
 	say CONST_EXPR with number EXPRESSION EOL
 	clear dialogue EOL
 	close dialogue EOL
@@ -363,6 +367,21 @@ STATEMENT: {
 	enable|disable jc special CONST_EXPR on OBJECT EOL
 	set camera position COORD_EXPR focus COORD_EXPR lens EXPRESSION EOL
 	move camera position COORD_EXPR focus COORD_EXPR lens EXPRESSION time EXPRESSION EOL
+	set cannon strength EXPRESSION EOL
+	set OBJECT colour red EXPRESSION green EXPRESSION blue EXPRESSION EOL
+	set OBJECT score EXPRESSION EOL
+	set OBJECT in player EXPRESSION hand EOL
+	fire gun OBJECT EOL
+	set gun OBJECT angle EXPRESSION pitch EXPRESSION EOL
+	enable countdown timer down with EXPRESSION seconds EOL
+	disable countdown timer EOL
+	set countdown timer draw CONST_EXPR EOL
+	enable|disable villager sound EOL
+	make SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR [in world] EOL
+	enable OBJECT immune to spells EOL
+	set dolphin speed EXPRESSION EOL
+	enable|disable right hand only for OBJECT EOL
+	delete delete fire at COORD_EXPR radius EXPRESSION EOL
 }
 
 WHILE:
@@ -390,7 +409,7 @@ IF_ELSIF_ELSE:
 CINEMA:
 	begin cinema
 		STATEMENTS
-	end cinema [with dialogue
+	end cinema [with widescreen] [with dialogue
 		STATEMENTS
 	end dialogue]
 
@@ -426,7 +445,7 @@ CONDITION: {
 	jc special CONST_EXPR played
 	OBJECT played
 	OBJECT music played
-	CONST_EXPR music played
+	music CONST_EXPR played
 	OBJECT cast by OBJECT
 	SPIRIT_TYPE spirit played
 	SPIRIT_TYPE spirit speaks CONST_EXPR
@@ -438,6 +457,7 @@ CONDITION: {
 	spell wind near COORD_EXPR radius EXPRESSION
 	camera ready
 	widescreen ready
+	widescreen transition complete
 	fade ready
 	camera not ready
 	dialogue ready
@@ -482,6 +502,7 @@ CONDITION: {
 	is keeping old creature
 	current profile has creature
 	in widescreen
+	mouse left|right button down
 	not CONDITION
 	CONDITION and CONDITION
 	CONDITION or CONDITION
@@ -491,6 +512,8 @@ CONDITION: {
 	EXPRESSION <= EXPRESSION
 	EXPRESSION > EXPRESSION
 	EXPRESSION < EXPRESSION
+	OBJECT == OBJECT
+	OBJECT != OBJECT
 	sound CONST_EXPR [CONST_EXPR] playing
 	say sound CONST_EXPR playing
 	(CONDITION)
@@ -519,7 +542,7 @@ OBJECT: {
 	create highlight CONST_EXPR CONST_EXPR at COORD_EXPR
 	create mist at COORD_EXPR scale EXPRESSION red EXPRESSION green EXPRESSION blue EXPRESSION transparency EXPRESSION height ratio EXPRESSION
 	create with angle EXPRESSION and scale EXPRESSION CONST_EXPR CONST_EXPR at COORD_EXPR
-	create_creature_from_creature OBJECT EXPRESSION at COORD_EXPR CONST_EXPR
+	create [dumb] creature from creature OBJECT EXPRESSION at COORD_EXPR CONST_EXPR
 	create timer for EXPRESSION second|seconds
 	marker at COORD_EXPR
 	marker at CONST_EXPR
@@ -535,7 +558,7 @@ OBJECT: {
 	get dropped by OBJECT
 	get nearest town at COORD_EXPR for player EXPRESSION radius EXPRESSION
 	get town with id EXPRESSION
-	get OBJECT hand is over
+	get object hand is over
 	get OBJECT clicked
 	get OBJECT flock
 	get object held
@@ -549,6 +572,7 @@ OBJECT: {
 	get spell CONST_EXPR at COORD_EXPR radius EXPRESSION
 	create special effect CONST_EXPR at COORD_EXPR [time EXPRESSION]
 	create special effect CONST_EXPR on OBJECT [time EXPRESSION]
+	create alex special effect CONST_EXPR at COORD_EXPR
 	attach OBJECT to OBJECT [as leader]
 	detach [OBJECT] from OBJECT
 	get spell icon CONST_EXPR in OBJECT
@@ -556,6 +580,8 @@ OBJECT: {
 	get next in OBJECT after OBJECT
 	get dead at COORD_EXPR radius EXPRESSION
 	create young creature from OBJECT with OBJECT knowledge at COORD_EXPR
+	create player EXPRESSION temple at COORD_EXPR
+	get object which hit land
 	IDENTIFIER
 }
 
@@ -667,12 +693,21 @@ EXPRESSION: {
 	get time since CONST_EXPR event
 	get CONSTANT total event|events
 	square root EXPRESSION
+	tan EXPRESSION
+	sin EXPRESSION
+	cos EXPRESSION
+	arctan EXPRESSION
+	arcsin EXPRESSION
+	arccos EXPRESSION
+	mouse percentage across
+	mouse percentage down
+	get OBJECT sacrifice total
+	get countdown timer time
 	EXPRESSION *|/|% EXPRESSION
 	EXPRESSION +|- EXPRESSION
 	-EXPRESSION
 	variable CONST_EXPR
 	(EXPRESSION)
-	get OBJECT sacrifice total
 }
 
 SPIRIT_TYPE: {
@@ -692,4 +727,5 @@ CONSTANT: {
 
 VARIABLE: {
 	IDENTIFIER
+	IDENTIFIER\[EXPRESSION\]
 }

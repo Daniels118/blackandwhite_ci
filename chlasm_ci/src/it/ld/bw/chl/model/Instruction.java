@@ -272,8 +272,8 @@ public class Instruction extends Struct {
 			} else if (isReference()) {
 				if (chl != null && script != null) {
 					String varName;
+					//TODO remove the try-catch and let the exception propagate
 					try {
-						//varName = script.getVar(chl, intVal);
 						varName = getVar(chl, script, intVal);
 					} catch (InvalidVariableIdException e) {
 						varName = String.valueOf(intVal);
@@ -322,7 +322,7 @@ public class Instruction extends Struct {
 		return s;
 	}
 	
-	private static String getVar(CHLFile chl, Script script, int id) {
+	private static String getVar(CHLFile chl, Script script, int id) throws InvalidVariableIdException {
 		List<String> names;
 		if (id > script.getGlobalCount()) {
 			id -= script.getGlobalCount() + 1;
@@ -330,6 +330,9 @@ public class Instruction extends Struct {
 		} else {
 			id--;
 			names = chl.getGlobalVariables().getNames();
+		}
+		if (id < 0 || id >= names.size()) {
+			throw new InvalidVariableIdException(id);
 		}
 		String name = names.get(id);
 		if ("LHVMA".equals(name)) {

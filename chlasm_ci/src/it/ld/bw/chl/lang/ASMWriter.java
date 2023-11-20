@@ -15,10 +15,12 @@
  */
 package it.ld.bw.chl.lang;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -162,7 +164,7 @@ public class ASMWriter {
 		for (String sourceFilename : sources) {
 			File sourceFile = path.resolve(sourceFilename).toFile();
 			out.println("Writing "+sourceFilename);
-			try (FileWriter str = new FileWriter(sourceFile);) {
+			try (Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
 				writeHeader(chl, str);
 				writeScripts(chl, str, sourceFilename, labels, constMap);
 			}
@@ -174,7 +176,7 @@ public class ASMWriter {
 		List<Const> constants = chl.getDataSection().analyze();
 		Map<Integer, Const> constMap = mapConstants(constants);
 		Map<Integer, Label> labels = getLabels(chl);
-		try (FileWriter str = new FileWriter(file);) {
+		try (Writer str = new BufferedWriter(new FileWriter(file));) {
 			writeHeader(chl, str);
 			writeData(chl, str, constants);
 			writeScripts(chl, str, labels, constMap);
@@ -234,12 +236,12 @@ public class ASMWriter {
 		return constMap;
 	}
 	
-	private void writeHeader(CHLFile chl, FileWriter str) throws IOException {
+	private void writeHeader(CHLFile chl, Writer str) throws IOException {
 		str.write("//LHVM Challenge ASM version "+chl.getHeader().getVersion()+"\r\n");
 		str.write("\r\n");
 	}
 	
-	private void writeData(CHLFile chl, FileWriter str, List<Const> constants) throws IOException {
+	private void writeData(CHLFile chl, Writer str, List<Const> constants) throws IOException {
 		str.write(".DATA\r\n");
 		if (printBinInfoEnabled) str.write(String.format("//offset: 0x%1$08X\r\n", chl.getDataSection().getOffset()));
 		for (Const c : constants) {
@@ -248,7 +250,7 @@ public class ASMWriter {
 		str.write("\r\n");
 	}
 	
-	private void writeGlobals(CHLFile chl, FileWriter str, int start, int end) throws IOException {
+	private void writeGlobals(CHLFile chl, Writer str, int start, int end) throws IOException {
 		str.write(".GLOBALS");
 		ListIterator<String> it = chl.getGlobalVariables().getNames().subList(start, end).listIterator();
 		String name0 = null;
@@ -285,7 +287,7 @@ public class ASMWriter {
 		str.write("\r\n");
 	}
 	
-	private void writeScripts(CHLFile chl, FileWriter str, Map<Integer, Label> labels, Map<Integer, Const> constMap) throws IOException, CompileException {
+	private void writeScripts(CHLFile chl, Writer str, Map<Integer, Label> labels, Map<Integer, Const> constMap) throws IOException, CompileException {
 		if (printBinInfoEnabled) str.write(String.format("//offset: 0x%1$08X\r\n", chl.getScriptsSection().getOffset()));
 		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
 		int firstGlobal = 0;
@@ -309,7 +311,7 @@ public class ASMWriter {
 		str.write("\r\n");
 	}
 	
-	private void writeScripts(CHLFile chl, FileWriter str, String sourceFilename, Map<Integer, Label> labels, Map<Integer, Const> constMap) throws IOException, CompileException {
+	private void writeScripts(CHLFile chl, Writer str, String sourceFilename, Map<Integer, Label> labels, Map<Integer, Const> constMap) throws IOException, CompileException {
 		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
 		int firstGlobal = 0;
 		Script script = null;
@@ -337,7 +339,7 @@ public class ASMWriter {
 		}
 	}
 	
-	private void writeScript(CHLFile chl, FileWriter str, Script script, Map<Integer, Label> labels, Map<Integer, Const> constMap) throws IOException, CompileException {
+	private void writeScript(CHLFile chl, Writer str, Script script, Map<Integer, Label> labels, Map<Integer, Const> constMap) throws IOException, CompileException {
 		if (printSourceLineEnabled) {
 			setSourceFile(script.getSourceFilename());
 		}
@@ -490,7 +492,7 @@ public class ASMWriter {
 				str.write("\r\n");
 				index++;
 			} catch (Exception e) {
-				throw new CompileException(script.getName(), index, e);
+				throw new CompileException(script.getName(), script.getSourceFilename(), index, e);
 			}
 		} while (it.hasNext() && index <= script.getLastInstructionAddress());
 		if (instrAfterEnd > 0) {
@@ -498,7 +500,7 @@ public class ASMWriter {
 		}
 	}
 	
-	private void writeAutoStartScripts(CHLFile chl, FileWriter str) throws IOException, CompileException {
+	private void writeAutoStartScripts(CHLFile chl, Writer str) throws IOException, CompileException {
 		str.write(".AUTORUN\r\n");
 		for (int scriptID : chl.getAutoStartScripts().getScripts()) {
 			try {
@@ -513,15 +515,33 @@ public class ASMWriter {
 		str.write("\r\n");
 	}
 	
+	private static File find(File path, String filename) {
+		File file = new File(path, filename);
+		if (file.exists()) return file;
+		for (File f : path.listFiles()) {
+			if (f.isDirectory() && !".".equals(f.getName()) && !"..".equals(f.getName())) {
+				file = find(f, filename);
+				if (file != null) return file;
+			}
+		}
+		return null;
+	}
+	
 	private void setSourceFile(String sourceFilename) {
+		sourceFilename = sourceFilename.stripTrailing();
 		if (!sourceFilename.equals(currentSourceFilename)) {
-			Path file = sourcePath.resolve(sourceFilename);
-			try {
-				List<String> lines = Files.readAllLines(file, SRC_CHARSET);
-				source = lines.toArray(new String[0]);
-			} catch (IOException e) {
+			//Path file = sourcePath.resolve(sourceFilename);
+			File file = find(sourcePath.toFile(), sourceFilename);
+			if (file != null) {
+				try {
+					List<String> lines = Files.readAllLines(file.toPath(), SRC_CHARSET);
+					source = lines.toArray(new String[0]);
+				} catch (IOException e) {
+					source = null;
+					out.println("WARNING: failed to read source file '" + sourceFilename + "': " + e);
+				}
+			} else {
 				source = null;
-				out.println("WARNING: failed to read source file '" + sourceFilename + "': " + e);
 			}
 			currentSourceFilename = sourceFilename;
 		}

@@ -190,6 +190,7 @@ public class ASMCompiler implements Compiler {
 	}
 	
 	public CHLFile compile(Project project) throws IOException, ParseException {
+		globalConstants.putAll(project.constants);
 		for (File file : project.cHeaders) {
 			loadHeader(file);
 		}

@@ -259,6 +259,7 @@ public class CHLCompiler implements Compiler {
 	}
 	
 	public CHLFile compile(Project project) throws IOException, ParseException {
+		constants.putAll(project.constants);
 		for (File file : project.cHeaders) {
 			loadHeader(file);
 		}
@@ -830,6 +831,8 @@ public class CHLCompiler implements Compiler {
 			return parseStatementCamera();
 		} else if (symbol.is("shake")) {
 			return parseShake();
+		} else if (symbol.is("fire")) {
+			return parseFire();
 		} else if (symbol.is("if")) {
 			return parseIf();
 		} else if (symbol.is("while")) {
@@ -837,7 +840,7 @@ public class CHLCompiler implements Compiler {
 		} else if (symbol.is("begin")) {
 			return parseBegin();
 		} else if (symbol.is(TokenType.IDENTIFIER)) {
-			if (checkAhead("ANY play")) {
+			if (checkAhead("ANY play") || checkAhead("ANY [ ANY ] play")) {
 				return parseObjectPlay();
 			} else {
 				return parseAssignment();
@@ -1189,8 +1192,8 @@ public class CHLCompiler implements Compiler {
 				if (symbol.is("face")) {
 					parse("face OBJECT distance EXPRESSION EOL");
 					//set camera to face OBJECT distance EXPRESSION
-					throw new ParseException("Statement not implemented", file, line, col);
-					//return replace(start, "STATEMENT");
+					sys(SET_CAMERA_TO_FACE_OBJECT);
+					return replace(start, "STATEMENT");
 				} else {
 					//set camera to CONSTANT
 					symbol = parse("IDENTIFIER EOL")[0];
@@ -1221,6 +1224,26 @@ public class CHLCompiler implements Compiler {
 			parse("dual camera to OBJECT OBJECT EOL");
 			//set dual camera to OBJECT OBJECT
 			sys(UPDATE_DUAL_CAMERA);
+			return replace(start, "STATEMENT");
+		} else if (symbol.is("cannon")) {
+			parse("cannon strength EXPRESSION EOL");
+			//set cannon strength EXPRESSION
+			sys(SET_CANNON_STRENGTH);
+			return replace(start, "STATEMENT");
+		} else if (symbol.is("gun")) {
+			parse("gun OBJECT angle EXPRESSION pitch EXPRESSION EOL");
+			//set gun OBJECT angle EXPRESSION pitch EXPRESSION
+			sys(GUN_ANGLE_PITCH);
+			return replace(start, "STATEMENT");
+		} else if (symbol.is("countdown")) {
+			parse("countdown timer draw CONST_EXPR EOL");
+			//set countdown timer draw CONST_EXPR
+			sys(SET_COUNTDOWN_TIMER_DRAW);
+			return replace(start, "STATEMENT");
+		} else if (symbol.is("dolphin")) {
+			parse("dolphin speed EXPRESSION EOL");
+			//set dolphin speed EXPRESSION
+			sys(SET_DOLPHIN_SPEED);
 			return replace(start, "STATEMENT");
 		} else {
 			symbol = parseObject(false);
@@ -1461,6 +1484,21 @@ public class CHLCompiler implements Compiler {
 					//set OBJECT music position to COORD_EXPR
 					throw new ParseException("Statement not implemented", file, line, col);
 					//return replace(start, "STATEMENT");
+				} else if (symbol.is("colour")) {
+					parse("colour red EXPRESSION green EXPRESSION blue EXPRESSION EOL");
+					//set OBJECT colour red EXPRESSION green EXPRESSION blue EXPRESSION
+					sys(SET_OBJECT_COLOUR);
+					return replace(start, "STATEMENT");
+				} else if (symbol.is("score")) {
+					parse("score EXPRESSION EOL");
+					//set OBJECT score EXPRESSION
+					sys(SET_OBJECT_SCORE);
+					return replace(start, "STATEMENT");
+				} else if (symbol.is("in")) {
+					parse("in player EXPRESSION hand EOL");
+					//set OBJECT in player EXPRESSION hand
+					sys(SET_OBJECT_IN_PLAYER_HAND);
+					return replace(start, "STATEMENT");
 				} else {
 					parse("CONST_EXPR development EOL");
 					//set OBJECT CONST_EXPR development
@@ -1472,8 +1510,8 @@ public class CHLCompiler implements Compiler {
 				if (symbol != null) {
 					parse("land balance EXPRESSION EOL");
 					//set EXPRESSION land balance EXPRESSION
-					throw new ParseException("Statement not implemented", file, line, col);
-					//return replace(start, "STATEMENT");
+					sys(SET_LAND_BALANCE);
+					return replace(start, "STATEMENT");
 				} else {
 					symbol = peek();
 					throw new ParseException("Expected: EXPRESSION|OBJECT", lastParseException, file, symbol.token.line, symbol.token.col);
@@ -1491,6 +1529,11 @@ public class CHLCompiler implements Compiler {
 			parse("all weather at COORD_EXPR radius EXPRESSION EOL");
 			sys(KILL_STORMS_IN_AREA);
 			return replace(start, "STATEMENT");
+		} else if (symbol.is("fire")) {
+			//delete delete fire at COORD_EXPR radius EXPRESSION
+			parse("fire at COORD_EXPR radius EXPRESSION EOL");
+			sys(GAME_DELETE_FIRE);
+			return replace(start, "STATEMENT");
 		} else {
 			//delete OBJECT [with fade]
 			parse("VARIABLE");
@@ -1505,7 +1548,11 @@ public class CHLCompiler implements Compiler {
 					next();
 					pushi(2);
 				} else if (symbol.is("temple")) {
-					parse("temple explode");
+					accept("temple");
+					symbol = next();
+					if (!symbol.is("explosion") && !symbol.is("explode")) {
+						throw new ParseException("Unexpected token: "+symbol+". Expected: explosion|explode", lastParseException, file, symbol.token.line, symbol.token.col);
+					}
 					pushi(3);
 				} else {
 					throw new ParseException("Unexpected token: "+symbol+". Expected: fade|explosion|temple", lastParseException, file, symbol.token.line, symbol.token.col);
@@ -1547,309 +1594,341 @@ public class CHLCompiler implements Compiler {
 	
 	private SymbolInstance parseEnableDisable() throws ParseException {
 		final int start = it.nextIndex();
-		SymbolInstance action = parseEnableDisableKeyword();
-		SymbolInstance symbol = peek();
-		if (symbol.is("leash")) {
-			accept("leash");
-			symbol = peek();
-			if (symbol.is("on")) {
-				parse("on OBJECT EOL");
-				//enable|disable leash on OBJECT
-				sys(SET_LEASH_WORKS);
-				return replace(start, "STATEMENT");
-			} else if (symbol.is("draw")) {
-				parse("draw EOL");
-				//enable|disable leash draw
-				sys(SET_DRAW_LEASH);
+		if (checkAhead("ANY countdown")) {
+			SymbolInstance action = next();
+			accept("countdown");
+			if (action.is("enable")) {
+				parse("timer down with EXPRESSION seconds EOL");
+				//enable countdown timer down with EXPRESSION seconds
+				pushb(false);
+				sys(START_COUNTDOWN_TIMER);
 				return replace(start, "STATEMENT");
 			} else {
-				throw new ParseException("Unexpected token: "+symbol+". Expected: on|draw", lastParseException, file, symbol.token.line, symbol.token.col);
+				parse("timer EOL");
+				//disable countdown timer
+				sys(END_COUNTDOWN_TIMER);
+				return replace(start, "STATEMENT");
 			}
-		} else if (symbol.is("player")) {
-			parse("player EXPRESSION");
-			symbol = peek();
-			if (symbol.is("wind")) {
-				parse("wind resistance EOL");
-				//enable|disable player EXPRESSION wind resistance
-				throw new ParseException("Statement not implemented", file, line, col);
-				//return replace(start, "STATEMENT");
-			} else if (symbol.is("virtual")) {
-				parse("virtual influence EOL");
-				//enable|disable player EXPRESSION virtual influence
-				sys(SET_VIRTUAL_INFLUENCE);
-				return replace(start, "STATEMENT");
-			} else {
-				throw new ParseException("Unexpected token: "+symbol+". Expected: wind|virtual", lastParseException, file, symbol.token.line, symbol.token.col);
-			}
-		} else if (symbol.is("fight")) {
-			parse("fight exit EOL");
-			//enable|disable fight exit
-			throw new ParseException("Statement not implemented", file, line, col);
-			//return replace(start, "STATEMENT");
-		} else if (symbol.is("computer")) {
-			parse("computer player EXPRESSION EOL");
-			//enable|disable computer player EXPRESSION
-			sys(ENABLE_DISABLE_COMPUTER_PLAYER1);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("game")) {
-			parse("game time EOL");
-			//enable|disable game time
-			sys(GAME_TIME_ON_OFF);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("help")) {
-			parse("help system EOL");
-			//enable|disable help system
-			sys(SET_HELP_SYSTEM);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("creature")) {
-			accept("creature");
-			symbol = peek();
-			if (symbol.is("sound")) {
-				parse("sound EOL");
-				//enable|disable creature sound
-				sys(SET_CREATURE_SOUND);
-				return replace(start, "STATEMENT");
-			} else if (symbol.is("in")) {
-				parse("in temple EOL");
-				//enable|disable creature in temple
-				sys(SET_CREATURE_IN_TEMPLE);
-				return replace(start, "STATEMENT");
-			} else {
-				throw new ParseException("Unexpected token: "+symbol+". Expected: sound|in", lastParseException, file, symbol.token.line, symbol.token.col);
-			}
-		} else if (symbol.is("sound")) {
-			parse("sound effects EOL");
-			//enable|disable sound effects
-			sys(SET_GAME_SOUND);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("spell")) {
-			parse("spell CONST_EXPR");
-			symbol = peek();
-			if (symbol.is("in")) {
-				//enable|disable spell CONST_EXPR in OBJECT
-				parse("in OBJECT EOL");
-				sys(SET_MAGIC_IN_OBJECT);
-				return replace(start, "STATEMENT");
-			} else if (symbol.is("for")) {
-				//enable|disable spell CONST_EXPR for player EXPRESSION
-				parse("for player EXPRESSION EOL");
-				throw new ParseException("Statement not implemented", file, line, col);
-				//return replace(start, "STATEMENT");
-			} else {
-				throw new ParseException("Unexpected token: "+symbol+". Expected: in|for", lastParseException, file, symbol.token.line, symbol.token.col);
-			}
-		} else if (symbol.is("angle")) {
-			parse("angle sound EOL");
-			//enable|disable angle sound
-			sys(START_ANGLE_SOUND1);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("pitch")) {
-			parse("pitch sound EOL");
-			//enable|disable pitch sound
-			sys(START_ANGLE_SOUND2);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("highlight")) {
-			parse("highlight draw EOL");
-			//enable|disable highlight draw
-			sys(SET_DRAW_HIGHLIGHT);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("intro")) {
-			parse("intro building EOL");
-			//enable|disable intro building
-			throw new ParseException("Statement not implemented", file, line, col);
-			//return replace(start, "STATEMENT");
-		} else if (symbol.is("temple")) {
-			parse("temple EOL");
-			//enable|disable temple
-			sys(SET_INTERFACE_CITADEL);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("climate")) {
-			accept("climate");
-			symbol = peek();
-			if (symbol.is("weather")) {
-				parse("weather EOL");
-				//enable|disable climate weather
-				sys(PAUSE_UNPAUSE_CLIMATE_SYSTEM);
-				return replace(start, "STATEMENT");
-			} else if (symbol.is("create")) {
-				parse("create storms EOL");
-				//enable|disable climate create storms
-				sys(PAUSE_UNPAUSE_STORM_CREATION_IN_CLIMATE_SYSTEM);
-				return replace(start, "STATEMENT");
-			} else {
-				throw new ParseException("Unexpected token: "+symbol+". Expected: weather|create", lastParseException, file, symbol.token.line, symbol.token.col);
-			}
-		} else if (symbol.is("music")) {
-			parse("music on OBJECT EOL");
-			//enable|disable music on OBJECT
-			throw new ParseException("Statement not implemented", file, line, col);
-			//return replace(start, "STATEMENT");
-		} else if (symbol.is("alignment")) {
-			parse("alignment music EOL");
-			//enable|disable alignment music
-			sys(ENABLE_DISABLE_ALIGNMENT_MUSIC);
-			return replace(start, "STATEMENT");
-		} else if (symbol.is("clipping")) {
-			parse("clipping distance EXPRESSION EOL");
-			//enable|disable clipping distance EXPRESSION
-			throw new ParseException("Statement not implemented", file, line, col);
-			//return replace(start, "STATEMENT");
-		} else if (symbol.is("camera")) {
-			parse("camera fixed rotation at COORD_EXPR EOL");
-			//enable|disable camera fixed rotation at COORD_EXPR
-			throw new ParseException("Statement not implemented", file, line, col);
-			//return replace(start, "STATEMENT");
-		} else if (symbol.is("jc")) {
-			parse("jc special CONST_EXPR on OBJECT EOL");
-			//enable|disable jc special CONST_EXPR on OBJECT
-			pushf(0);
-			sys(THING_JC_SPECIAL);
-			return replace(start, "STATEMENT");
 		} else {
-			symbol = parseObject(false);
-			if (symbol != null) {
+			SymbolInstance action = parse("enable|disable")[0];
+			SymbolInstance symbol = peek();
+			if (symbol.is("leash")) {
+				accept("leash");
 				symbol = peek();
-				if (symbol.is("active")) {
-					parse("active EOL");
-					//enable|disable OBJECT active
-					sys(SET_ACTIVE);
+				if (symbol.is("on")) {
+					parse("on OBJECT EOL");
+					//enable|disable leash on OBJECT
+					sys(SET_LEASH_WORKS);
 					return replace(start, "STATEMENT");
-				} else if (symbol.is("attack")) {
-					parse("attack own town EOL");
-					//enable|disable OBJECT attack own town
+				} else if (symbol.is("draw")) {
+					parse("draw EOL");
+					//enable|disable leash draw
+					sys(SET_DRAW_LEASH);
+					return replace(start, "STATEMENT");
+				} else {
+					throw new ParseException("Unexpected token: "+symbol+". Expected: on|draw", lastParseException, file, symbol.token.line, symbol.token.col);
+				}
+			} else if (symbol.is("player")) {
+				parse("player EXPRESSION");
+				symbol = peek();
+				if (symbol.is("wind")) {
+					parse("wind resistance EOL");
+					//enable|disable player EXPRESSION wind resistance
 					throw new ParseException("Statement not implemented", file, line, col);
 					//return replace(start, "STATEMENT");
-				} else if (symbol.is("reaction")) {
-					parse("reaction EOL");
-					//enable|disable OBJECT reaction
+				} else if (symbol.is("virtual")) {
+					parse("virtual influence EOL");
+					//enable|disable player EXPRESSION virtual influence
+					sys(SET_VIRTUAL_INFLUENCE);
+					return replace(start, "STATEMENT");
+				} else {
+					throw new ParseException("Unexpected token: "+symbol+". Expected: wind|virtual", lastParseException, file, symbol.token.line, symbol.token.col);
+				}
+			} else if (symbol.is("fight")) {
+				parse("fight exit EOL");
+				//enable|disable fight exit
+				throw new ParseException("Statement not implemented", file, line, col);
+				//return replace(start, "STATEMENT");
+			} else if (symbol.is("computer")) {
+				parse("computer player EXPRESSION EOL");
+				//enable|disable computer player EXPRESSION
+				sys(ENABLE_DISABLE_COMPUTER_PLAYER1);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("game")) {
+				parse("game time EOL");
+				//enable|disable game time
+				sys(GAME_TIME_ON_OFF);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("help")) {
+				parse("help system EOL");
+				//enable|disable help system
+				sys(SET_HELP_SYSTEM);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("creature")) {
+				accept("creature");
+				symbol = peek();
+				if (symbol.is("sound")) {
+					parse("sound EOL");
+					//enable|disable creature sound
+					sys(SET_CREATURE_SOUND);
+					return replace(start, "STATEMENT");
+				} else if (symbol.is("in")) {
+					parse("in temple EOL");
+					//enable|disable creature in temple
+					sys(SET_CREATURE_IN_TEMPLE);
+					return replace(start, "STATEMENT");
+				} else {
+					throw new ParseException("Unexpected token: "+symbol+". Expected: sound|in", lastParseException, file, symbol.token.line, symbol.token.col);
+				}
+			} else if (symbol.is("sound")) {
+				parse("sound effects EOL");
+				//enable|disable sound effects
+				sys(SET_GAME_SOUND);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("spell")) {
+				parse("spell CONST_EXPR");
+				symbol = peek();
+				if (symbol.is("in")) {
+					//enable|disable spell CONST_EXPR in OBJECT
+					parse("in OBJECT EOL");
+					sys(SET_MAGIC_IN_OBJECT);
+					return replace(start, "STATEMENT");
+				} else if (symbol.is("for")) {
+					//enable|disable spell CONST_EXPR for player EXPRESSION
+					parse("for player EXPRESSION EOL");
 					throw new ParseException("Statement not implemented", file, line, col);
 					//return replace(start, "STATEMENT");
-				} else if (symbol.is("development")) {
-					parse("development script EOL");
-					//enable|disable OBJECT development script
-					sys(CREATURE_IN_DEV_SCRIPT);
+				} else {
+					throw new ParseException("Unexpected token: "+symbol+". Expected: in|for", lastParseException, file, symbol.token.line, symbol.token.col);
+				}
+			} else if (symbol.is("angle")) {
+				parse("angle sound EOL");
+				//enable|disable angle sound
+				sys(START_ANGLE_SOUND1);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("pitch")) {
+				parse("pitch sound EOL");
+				//enable|disable pitch sound
+				sys(START_ANGLE_SOUND2);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("highlight")) {
+				parse("highlight draw EOL");
+				//enable|disable highlight draw
+				sys(SET_DRAW_HIGHLIGHT);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("intro")) {
+				parse("intro building EOL");
+				//enable|disable intro building
+				throw new ParseException("Statement not implemented", file, line, col);
+				//return replace(start, "STATEMENT");
+			} else if (symbol.is("temple")) {
+				parse("temple EOL");
+				//enable|disable temple
+				sys(SET_INTERFACE_CITADEL);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("climate")) {
+				accept("climate");
+				symbol = peek();
+				if (symbol.is("weather")) {
+					parse("weather EOL");
+					//enable|disable climate weather
+					sys(PAUSE_UNPAUSE_CLIMATE_SYSTEM);
 					return replace(start, "STATEMENT");
-				} else if (symbol.is("spell")) {
-					parse("spell reversion EOL");
-					//enable|disable OBJECT spell reversion
-					throw new ParseException("Statement not implemented", file, line, col);
-					//return replace(start, "STATEMENT");
-				} else if (symbol.is("anim")) {
-					parse("anim time modify EOL");
-					//enable|disable OBJECT anim time modify
-					sys(SET_ANIMATION_MODIFY);
+				} else if (symbol.is("create")) {
+					parse("create storms EOL");
+					//enable|disable climate create storms
+					sys(PAUSE_UNPAUSE_STORM_CREATION_IN_CLIMATE_SYSTEM);
 					return replace(start, "STATEMENT");
-				} else if (symbol.is("friends")) {
-					parse("friends with OBJECT EOL");
-					//enable|disable OBJECT friends with OBJECT
-					sys(CREATURE_FORCE_FRIENDS);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("auto")) {
-					accept("auto");
+				} else {
+					throw new ParseException("Unexpected token: "+symbol+". Expected: weather|create", lastParseException, file, symbol.token.line, symbol.token.col);
+				}
+			} else if (symbol.is("music")) {
+				parse("music on OBJECT EOL");
+				//enable|disable music on OBJECT
+				throw new ParseException("Statement not implemented", file, line, col);
+				//return replace(start, "STATEMENT");
+			} else if (symbol.is("alignment")) {
+				parse("alignment music EOL");
+				//enable|disable alignment music
+				sys(ENABLE_DISABLE_ALIGNMENT_MUSIC);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("clipping")) {
+				parse("clipping distance EXPRESSION EOL");
+				//enable|disable clipping distance EXPRESSION
+				throw new ParseException("Statement not implemented", file, line, col);
+				//return replace(start, "STATEMENT");
+			} else if (symbol.is("camera")) {
+				parse("camera fixed rotation at COORD_EXPR EOL");
+				//enable|disable camera fixed rotation at COORD_EXPR
+				throw new ParseException("Statement not implemented", file, line, col);
+				//return replace(start, "STATEMENT");
+			} else if (symbol.is("jc")) {
+				parse("jc special CONST_EXPR on OBJECT EOL");
+				//enable|disable jc special CONST_EXPR on OBJECT
+				pushf(0);
+				sys(THING_JC_SPECIAL);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("villager")) {
+				parse("villager sound EOL");
+				//enable|disable villager sound
+				sys(SET_VILLAGER_SOUND);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("right")) {
+				parse("right hand only for OBJECT EOL");
+				//enable|disable right hand only for OBJECT
+				sys(CREATURE_SET_RIGHT_HAND_ONLY);
+				return replace(start, "STATEMENT");
+			} else {
+				symbol = parseObject(false);
+				if (symbol != null) {
 					symbol = peek();
-					if (symbol.is("fighting")) {
-						parse("fighting EOL");
-						//enable|disable OBJECT auto fighting
-						sys(SET_CREATURE_AUTO_FIGHTING);
+					if (symbol.is("active")) {
+						parse("active EOL");
+						//enable|disable OBJECT active
+						sys(SET_ACTIVE);
 						return replace(start, "STATEMENT");
-					} else if (symbol.is("scale")) {
-						accept("scale");
-						if (action.is("enable")) {
-							//enable OBJECT auto scale EXPRESSION
-							parseExpression(true);
+					} else if (symbol.is("attack")) {
+						parse("attack own town EOL");
+						//enable|disable OBJECT attack own town
+						throw new ParseException("Statement not implemented", file, line, col);
+						//return replace(start, "STATEMENT");
+					} else if (symbol.is("reaction")) {
+						parse("reaction EOL");
+						//enable|disable OBJECT reaction
+						throw new ParseException("Statement not implemented", file, line, col);
+						//return replace(start, "STATEMENT");
+					} else if (symbol.is("development")) {
+						parse("development script EOL");
+						//enable|disable OBJECT development script
+						sys(CREATURE_IN_DEV_SCRIPT);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("spell")) {
+						parse("spell reversion EOL");
+						//enable|disable OBJECT spell reversion
+						throw new ParseException("Statement not implemented", file, line, col);
+						//return replace(start, "STATEMENT");
+					} else if (symbol.is("anim")) {
+						parse("anim time modify EOL");
+						//enable|disable OBJECT anim time modify
+						sys(SET_ANIMATION_MODIFY);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("friends")) {
+						parse("friends with OBJECT EOL");
+						//enable|disable OBJECT friends with OBJECT
+						sys(CREATURE_FORCE_FRIENDS);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("auto")) {
+						accept("auto");
+						symbol = peek();
+						if (symbol.is("fighting")) {
+							parse("fighting EOL");
+							//enable|disable OBJECT auto fighting
+							sys(SET_CREATURE_AUTO_FIGHTING);
+							return replace(start, "STATEMENT");
+						} else if (symbol.is("scale")) {
+							accept("scale");
+							if (action.is("enable")) {
+								//enable OBJECT auto scale EXPRESSION
+								parseExpression(true);
+							} else {
+								//disable OBJECT auto scale
+								pushf(0);
+							}
+							accept(TokenType.EOL);
+							sys(CREATURE_AUTOSCALE);
+							return replace(start, "STATEMENT");
 						} else {
-							//disable OBJECT auto scale
-							pushf(0);
+							throw new ParseException("Unexpected token: "+symbol+". Expected: fighting|scale", lastParseException, file, symbol.token.line, symbol.token.col);
 						}
-						accept(TokenType.EOL);
-						sys(CREATURE_AUTOSCALE);
+					} else if (symbol.is("only")) {
+						parse("only for scripts EOL");
+						//enable|disable OBJECT only for scripts
+						throw new ParseException("Statement not implemented", file, line, col);
+						//return replace(start, "STATEMENT");
+					} else if (symbol.is("poisoned")) {
+						parse("poisoned EOL");
+						//enable|disable OBJECT poisoned
+						sys(SET_POISONED);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("build")) {
+						parse("build worship site EOL");
+						//enable|disable OBJECT build worship site
+						sys(SET_CAN_BUILD_WORSHIPSITE);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("skeleton")) {
+						parse("skeleton EOL");
+						//enable|disable OBJECT skeleton
+						sys(SET_SKELETON);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("indestructible")) {
+						parse("indestructible EOL");
+						//enable|disable OBJECT indestructible
+						sys(SET_INDESTRUCTABLE);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("hurt")) {
+						parse("hurt by fire EOL");
+						//enable|disable OBJECT hurt by fire
+						sys(SET_HURT_BY_FIRE);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("set")) {
+						parse("set on fire EOL");
+						//enable|disable OBJECT set on fire
+						sys(SET_SET_ON_FIRE);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("on")) {
+						parse("on fire EXPRESSION EOL");
+						//enable|disable OBJECT on fire EXPRESSION
+						sys(SET_ON_FIRE);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("moveable")) {
+						parse("moveable EOL");
+						//enable|disable OBJECT moveable
+						sys(SET_ID_MOVEABLE);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("pickup")) {
+						parse("pickup EOL");
+						//enable|disable OBJECT pickup
+						sys(SET_ID_PICKUPABLE);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("high")) {
+						parse("high graphics|gfx detail EOL");
+						//enable|disable OBJECT high graphics|gfx detail
+						sys(SET_HIGH_GRAPHICS_DETAIL);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("affected")) {
+						parse("affected by wind EOL");
+						//enable|disable OBJECT affected by wind
+						sys(SET_AFFECTED_BY_WIND);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("can")) {
+						parse("can be leashed to EOL");
+						//enable|disable OBJECT can be leashed to
+						sys(CAN_BE_LEASHED);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("tattoo")) {
+						parse("tattoo CONST_EXPR EOL");
+						//enable|disable OBJECT tattoo CONST_EXPR
+						sys(SET_OBJECT_TATTOO);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("immune")) {
+						parse("immune to spells EOL");
+						//enable|disable OBJECT immune to spells
+						sys(ENABLE_OBJECT_IMMUNE_TO_SPELLS);
 						return replace(start, "STATEMENT");
 					} else {
-						throw new ParseException("Unexpected token: "+symbol+". Expected: fighting|scale", lastParseException, file, symbol.token.line, symbol.token.col);
+						throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
 					}
-				} else if (symbol.is("only")) {
-					parse("only for scripts EOL");
-					//enable|disable OBJECT only for scripts
-					throw new ParseException("Statement not implemented", file, line, col);
-					//return replace(start, "STATEMENT");
-				} else if (symbol.is("poisoned")) {
-					parse("poisoned EOL");
-					//enable|disable OBJECT poisoned
-					sys(SET_POISONED);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("build")) {
-					parse("build worship site EOL");
-					//enable|disable OBJECT build worship site
-					sys(SET_CAN_BUILD_WORSHIPSITE);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("skeleton")) {
-					parse("skeleton EOL");
-					//enable|disable OBJECT skeleton
-					sys(SET_SKELETON);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("indestructible")) {
-					parse("indestructible EOL");
-					//enable|disable OBJECT indestructible
-					sys(SET_INDESTRUCTABLE);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("hurt")) {
-					parse("hurt by fire EOL");
-					//enable|disable OBJECT hurt by fire
-					sys(SET_HURT_BY_FIRE);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("set")) {
-					parse("set on fire EOL");
-					//enable|disable OBJECT set on fire
-					sys(SET_SET_ON_FIRE);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("on")) {
-					parse("on fire EXPRESSION EOL");
-					//enable|disable OBJECT on fire EXPRESSION
-					sys(SET_ON_FIRE);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("moveable")) {
-					parse("moveable EOL");
-					//enable|disable OBJECT moveable
-					sys(SET_ID_MOVEABLE);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("pickup")) {
-					parse("pickup EOL");
-					//enable|disable OBJECT pickup
-					sys(SET_ID_PICKUPABLE);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("high")) {
-					parse("high graphics|gfx detail EOL");
-					//enable|disable OBJECT high graphics|gfx detail
-					sys(SET_HIGH_GRAPHICS_DETAIL);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("affected")) {
-					parse("affected by wind EOL");
-					//enable|disable OBJECT affected by wind
-					sys(SET_AFFECTED_BY_WIND);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("can")) {
-					parse("can be leashed to EOL");
-					//enable|disable OBJECT can be leashed to
-					sys(CAN_BE_LEASHED);
-					return replace(start, "STATEMENT");
-				} else if (symbol.is("tattoo")) {
-					parse("tattoo CONST_EXPR EOL");
-					//enable|disable OBJECT tattoo CONST_EXPR
-					sys(SET_OBJECT_TATTOO);
-					return replace(start, "STATEMENT");
 				} else {
-					throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
-				}
-			} else {
-				symbol = parseConstExpr(false);
-				if (symbol != null) {
-					parse("avi sequence EOL");
-					//enable|disable CONST_EXPR avi sequence
-					sys(SET_AVI_SEQUENCE);
-					return replace(start, "STATEMENT");
-				} else {
-					symbol = peek();
-					throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
+					symbol = parseConstExpr(false);
+					if (symbol != null) {
+						parse("avi sequence EOL");
+						//enable|disable CONST_EXPR avi sequence
+						sys(SET_AVI_SEQUENCE);
+						return replace(start, "STATEMENT");
+					} else {
+						symbol = peek();
+						throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
+					}
 				}
 			}
 		}
@@ -1875,10 +1954,19 @@ public class CHLCompiler implements Compiler {
 		parse("teach OBJECT");
 		SymbolInstance symbol = peek();
 		if (symbol.is("all")) {
-			parse("all excluding CONST_EXPR EOL");
-			//teach OBJECT all excluding CONST_EXPR
-			throw new ParseException("Statement not implemented", file, line, col);
-			//return replace(start, "STATEMENT");
+			accept("all");
+			symbol = peek();
+			if (symbol.is("excluding")) {
+				parse("excluding CONST_EXPR EOL");
+				//teach OBJECT all excluding CONST_EXPR
+				throw new ParseException("Statement not implemented", file, line, col);
+				//return replace(start, "STATEMENT");
+			} else {
+				//teach OBJECT all
+				accept(TokenType.EOL);
+				sys(CREATURE_LEARN_EVERYTHING);
+				return replace(start, "STATEMENT");
+			}
 		} else if (symbol.is("everything")) {
 			//teach OBJECT everything
 			parse("everything EOL");
@@ -1954,10 +2042,21 @@ public class CHLCompiler implements Compiler {
 				throw new ParseException("Unexpected token: "+symbol+". Expected: object|position", lastParseException, file, symbol.token.line, symbol.token.col);
 			}
 		} else if (symbol.is("hit")) {
-			parse("hit object EOL");
-			//clear hit object
-			sys(CLEAR_HIT_OBJECT);
-			return replace(start, "STATEMENT");
+			accept("hit");
+			symbol = peek();
+			if (symbol.is("land")) {
+				parse("land object EOL");
+				//clear hit land object
+				sys(CLEAR_HIT_LAND_OBJECT);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("object")) {
+				parse("object EOL");
+				//clear hit object
+				sys(CLEAR_HIT_OBJECT);
+				return replace(start, "STATEMENT");
+			} else {
+				throw new ParseException("Unexpected token: "+symbol+". Expected: land|object", lastParseException, file, symbol.token.line, symbol.token.col);
+			}
 		} else if (symbol.is("player")) {
 			parse("player EXPRESSION spell charging EOL");
 			//clear player EXPRESSION spell charging
@@ -1972,6 +2071,11 @@ public class CHLCompiler implements Compiler {
 			parse("clipping window time EXPRESSION EOL");
 			//clear clipping window time EXPRESSION
 			sys(CLEAR_CLIPPING_WINDOW);
+			return replace(start, "STATEMENT");
+		} else if (symbol.is("spells")) {
+			parse("spells on OBJECT EOL");
+			//clear spells on OBJECT
+			sys(CLEAR_SPELLS_ON_OBJECT);
 			return replace(start, "STATEMENT");
 		} else {
 			throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
@@ -2151,8 +2255,8 @@ public class CHLCompiler implements Compiler {
 			} else if (symbol.is("step")) {
 				parse("step CONST_EXPR EOL");
 				//queue OBJECT fight step CONST_EXPR
-				throw new ParseException("Statement not implemented", file, line, col);
-				//return replace(start, "STATEMENT");
+				sys(SET_CREATURE_QUEUE_FIGHT_STEP);
+				return replace(start, "STATEMENT");
 			} else if (symbol.is("spell")) {
 				parse("spell CONST_EXPR EOL");
 				//queue OBJECT fight spell CONST_EXPR
@@ -2208,8 +2312,8 @@ public class CHLCompiler implements Compiler {
 		if (symbol.is("computer")) {
 			parse("computer player EXPRESSION personality STRING EOL");
 			//save computer player EXPRESSION personality STRING
-			throw new ParseException("Statement not implemented", file, line, col);
-			//return replace(start, "STATEMENT");
+			sys(SAVE_COMPUTER_PLAYER_PERSONALITY);
+			return replace(start, "STATEMENT");
 		} else if (symbol.is("game")) {
 			parse("game in slot EXPRESSION EOL");
 			//save game in slot EXPRESSION
@@ -2526,7 +2630,8 @@ public class CHLCompiler implements Compiler {
 		if (symbol.is("until")) {
 			next();	//skip
 		}
-		parse("CONDITION EOL");
+		//parse("CONDITION EOL");
+		parse("CONDITION");
 		jz(lblWait);
 		return replace(start, "STATEMENT");
 	}
@@ -2595,10 +2700,27 @@ public class CHLCompiler implements Compiler {
 					throw new ParseException("Unexpected token: "+symbol+". Expected: to|at", lastParseException, file, symbol.token.line, symbol.token.col);
 				}
 			} else if (symbol.is("play")) {
-				parse("play across EXPRESSION down EXPRESSION CONST_EXPR [speed EXPRESSION] EOL");
-				//make SPIRIT_TYPE spirit play across EXPRESSION down EXPRESSION CONST_EXPR [speed EXPRESSION]
-				throw new ParseException("Statement not implemented", file, line, col);
-				//return replace(start, "STATEMENT");
+				accept("play");
+				symbol = peek();
+				if (symbol.is("across")) {
+					parse("across EXPRESSION down EXPRESSION CONST_EXPR [speed EXPRESSION] EOL", 1);
+					//make SPIRIT_TYPE spirit play across EXPRESSION down EXPRESSION CONST_EXPR [speed EXPRESSION]
+					sys(PLAY_SPIRIT_ANIM);
+					return replace(start, "STATEMENT");
+				} else {
+					//make SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR [in world]
+					parse("CONST_EXPR at COORD_EXPR");
+					symbol = peek(false);
+					if (symbol.is("in")) {
+						parse("in world");
+						pushf(1);
+					} else {
+						pushf(0);
+					}
+					accept(TokenType.EOL);
+					sys(PLAY_SPIRIT_ANIM_IN_WORLD);
+					return replace(start, "STATEMENT");
+				}
 			} else if (symbol.is("cling")) {
 				parse("cling across EXPRESSION down EXPRESSION EOL");
 				//make SPIRIT_TYPE spirit cling across EXPRESSION down EXPRESSION
@@ -2677,42 +2799,20 @@ public class CHLCompiler implements Compiler {
 			parse("sound CONST_EXPR playing EOL");
 			sys(SAY_SOUND_EFFECT_PLAYING);
 			return replace(start, "STATEMENT");
-		} else if (checkAhead("STRING with number")) {
-			parse("STRING with number EXPRESSION EOL");
-			//say STRING with number EXPRESSION
-			throw new ParseException("Statement not implemented", file, line, col);
-			//return replace(start, "STATEMENT");
 		} else {
 			parse("[single line]");
 			symbol = peek();
 			if (symbol.is(TokenType.STRING)) {
-				//say [single line] STRING [with interaction|without interaction]
 				parseString();
-				symbol = peek(false);
-				if (symbol.is("with")) {
-					parse("with interaction");
-					pushi(1);
-				} else if (symbol.is("without")) {
-					parse("without interaction");
-					pushi(2);
-				} else {
-					pushi(0);
-				}
-				pusho(0);
-				accept(TokenType.EOL);
-				sys(TEMP_TEXT);
-				return replace(start, "STATEMENT");
-			} else {
-				parseConstExpr(true);
 				if (checkAhead("with number")) {
-					//say CONST_EXPR with number EXPRESSION
-					parse("with number EXPRESSION EOL");
+					//say [single line] STRING with number EXPRESSION [by OBJECT]
+					parse("with number EXPRESSION");
 					pushi(0);
-					pusho(0);
-					sys(RUN_TEXT_WITH_NUMBER);
+					parse("[by OBJECT] EOL");
+					sys(TEMP_TEXT_WITH_NUMBER);
 					return replace(start, "STATEMENT");
 				} else {
-					//say [single line] CONST_EXPR [with interaction|without interaction]
+					//say [single line] STRING [with interaction|without interaction] [by OBJECT]
 					symbol = peek(false);
 					if (symbol.is("with")) {
 						parse("with interaction");
@@ -2723,8 +2823,32 @@ public class CHLCompiler implements Compiler {
 					} else {
 						pushi(0);
 					}
-					pusho(0);
-					accept(TokenType.EOL);
+					parse("[by OBJECT] EOL");
+					sys(TEMP_TEXT);
+					return replace(start, "STATEMENT");
+				}
+			} else {
+				parseConstExpr(true);
+				if (checkAhead("with number")) {
+					//say CONST_EXPR with number EXPRESSION [by OBJECT]
+					parse("with number EXPRESSION");
+					pushi(0);
+					parse("[by OBJECT] EOL");
+					sys(RUN_TEXT_WITH_NUMBER);
+					return replace(start, "STATEMENT");
+				} else {
+					//say [single line] CONST_EXPR [with interaction|without interaction] [by OBJECT]
+					symbol = peek(false);
+					if (symbol.is("with")) {
+						parse("with interaction");
+						pushi(1);
+					} else if (symbol.is("without")) {
+						parse("without interaction");
+						pushi(2);
+					} else {
+						pushi(0);
+					}
+					parse("[by OBJECT] EOL");
 					sys(RUN_TEXT);
 					return replace(start, "STATEMENT");
 				}
@@ -2823,6 +2947,14 @@ public class CHLCompiler implements Compiler {
 		return replace(start, "STATEMENT");
 	}
 	
+	private SymbolInstance parseFire() throws ParseException {
+		final int start = it.nextIndex();
+		parse("fire gun OBJECT EOL");
+		//fire gun OBJECT
+		sys(FIRE_GUN);
+		return replace(start, "STATEMENT");
+	}
+	
 	private SymbolInstance parseAssignment() throws ParseException {
 		final int start = it.nextIndex();
 		if (peek(1).is("of")) {
@@ -2833,28 +2965,52 @@ public class CHLCompiler implements Compiler {
 			//
 			SymbolInstance symbol = next();
 			if (symbol.is("=")) {
-				popi();
-			}
-			parse("EXPRESSION EOL");
-			if (symbol.is("=")) {
 				//CONSTANT of OBJECT = EXPRESSION
+				popi();
+				parse("EXPRESSION EOL");
+				sys2(SET_PROPERTY);
+				return replace(start, "STATEMENT");
 			} else if (symbol.is("+=")) {
 				//CONSTANT of OBJECT += EXPRESSION
+				parse("EXPRESSION EOL");
 				addf();
+				sys2(SET_PROPERTY);
+				return replace(start, "STATEMENT");
 			} else if (symbol.is("-=")) {
 				//CONSTANT of OBJECT -= EXPRESSION
+				parse("EXPRESSION EOL");
 				subf();
+				sys2(SET_PROPERTY);
+				return replace(start, "STATEMENT");
 			} else if (symbol.is("*=")) {
 				//CONSTANT of OBJECT *= EXPRESSION
+				parse("EXPRESSION EOL");
 				mul();
+				sys2(SET_PROPERTY);
+				return replace(start, "STATEMENT");
 			} else if (symbol.is("/=")) {
 				//CONSTANT of OBJECT /= EXPRESSION
+				parse("EXPRESSION EOL");
 				div();
+				sys2(SET_PROPERTY);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("++")) {
+				//CONSTANT of OBJECT++
+				accept(TokenType.EOL);
+				pushf(1);
+				addf();
+				sys2(SET_PROPERTY);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("--")) {
+				//CONSTANT of OBJECT--
+				accept(TokenType.EOL);
+				pushf(1);
+				subf();
+				sys2(SET_PROPERTY);
+				return replace(start, "STATEMENT");
 			} else {
 				throw new ParseException("Unexpected token: "+symbol+". Expected: =|+=|-=|*=|/=", lastParseException, file, symbol.token.line, symbol.token.col);
 			}
-			sys2(SET_PROPERTY);
-			return replace(start, "STATEMENT");
 		} else {
 			SymbolInstance symbol = accept(TokenType.IDENTIFIER);
 			String varName = symbol.token.value;
@@ -3052,7 +3208,8 @@ public class CHLCompiler implements Compiler {
 			inCinemaBlock = true;
 			inCameraBlock = true;
 			inDialogueBlock = true;
-			parse("cinema EOL");
+			//parse("cinema EOL");
+			parse("cinema");
 			final int lblRetry2 = getIp();
 			sys(START_DIALOGUE);
 			jz(lblRetry2);
@@ -3077,6 +3234,14 @@ public class CHLCompiler implements Compiler {
 				//
 				parse("end dialogue EOL");
 				sys(END_DIALOGUE);
+			} else if (checkAhead("end cinema with widescreen")) {
+				parse("end cinema with widescreen EOL");
+				pushb(false);
+				sys(SET_WIDESCREEN);
+				sys(END_GAME_SPEED);
+				sys(END_CAMERA_CONTROL);
+				sys(END_DIALOGUE);
+				sys(GAME_HOLD_WIDESCREEN);
 			} else {
 				parse("end cinema EOL");
 				pushb(false);
@@ -3138,6 +3303,16 @@ public class CHLCompiler implements Compiler {
 			//
 			parse("end dual camera EOL");
 			sys(RELEASE_DUAL_CAMERA);
+			return replace(start, "begin dual camera");
+		} else if (symbol.is("cannon")) {
+			//begin cannon
+			parse("cannon EOL");
+			sys(START_CANNON_CAMERA);
+			//
+			parseStatements();
+			//
+			parse("end cannon EOL");
+			sys(END_CANNON_CAMERA);
 			return replace(start, "begin dual camera");
 		} else {
 			throw new ParseException("Unexpected token: "+symbol+". Expected: loop|cinema|camera|dialogue|known|dual", lastParseException, file, symbol.token.line, symbol.token.col);
@@ -3432,6 +3607,11 @@ public class CHLCompiler implements Compiler {
 						sys(GET_REAL_YEAR);
 						return replace(start, "EXPRESSION");
 					}
+				} else if (symbol.is("countdown")) {
+					parse("countdown timer time");
+					//get countdown timer time
+					sys(GET_COUNTDOWN_TIMER_TIME);
+					return replace(start, "EXPRESSION");
 				} else if (checkAhead("CONSTANT of")) {
 					//[get] CONSTANT of OBJECT
 					parse("CONSTANT of OBJECT");
@@ -3620,6 +3800,50 @@ public class CHLCompiler implements Compiler {
 				parse("square root EXPRESSION");
 				sqrt();
 				return replace(start, "EXPRESSION");
+			} else if (symbol.is("tan")) {
+				//tan EXPRESSION
+				parse("tan EXPRESSION");
+				tan();
+				return replace(start, "EXPRESSION");
+			} else if (symbol.is("sin")) {
+				//sin EXPRESSION
+				parse("sin EXPRESSION");
+				sin();
+				return replace(start, "EXPRESSION");
+			} else if (symbol.is("cos")) {
+				//cos EXPRESSION
+				parse("cos EXPRESSION");
+				cos();
+				return replace(start, "EXPRESSION");
+			} else if (symbol.is("arctan")) {
+				//arctan EXPRESSION
+				parse("arctan EXPRESSION");
+				atan();
+				return replace(start, "EXPRESSION");
+			} else if (symbol.is("arcsin")) {
+				//arcsin EXPRESSION
+				parse("arcsin EXPRESSION");
+				asin();
+				return replace(start, "EXPRESSION");
+			} else if (symbol.is("arccos")) {
+				//arccos EXPRESSION
+				parse("arccos EXPRESSION");
+				acos();
+				return replace(start, "EXPRESSION");
+			} else if (symbol.is("mouse")) {
+				parse("mouse percentage");
+				symbol = peek();
+				if (symbol.is("across")) {
+					accept("across");
+					//mouse percentage across
+					sys(GET_MOUSE_ACROSS);
+					return replace(start, "EXPRESSION");
+				} else if (symbol.is("down")) {
+					accept("down");
+					//mouse percentage down
+					sys(GET_MOUSE_DOWN);
+					return replace(start, "EXPRESSION");
+				}
 			} else if (symbol.is("-")) {
 				//-EXPRESSION
 				accept("-");
@@ -3651,6 +3875,26 @@ public class CHLCompiler implements Compiler {
 					parse("of OBJECT");
 					sys(GET_PROPERTY);
 					return replace(start, "EXPRESSION");
+				} else if (symbol.is("[")) {
+					String var = id1.token.value;
+					accept("[");
+					if (checkAhead("NUMBER ]")) {
+						//IDENTIFIER\[NUMBER\]
+						symbol = accept(TokenType.NUMBER);
+						int index = symbol.token.intVal();
+						accept("]");
+						pushvVal(var, index);
+						return replace(start, "EXPRESSION");
+					} else {
+						//IDENTIFIER\[EXPRESSION\]
+						int varId = getVarId(var);
+						parseExpression(true);
+						accept("]");
+						pushf(varId);
+						addf();
+						ref_push2();
+						return replace(start, "EXPRESSION");
+					}
 				} else {
 					//IDENTIFIER
 					String var = id1.token.value;
@@ -3808,10 +4052,21 @@ public class CHLCompiler implements Compiler {
 					throw new ParseException("Unexpected token: "+symbol+". Expected: ready|not", lastParseException, file, symbol.token.line, symbol.token.col);
 				}
 			} else if (symbol.is("widescreen")) {
-				parse("widescreen ready");
-				//widescreen ready
-				sys(WIDESCREEN_TRANSISTION_FINISHED);
-				return replace(start, "CONDITION");
+				accept("widescreen");
+				symbol = peek();
+				if (symbol.is("ready")) {
+					accept("ready");
+					//widescreen ready
+					sys(WIDESCREEN_TRANSISTION_FINISHED);
+					return replace(start, "CONDITION");
+				} else if (symbol.is("transition")) {
+					parse("transition complete");
+					//widescreen transition complete
+					sys(WIDESCREEN_TRANSISTION_FINISHED);
+					return replace(start, "CONDITION");
+				} else {
+					throw new ParseException("Unexpected token: "+symbol+". Expected: ready|transition", lastParseException, file, symbol.token.line, symbol.token.col);
+				}
 			} else if (symbol.is("fade")) {
 				parse("fade ready");
 				//fade ready
@@ -3905,14 +4160,29 @@ public class CHLCompiler implements Compiler {
 				throw new ParseException("Statement not implemented", lastParseException, file, line, col);
 				//return replace(start, "CONDITION");
 			} else if (symbol.is("music")) {
-				parse("music line EXPRESSION");
-				//music line EXPRESSION
-				sys(LAST_MUSIC_LINE);
-				return replace(start, "CONDITION");
+				accept("music");
+				symbol = peek();
+				if (symbol.is("line")) {
+					parse("line EXPRESSION");
+					//music line EXPRESSION
+					sys(LAST_MUSIC_LINE);
+					return replace(start, "CONDITION");
+				} else {
+					//music CONST_EXPR played
+					symbol = parseConstExpr(true);
+					accept("played");
+					sys(MUSIC_PLAYED2);
+					return replace(start, "CONDITION");
+				}
 			} else if (symbol.is("in")) {
 				parse("in widescreen");
 				//in widescreen
 				sys(IN_WIDESCREEN);
+				return replace(start, "CONDITION");
+			} else if (symbol.is("mouse")) {
+				parse("mouse left|right button down");
+				//mouse left|right button down
+				sys(MOUSE_DOWN);
 				return replace(start, "CONDITION");
 			} else if (symbol.is("not")) {
 				//not CONDITION
@@ -4160,6 +4430,16 @@ public class CHLCompiler implements Compiler {
 					//OBJECT fighting
 					sys(IS_FIGHTING);
 					return replace(start, "CONDITION");
+				} else if (symbol.is("==")) {
+					parse("== OBJECT");
+					//OBJECT == OBJECT
+					eq();
+					return replace(start, "CONDITION");
+				} else if (symbol.is("!=")) {
+					parse("!= OBJECT");
+					//OBJECT != OBJECT
+					neq();
+					return replace(start, "CONDITION");
 				}
 			}
 		} catch (ParseException e) {
@@ -4346,8 +4626,8 @@ public class CHLCompiler implements Compiler {
 				} else if (symbol.is("nearest")) {
 					parse("nearest town at COORD_EXPR for player EXPRESSION radius EXPRESSION");
 					//get nearest town at COORD_EXPR for player EXPRESSION radius EXPRESSION
-					throw new ParseException("Statement not implemented", lastParseException, file, line, col);
-					//return replace(start, "OBJECT");
+					sys(GET_NEAREST_TOWN_OF_PLAYER);
+					return replace(start, "OBJECT");
 				} else if (symbol.is("town")) {
 					parse("town with id EXPRESSION");
 					//get town with id EXPRESSION
@@ -4373,9 +4653,17 @@ public class CHLCompiler implements Compiler {
 					symbol = peek();
 					if (symbol.is("which")) {
 						parse("which hit");
-						//get object which hit
-						sys(GET_OBJECT_WHICH_HIT);
-						return replace(start, "OBJECT");
+						symbol = peek();
+						if (symbol.is("land")) {
+							accept("land");
+							//get object which hit land
+							sys(GET_LAST_OBJECT_WHICH_HIT_LAND);
+							return replace(start, "OBJECT");
+						} else {
+							//get object which hit
+							sys(GET_OBJECT_WHICH_HIT);
+							return replace(start, "OBJECT");
+						}
 					} else if (symbol.is("held")) {
 						accept("held");
 						//get object held
@@ -4385,6 +4673,11 @@ public class CHLCompiler implements Compiler {
 						accept("clicked");
 						//get object clicked
 						sys(GET_OBJECT_CLICKED);
+						return replace(start, "OBJECT");
+					} else if (symbol.is("hand")) {
+						parse("hand is over");
+						//get object hand is over
+						sys(GET_OBJECT_HAND_IS_OVER);
 						return replace(start, "OBJECT");
 					} else {
 						throw new ParseException("Unexpected token: "+symbol+". Expected: which|held|clicked", lastParseException, file, symbol.token.line, symbol.token.col);
@@ -4488,19 +4781,10 @@ public class CHLCompiler implements Compiler {
 					}
 					symbol = parseObject(false);
 					if (symbol != null) {
-						symbol = peek();
-						if (symbol.is("hand")) {
-							parse("hand is over");
-							//get OBJECT hand is over
-							sys(GET_OBJECT_HAND_IS_OVER);
-							return replace(start, "OBJECT");
-						} else if (symbol.is("flock")) {
-							accept("flock");
-							//get OBJECT flock
-							sys(GET_OBJECT_FLOCK);
-							return replace(start, "OBJECT");
-						}
-						revert(checkpoint, checkpointIp, checkpointPreserve);
+						accept("flock");
+						//get OBJECT flock
+						sys(GET_OBJECT_FLOCK);
+						return replace(start, "OBJECT");
 					}
 				}
 			} else if (symbol.is("create")) {
@@ -4592,6 +4876,26 @@ public class CHLCompiler implements Compiler {
 					parse("young creature from OBJECT with OBJECT knowledge at COORD_EXPR");
 					sys(CREATURE_CREATE_YOUNG_WITH_KNOWLEDGE);
 					return replace(start, "OBJECT");
+				} else if (symbol.is("dumb") || symbol.is("creature")) {
+					//create [dumb] creature from creature OBJECT EXPRESSION at COORD_EXPR CONST_EXPR
+					boolean dumb = symbol.is("dumb");
+					if (dumb) {
+						next();
+					}
+					parse("creature from creature OBJECT EXPRESSION at COORD_EXPR CONST_EXPR");
+					pushb(dumb);
+					sys(CREATURE_CREATE_RELATIVE_TO_CREATURE);
+					return replace(start, "OBJECT");
+				} else if (symbol.is("player")) {
+					//create player EXPRESSION temple at COORD_EXPR
+					parse("player EXPRESSION temple at COORD_EXPR");
+					sys(CREATE_PLAYER_TEMPLE);
+					return replace(start, "OBJECT");
+				} else if (symbol.is("alex")) {
+					//create alex special effect CONST_EXPR at COORD_EXPR
+					parse("alex special effect CONST_EXPR at COORD_EXPR");
+					sys(ALEX_SPECIAL_EFFECT_POSITION);
+					return replace(start, "OBJECT");
 				} else {
 					parseConstExpr(true);
 					symbol = peek();
@@ -4605,11 +4909,6 @@ public class CHLCompiler implements Compiler {
 					sys(CREATE);
 					return replace(start, "OBJECT");
 				}
-			} else if (symbol.is("create_creature_from_creature")) {
-				parse("create_creature_from_creature OBJECT EXPRESSION at COORD_EXPR CONST_EXPR");
-				//create_creature_from_creature OBJECT EXPRESSION at COORD_EXPR CONST_EXPR
-				sys(CREATURE_CREATE_RELATIVE_TO_CREATURE);
-				return replace(start, "OBJECT");
 			} else if (symbol.is("marker")) {
 				parse("marker at");
 				pushi("SCRIPT_OBJECT_TYPE_MARKER");
@@ -5015,74 +5314,14 @@ public class CHLCompiler implements Compiler {
 		return null;
 	}
 	
-	private SymbolInstance parseEnableDisableKeyword() throws ParseException {
+	private SymbolInstance parseOptionKeyword(String wordTrue, String wordFalse) throws ParseException {
 		SymbolInstance symbol = next();
-		if (symbol.is("enable")) {
+		if (symbol.is(wordTrue)) {
 			pushb(true);
-		} else if (symbol.is("disable")) {
+		} else if (symbol.is(wordFalse)) {
 			pushb(false);
 		} else {
-			throw new ParseException("Unexpected token: "+symbol+". Expected: enable|disable", lastParseException, file, symbol.token.line, symbol.token.col);
-		}
-		return symbol;
-	}
-	
-	private SymbolInstance parseForwardReverseKeyword() throws ParseException {
-		SymbolInstance symbol = next();
-		if (symbol.is("forward")) {
-			pushb(true);
-		} else if (symbol.is("reverse")) {
-			pushb(false);
-		} else {
-			throw new ParseException("Unexpected token: "+symbol+". Expected: forward|reverse", lastParseException, file, symbol.token.line, symbol.token.col);
-		}
-		return symbol;
-	}
-	
-	private SymbolInstance parseOpenCloseKeyword() throws ParseException {
-		SymbolInstance symbol = next();
-		if (symbol.is("open")) {
-			pushb(true);
-		} else if (symbol.is("close")) {
-			pushb(false);
-		} else {
-			throw new ParseException("Unexpected token: "+symbol+". Expected: open|close", lastParseException, file, symbol.token.line, symbol.token.col);
-		}
-		return symbol;
-	}
-	
-	private SymbolInstance parsePauseUnpauseKeyword() throws ParseException {
-		SymbolInstance symbol = next();
-		if (symbol.is("pause")) {
-			pushb(true);
-		} else if (symbol.is("unpause")) {
-			pushb(false);
-		} else {
-			throw new ParseException("Unexpected token: "+symbol+". Expected: pause|unpause", lastParseException, file, symbol.token.line, symbol.token.col);
-		}
-		return symbol;
-	}
-	
-	private SymbolInstance parseQuestChallengeKeyword() throws ParseException {
-		SymbolInstance symbol = next();
-		if (symbol.is("quest")) {
-			pushb(true);
-		} else if (symbol.is("challenge")) {
-			pushb(false);
-		} else {
-			throw new ParseException("Unexpected token: "+symbol+". Expected: quest|challenge", lastParseException, file, symbol.token.line, symbol.token.col);
-		}
-		return symbol;
-	}
-	
-	private SymbolInstance parseEnterExitKeyword() throws ParseException {
-		SymbolInstance symbol = next();
-		if (symbol.is("enter")) {
-			pushb(true);
-		} else if (symbol.is("exit")) {
-			pushb(false);
-		} else {
-			throw new ParseException("Unexpected token: "+symbol+". Expected: enter|exit", lastParseException, file, symbol.token.line, symbol.token.col);
+			throw new ParseException("Unexpected token: "+symbol+". Expected: "+wordTrue+"|"+wordFalse, lastParseException, file, symbol.token.line, symbol.token.col);
 		}
 		return symbol;
 	}
@@ -5363,17 +5602,19 @@ public class CHLCompiler implements Compiler {
 				r[i] = parsePlayingSide();
 			} else if (symbol.indexOf("|") >= 0) {
 				if ("enable|disable".equals(symbol)) {
-					r[i] = parseEnableDisableKeyword();
+					r[i] = parseOptionKeyword("enable", "disable");
 				} else if ("forward|reverse".equals(symbol)) {
-					r[i] = parseForwardReverseKeyword();
+					r[i] = parseOptionKeyword("forward", "reverse");
 				} else if ("open|close".equals(symbol)) {
-					r[i] = parseOpenCloseKeyword();
+					r[i] = parseOptionKeyword("open", "close");
 				} else if ("pause|unpause".equals(symbol)) {
-					r[i] = parsePauseUnpauseKeyword();
+					r[i] = parseOptionKeyword("pause", "unpause");
 				} else if ("quest|challenge".equals(symbol)) {
-					r[i] = parseQuestChallengeKeyword();
+					r[i] = parseOptionKeyword("quest", "challenge");
 				} else if ("enter|exit".equals(symbol)) {
-					r[i] = parseEnterExitKeyword();
+					r[i] = parseOptionKeyword("enter", "exit");
+				} else if ("left|right".equals(symbol)) {
+					r[i] = parseOptionKeyword("left", "right");
 				} else if ("second|seconds".equals(symbol)) {
 					SymbolInstance sInst = next();
 					if (!sInst.is("second") && !sInst.is("seconds")) {
@@ -5398,7 +5639,7 @@ public class CHLCompiler implements Compiler {
 				} else {
 					throw new IllegalArgumentException("Unknown symbol: "+symbol);
 				}
-			} else if (symbol.startsWith("[")) {	//Optional expression
+			} else if (symbol.startsWith("[") && !"[".equals(symbol)) {	//Optional expression
 				boolean ended = false;
 				boolean match = true;
 				boolean flag = true;	//Tells if this optional expression must generate a boolean value (the other case is a default value)
@@ -5651,16 +5892,24 @@ public class CHLCompiler implements Compiler {
 	}
 	
 	private void pushvAddr(String variable) throws ParseException {
+		pushvAddr(variable, 0);
+	}
+	
+	private void pushvAddr(String variable, int index) throws ParseException {
 		Instruction instruction = Instruction.fromKeyword("PUSHV");
-		instruction.intVal = getVarId(variable);
+		instruction.intVal = getVarId(variable) + index;
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}
 	
 	private void pushvVal(String variable) throws ParseException {
+		pushvVal(variable, 0);
+	}
+	
+	private void pushvVal(String variable, int index) throws ParseException {
 		Instruction instruction = Instruction.fromKeyword("PUSHV");
 		instruction.flags = OPCodeFlag.REF;
-		instruction.intVal = getVarId(variable);
+		instruction.intVal = getVarId(variable) + index;
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}
@@ -5687,14 +5936,6 @@ public class CHLCompiler implements Compiler {
 		Instruction instruction = Instruction.fromKeyword("POPF");
 		instruction.flags = OPCodeFlag.REF;
 		instruction.intVal = getVarId(variable);
-		instruction.lineNumber = line;
-		instructions.add(instruction);
-	}
-	
-	private void popf(int varId) throws ParseException {
-		Instruction instruction = Instruction.fromKeyword("POPF");
-		instruction.flags = OPCodeFlag.REF;
-		instruction.intVal = varId;
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}
@@ -5956,6 +6197,42 @@ public class CHLCompiler implements Compiler {
 	
 	private void sqrt() {
 		Instruction instruction = Instruction.fromKeyword("SQRT");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void tan() {
+		Instruction instruction = Instruction.fromKeyword("TAN");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void sin() {
+		Instruction instruction = Instruction.fromKeyword("SIN");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void cos() {
+		Instruction instruction = Instruction.fromKeyword("COS");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void atan() {
+		Instruction instruction = Instruction.fromKeyword("ATAN");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void asin() {
+		Instruction instruction = Instruction.fromKeyword("ASIN");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void acos() {
+		Instruction instruction = Instruction.fromKeyword("ACOS");
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}
