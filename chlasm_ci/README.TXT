@@ -11,7 +11,7 @@ The tool has a main class named it.ld.bw.chl.Main, it can be executed without ar
 to get the list of the available commands and their syntax. Currently these functions
 are implemented:
 
-- compile CHL source files to CHL binary file (work in progress);
+- compile CHL source files to CHL binary file;
 - convert a CHL binary file to ASM, either in a single file or multiple files (project);
 - convert an ASM file (or project) to CHL binary file;
 - functionally compare two CHL files;
