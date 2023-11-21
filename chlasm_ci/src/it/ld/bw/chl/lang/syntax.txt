@@ -700,6 +700,7 @@ EXPRESSION: {
 	arctan EXPRESSION
 	arcsin EXPRESSION
 	arccos EXPRESSION
+	abs EXPRESSION
 	mouse percentage across
 	mouse percentage down
 	get OBJECT sacrifice total

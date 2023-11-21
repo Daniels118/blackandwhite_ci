@@ -111,7 +111,8 @@ public enum OPCode {
 	ASIN(1, 1),					//40
 	ACOS(1, 1),					//41
 	ATAN2(2, 1),				//42 Not sure about the order of parameters (y,x or x,y?)
-	SQRT(1, 1);					//43
+	SQRT(1, 1),					//43
+	ABS(1, 1);					//44
 	
 	/**This field maps the tuple {opcode, flags, datatype} to the respective mnemonic.
 	 * Access it as keywords[opcode][flags][dataType]
@@ -160,7 +161,8 @@ public enum OPCode {
 /*40*/	{{"ASIN"}},
 /*41*/	{{"ACOS"}},
 /*42*/	{{"ATAN2"}},
-/*43*/	{{"SQRT"}}
+/*43*/	{{"SQRT"}},
+/*44*/	{{"ABS"}}
 	};
 	
 	/**Tells if this opcode expects an immediate value.*/

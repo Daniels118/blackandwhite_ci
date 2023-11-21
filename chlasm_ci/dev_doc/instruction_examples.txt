@@ -6334,10 +6334,10 @@ ___________________________________________
 
 Gets the square root of a number.
 
-Never found
+square root var
 
 	PUSHF [var]		//value
-	SYS SQUARE_ROOT	//(float value) returns (float)
+	SQRT
 ___________________________________________
 
 12.49.10 tan EXPRESSION
@@ -6398,6 +6398,16 @@ arccos 1
 
 	PUSHF 1.0
 	ACOS
+___________________________________________
+
+12.49.17 abs EXPRESSION
+
+?
+
+abs 1
+
+	PUSHF 1.0
+	ABS
 ___________________________________________
 
 12.50 get OBJECT sacrifice total

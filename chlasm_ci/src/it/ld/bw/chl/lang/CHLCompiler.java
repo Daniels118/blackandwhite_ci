@@ -3846,6 +3846,11 @@ public class CHLCompiler implements Compiler {
 				parse("arccos EXPRESSION");
 				acos();
 				return replace(start, "EXPRESSION");
+			} else if (symbol.is("abs")) {
+				//abs EXPRESSION
+				parse("abs EXPRESSION");
+				abs();
+				return replace(start, "EXPRESSION");
 			} else if (symbol.is("mouse")) {
 				parse("mouse percentage");
 				symbol = peek();
@@ -6292,6 +6297,12 @@ public class CHLCompiler implements Compiler {
 	
 	private void acos() {
 		Instruction instruction = Instruction.fromKeyword("ACOS");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void abs() {
+		Instruction instruction = Instruction.fromKeyword("ABS");
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}
