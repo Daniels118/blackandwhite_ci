@@ -1,0 +1,8 @@
+Compile CHL source files into CHL binary file
+
+Syntax
+  chlasm -decompile -i filename -o path
+
+Arguments
+  -i     input CHL file
+  -o     output directory

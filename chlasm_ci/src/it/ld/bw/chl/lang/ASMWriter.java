@@ -139,10 +139,10 @@ public class ASMWriter {
 		try (FileWriter str = new FileWriter(prjFile);) {
 			str.write("source _data.txt\r\n");
 			for (String sourceFilename : sources) {
-				str.write("source " + sourceFilename + "\r\n");
 				if (!isValidFilename(sourceFilename)) {
 					throw new RuntimeException("Invalid source filename: " + sourceFilename);
 				}
+				str.write("source " + sourceFilename + "\r\n");
 			}
 			str.write("source _autorun.txt\r\n");
 		}
@@ -162,6 +162,9 @@ public class ASMWriter {
 		}
 		//
 		for (String sourceFilename : sources) {
+			if (!isValidFilename(sourceFilename)) {
+				throw new RuntimeException("Invalid source filename: " + sourceFilename);
+			}
 			File sourceFile = path.resolve(sourceFilename).toFile();
 			out.println("Writing "+sourceFilename);
 			try (Writer str = new BufferedWriter(new FileWriter(sourceFile));) {

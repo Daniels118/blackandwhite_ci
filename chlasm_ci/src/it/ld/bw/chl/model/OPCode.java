@@ -72,9 +72,9 @@ public enum OPCode {
 	JZ(1, 0, JUMP),				// 1 Alias: JZ, WAIT
 	PUSH(0, 1, ARG),			// 2
 	POP(1, 0, ARG),				// 3
-	ADD(VSTACK),				// 4
+	ADD(2, 1, VSTACK),			// 4
 	SYS(ARG|FINT|VSTACK),		// 5 Alias: SYS, SYS2, CALL
-	SUB(VSTACK),				// 6
+	SUB(2, 1, VSTACK),			// 6
 	NEG(1, 1),					// 7 Alias: NEG, UMINUS
 	MUL(2, 1),					// 8 Alias: MUL, TIMES
 	DIV(2, 1),					// 9
@@ -90,13 +90,13 @@ public enum OPCode {
 	LT(2, 1),					//19
 	JMP(JUMP),					//20
 	SLEEP(1, 1),				//21 Alias: SLEEP, DLY
-	EXCEPT(0, 1, IP),			//22 Alias: EXCEPT, BLK
+	EXCEPT(IP),					//22 Alias: EXCEPT, BLK
 	CAST(1, 1),					//23 Alias: CAST, ZERO
 	CALL(SCRIPT|VSTACK),		//24 Alias: CALL, START, RUN
-	ENDEXCEPT(1, 0),			//25 Alias: FREE, ENDB, ENDEXCEPT
+	ENDEXCEPT(),				//25 Alias: FREE, ENDB, ENDEXCEPT
 	RETEXCEPT(),				//26 Never found
 	ITEREXCEPT(),				//27 Alias: FAILEXCEPT, ITER
-	BRKEXCEPT(1, 0),			//28 Alias: BRKEXCEPT, ENDC
+	BRKEXCEPT(),				//28 Alias: BRKEXCEPT, ENDC
 	SWAP(ARG|FINT|VSTACK),		//29 
 	DUP(0, 1, ARG),				//30 Arg=0 means duplicate the last value on the stack; 1 the previous one and so on
 	LINE(ARG),					//31

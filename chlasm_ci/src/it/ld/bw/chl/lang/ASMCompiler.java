@@ -46,7 +46,8 @@ import it.ld.bw.chl.model.Script;
 import it.ld.bw.chl.model.ScriptType;
 
 public class ASMCompiler implements Compiler {
-	private static final Charset ASCII = Charset.forName("US-ASCII");
+	//private static final Charset ASCII = Charset.forName("US-ASCII");
+	private static final Charset ASCII = Charset.forName("windows-1252");
 	private static final int INITIAL_BUFFER_SIZE = 16 * 1024;
 	private static final int MAX_BUFFER_SIZE = 2 * 1024 * 1024;
 	

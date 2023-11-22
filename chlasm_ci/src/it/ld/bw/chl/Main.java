@@ -27,6 +27,7 @@ import it.ld.bw.chl.exceptions.ParseException;
 import it.ld.bw.chl.lang.ASMCompiler;
 import it.ld.bw.chl.lang.ASMWriter;
 import it.ld.bw.chl.lang.CHLCompiler;
+import it.ld.bw.chl.lang.CHLDecompiler;
 import it.ld.bw.chl.lang.Project;
 import it.ld.bw.chl.lang.Syntax;
 import it.ld.bw.chl.model.CHLFile;
@@ -55,6 +56,8 @@ public class Main {
 				asmToChl(cmd);
 			} else if (cmd.getArgFlag("-compile")) {
 				compile(cmd);
+			} else if (cmd.getArgFlag("-decompile")) {
+				decompile(cmd);
 			} else if (cmd.getArgFlag("-chlinfo")) {
 				chlinfo(cmd);
 			} else if (cmd.getArgFlag("-cmp")) {
@@ -69,7 +72,7 @@ public class Main {
 					printHelp("help.txt");
 				} else {
 					if (topic.startsWith("-")) topic = topic.substring(1);
-					if (in(topic, "chlasm", "asmchl", "compile", "chlinfo", "cmp", "prref", "info")) {
+					if (in(topic, "chlasm", "asmchl", "compile", "decompile", "chlinfo", "cmp", "prref", "info")) {
 						printHelp("help_" + topic + ".txt");
 					} else {
 						System.out.println("Unknown option: " + topic);
@@ -173,6 +176,22 @@ public class Main {
 			}
 			writer.writeMerged(chl, outAsm);
 		}
+		System.out.println("Done.");
+	}
+	
+	private static void decompile(CmdLine cmd) throws Exception {
+		CHLDecompiler decompiler = new CHLDecompiler();
+		File inp = mandatory(cmd.getArgFile("-i"), "-i");
+		File out = mandatory(cmd.getArgFile("-o"), "-o");
+		if (!out.isDirectory()) throw new Exception("-o must be a directory");
+		//
+		System.out.println("Loading compiled CHL...");
+		CHLFile chl = new CHLFile();
+		chl.read(inp);
+		chl.checkCodeCoverage(System.out);
+		chl.validate(System.out);
+		System.out.println("Decompiling...");
+		decompiler.decompile(chl, out);
 		System.out.println("Done.");
 	}
 	
