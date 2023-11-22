@@ -60,9 +60,13 @@ public class CHLDecompiler {
 	private final ArrayList<ArgType> stack = new ArrayList<>();
 	private List<Instruction> instructions;
 	private ListIterator<Instruction> it;
+	private int nextStatementIndex;
 	private Script currentScript;
+	private ArrayList<Block> blocks = new ArrayList<>();
+	private Block currentBlock = null;
 	
 	private String tabs = "";
+	private boolean incTabs = false;
 	
 	private CHLFile chl;
 	private Path path;
@@ -292,7 +296,8 @@ public class CHLDecompiler {
 		str.write("begin " + script.getSignature() + "\r\n");
 		it = instructions.listIterator(script.getInstructionAddress());
 		//EXCEPT
-		accept(OPCode.EXCEPT, 1, DataType.INT);
+		Instruction except = accept(OPCode.EXCEPT, 1, DataType.INT);
+		pushBlock(new Block(it.nextIndex(), BlockType.SCRIPT, except.intVal - 1, except.intVal));
 		//Local vars (including parameters)
 		List<Var> localVars = getLocalVars(script);
 		for (int i = 0; i < localVars.size(); i++) {
@@ -317,6 +322,10 @@ public class CHLDecompiler {
 			if (statement != null) {
 				str.write(tabs + statement + "\r\n");
 			}
+			if (incTabs) {
+				tabs += "\t";	//Indentation must be delayed by one statement
+				incTabs = false;
+			}
 			statement = decompileNextStatement();
 		}
 		//
@@ -324,6 +333,10 @@ public class CHLDecompiler {
 		if (!stack.isEmpty()) {
 			out.println("Stack is not empty at end of script "+script.getName()+":");
 			out.println(stack);
+			out.println();
+		}
+		if (!blocks.isEmpty()) {
+			out.println("Blocks stack is not empty at end of script "+script.getName()+":");
 			out.println();
 		}
 	}
@@ -341,7 +354,7 @@ public class CHLDecompiler {
 	
 	private Expression decompileNextStatement() throws DecompileException {
 		findEndOfStatement();
-		final int nextStatementIndex = it.nextIndex();
+		nextStatementIndex = it.nextIndex();
 		Expression statement = decompile();
 		gotoAddress(nextStatementIndex);
 		return statement;
@@ -415,6 +428,8 @@ public class CHLDecompiler {
 						return new Expression("variable " + op1.safe());
 					case INT:
 						return new Expression("constant " + op1.safe());
+					case COORDS:
+						return op1;
 					default:
 				}
 				break;
@@ -532,11 +547,6 @@ public class CHLDecompiler {
 				op2 = decompile();
 				op1 = decompile();
 				return new Expression(op1 + " != " + op2);
-			case JMP:
-				return null;
-			case JZ:
-				
-				break;
 			case POP:
 				if (instr.isReference()) {
 					//IDENTIFIER = EXPRESSION
@@ -555,9 +565,11 @@ public class CHLDecompiler {
 					//NUMBER
 					switch (instr.dataType) {
 						case FLOAT:
-							return new Expression(String.valueOf(instr.floatVal));
+							return new Expression(format(instr.floatVal));
 						case INT:
 							return new Expression(String.valueOf(instr.intVal));
+						case BOOLEAN:
+							return new Expression(instr.boolVal ? "true" : "false");
 						case VAR:
 							return new Expression(getVar(instr.intVal, false));
 						default:
@@ -616,23 +628,122 @@ public class CHLDecompiler {
 				} else {
 					throw new DecompileException("Unexpected instruction "+instr+". Expected: POPI|REF_AND_OFFSET_PUSH", currentScript.getName(), it.nextIndex());
 				}
+			case JMP:
+				int ip = it.nextIndex();
+				if (currentBlock.is(BlockType.IF, BlockType.ELSIF, BlockType.ELSE) && ip == currentBlock.farEnd) {
+					popBlock();
+					return new Expression("end if");
+				}
+				return null;
+			case JZ:
+				if (currentBlock.exceptionHandlerBegin >= 0 && it.nextIndex() >= currentBlock.exceptionHandlerBegin) {
+					//until CONDITION
+					op1 = decompile();
+					final int beginIndex = it.nextIndex();
+					//
+					final int jmpExceptionHandlerEndIp = instr.intVal - 1;
+					Instruction jmpExceptionHandlerEnd = instructions.get(jmpExceptionHandlerEndIp);
+					verify(jmpExceptionHandlerEndIp, jmpExceptionHandlerEnd, OPCode.JMP, OPCodeFlag.FORWARD, DataType.INT);
+					final int exceptionHandlerEndIp = jmpExceptionHandlerEnd.intVal;
+					//
+					final int brkexceptIp = instr.intVal - 2;
+					Instruction brkexcept = instructions.get(brkexceptIp);
+					verify(brkexceptIp, brkexcept, OPCode.BRKEXCEPT, 1, DataType.INT);
+					//
+					pushBlock(new Block(beginIndex, BlockType.UNTIL, jmpExceptionHandlerEndIp, exceptionHandlerEndIp));
+					nextStatementIndex += 5;	//Skip implicit statements
+					return new Expression("until " + op1);
+				} else {
+					if (instr.isForward()) {
+						op1 = decompile();
+						final int beginIndex = it.nextIndex();
+						if (currentBlock.is(BlockType.IF, BlockType.ELSIF) && beginIndex == currentBlock.end + 1) {
+							if (op1.isTrue()) {
+								//else
+								final int endIfIp = currentBlock.farEnd;
+								popBlock();
+								//
+								final int endThenIp = instr.intVal - 1;
+								//
+								pushBlock(new Block(beginIndex, BlockType.ELSE, endThenIp));
+								currentBlock.farEnd = endIfIp;
+								return new Expression("else");
+							} else {
+								//elsif CONDITION
+								final int endIfIp = currentBlock.farEnd;
+								popBlock();
+								//
+								final int endThenIp = instr.intVal - 1;
+								//
+								pushBlock(new Block(beginIndex, BlockType.ELSIF, endThenIp));
+								currentBlock.farEnd = endIfIp;
+								return new Expression("elsif " + op1);
+							}
+						} else {
+							final int endThenIp = instr.intVal - 1;
+							int jmpSkipCaseIp = endThenIp;
+							Instruction jmpSkipCase = instructions.get(jmpSkipCaseIp);
+							if (jmpSkipCase.flags == OPCodeFlag.FORWARD) {
+								//if CONDITION
+								while (jmpSkipCase.opcode == OPCode.JMP && jmpSkipCase.flags == OPCodeFlag.FORWARD) {
+									jmpSkipCaseIp = jmpSkipCase.intVal;
+									jmpSkipCase = instructions.get(jmpSkipCaseIp);
+								}
+								//
+								pushBlock(new Block(beginIndex, BlockType.IF, endThenIp));
+								currentBlock.farEnd = jmpSkipCaseIp - 1;
+								return new Expression("if " + op1);
+							} else {
+								//while CONDITION
+								Instruction except = peek(-1);
+								verify(it.previousIndex(), except, OPCode.EXCEPT, 1, DataType.INT);
+								pushBlock(new Block(beginIndex, BlockType.WHILE, endThenIp, except.intVal));
+								return new Expression("while " + op1);
+							}
+						}
+					} else {
+						//wait until CONDITION
+						op1 = decompile();
+						return new Expression("wait until " + op1);
+					}
+				}
 			case EXCEPT:
-				
-				break;
+				final int exceptionHandlerBegin = instr.intVal;
+				next();	//Skip EXCEPT
+				Instruction nInstr = findEndOfStatement();
+				if (nInstr.opcode != OPCode.JZ || !nInstr.isForward()) {
+					//begin loop
+					final int beginIndex = it.nextIndex();
+					gotoAddress(beginIndex);
+					pushBlock(new Block(beginIndex, BlockType.LOOP, -1, exceptionHandlerBegin));
+					return new Expression("begin loop");
+				}
+				return null;
 			case BRKEXCEPT:
-				
+				if (currentBlock.type == BlockType.UNTIL) {
+					popBlock();
+					return null;
+				}
 				break;
 			case ENDEXCEPT:
 				return null;
 			case ITEREXCEPT:
-				return null;
+				Block block = currentBlock;
+				popBlock();
+				if (block.type == BlockType.SCRIPT) {
+					return null;
+				} else if (block.type == BlockType.LOOP) {
+					return new Expression("end loop");
+				} else if (block.type == BlockType.WHILE) {
+					return new Expression("end while");
+				}
+				break;
 			case RETEXCEPT:
 				break;	//Never found
 			case SWAP:
 				
 				break;
 			case DUP:
-				
 				break;
 			case SLEEP:
 				op1 = decompile();
@@ -668,7 +779,19 @@ public class CHLDecompiler {
 			case END:
 				return END_SCRIPT;
 		}
-		throw new DecompileException(instr+" is not supported", currentScript.getName(), it.nextIndex());
+		throw new DecompileException(instr+" is not supported in "+currentBlock, currentScript.getName(), it.nextIndex());
+	}
+	
+	private void pushBlock(Block block) {
+		blocks.add(block);
+		currentBlock = block;
+		incTabs = true;
+	}
+	
+	private void popBlock() {
+		blocks.remove(blocks.size() - 1);
+		currentBlock = blocks.isEmpty() ? null : blocks.get(blocks.size() - 1);
+		decTabs();
 	}
 	
 	private Expression decompile(NativeFunction func) throws DecompileException {
@@ -1946,12 +2069,9 @@ public class CHLDecompiler {
 		stack.remove(stack.size() - 1);
 	}
 	
-	private void incTabs() {
-		tabs += "\t";
-	}
-	
 	private void decTabs() {
 		tabs = tabs.substring(0, tabs.length() - 1);
+		incTabs = false;
 	}
 	
 	private String getVar(int id) throws InvalidVariableIdException {
@@ -1997,6 +2117,13 @@ public class CHLDecompiler {
 		return var;
 	}
 	
+	private static String format(float v) {
+		if (Math.abs(v) <= 16777216 && (int)v == v) {
+			return String.valueOf((int)v);
+		}
+		return String.valueOf(v);
+	}
+	
 	private static boolean isValidFilename(String s) {
 		for (char c : ILLEGAL_CHARACTERS) {
 			if (s.indexOf(c) >= 0) return false;
@@ -2029,6 +2156,7 @@ public class CHLDecompiler {
 		}
 	}
 	
+	
 	private static class Expression {
 		private final String value;
 		public final boolean lowPriority;
@@ -2043,7 +2171,11 @@ public class CHLDecompiler {
 		}
 		
 		public boolean isOne() {
-			return "1.0".equals(value);
+			return "1".equals(value);
+		}
+		
+		public boolean isTrue() {
+			return "true".equals(value);
 		}
 		
 		public String safe() {
@@ -2053,6 +2185,51 @@ public class CHLDecompiler {
 		@Override
 		public String toString() {
 			return value;
+		}
+	}
+	
+	
+	private enum BlockType {
+		SCRIPT, IF, ELSIF, ELSE, WHILE, LOOP, WHEN, UNTIL
+	}
+	
+	
+	private static class Block {
+		public BlockType type;
+		public int begin;
+		public int end;
+		public int farEnd;
+		public int exceptionHandlerBegin;
+		
+		public Block(int begin) {
+			this(begin, null, -1, -1);
+		}
+		
+		public Block(int begin, BlockType type) {
+			this(begin, type, -1, -1);
+		}
+		
+		public Block(int begin, BlockType type, int end) {
+			this(begin, type, end, -1);
+		}
+		
+		public Block(int begin, BlockType type, int end, int exceptionHandlerBegin) {
+			this.begin = begin;
+			this.type = type;
+			this.end = end;
+			this.exceptionHandlerBegin = exceptionHandlerBegin;
+		}
+		
+		public boolean is(BlockType...types) {
+			for (BlockType t : types) {
+				if (type == t) return true;
+			}
+			return false;
+		}
+		
+		@Override
+		public String toString() {
+			return type.name();
 		}
 	}
 }
