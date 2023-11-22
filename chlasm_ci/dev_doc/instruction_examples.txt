@@ -1383,15 +1383,16 @@ snapshot CHALLENGE_CREATURE_DEVELOPMENT quest success 0 alignment 0 HELP_TEXT_TI
 	SYS SNAPSHOT	//[13+, 0] (int challengeID, bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, StrPtr reminderScript, float... args, int argc)
 ___________________________________________
 
-3.8.16 update snapshot [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
+3.8.16 update snapshot CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
 
 This is used to take a photo for inside the temple so the player can call a reminder script to find out
 what they should be doing in the game to complete any script. You don't have to pass the position of the
 snapshot. If you don't, the current camera position is passed. Not sending the success value defaults to
 0.5 and the alignment not being sent defaults to 0.0.
 
-update snapshot success 0.08 alignment 0 HELP_TEXT_TITLE_105 StandardReminder(variable HELP_TEXT_SHOW_CREATURE_DEVELOPMENT_CRITERIA_02)
+update snapshot CHALLENGE_CREATURE_DEVELOPMENT success 0.08 alignment 0 HELP_TEXT_TITLE_105 StandardReminder(variable HELP_TEXT_SHOW_CREATURE_DEVELOPMENT_CRITERIA_02)
 
+	PUSHI 64	//challengeID set by previous "challenge" statement at compile time
 	PUSHF 0.08	//success val
 	PUSHF 0.0	//alignment val
 	PUSHI 2465	//2465=HELP_TEXT_TITLE_105
@@ -1399,39 +1400,26 @@ update snapshot success 0.08 alignment 0 HELP_TEXT_TITLE_105 StandardReminder(va
 	PUSHI 1010	//1010=HELP_TEXT_SHOW_CREATURE_DEVELOPMENT_CRITERIA_02
 	CASTF
 	PUSHI 1		//argc
-	PUSHI 64	//challengeID set by previous "challenge" statement at compile time
-	SYS UPDATE_SNAPSHOT	//[?, 0] (float success, float alignment, int titleStrID, StrPtr reminderScript, float...args, int argc, int challengeID)
+	SYS UPDATE_SNAPSHOT	//[?, 0] (int challengeID, float success, float alignment, int titleStrID, StrPtr reminderScript, float...args, int argc)
 ___________________________________________
 
-3.8.17 update snapshot details [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR [taking picture]
+3.8.17 update snapshot details CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR [taking picture]
 
 This is used to take a photo for inside the temple so the player can call a reminder script to find out
 what they should be doing in the game to complete any script. You don't have to pass the position of the
 snapshot. If you don't, the current camera position is passed. Not sending the success value defaults to
 0.5 and the alignment not being sent defaults to 0.0.
 
-update snapshot details success 1.0 alignment -1.0 HELP_TEXT_TITLE_35
+update snapshot details MY_CHALLENGE success 1 alignment ModifAl HELP_TEXT_TITLE_35 taking picture
 
-	SYS GET_CAMERA_POSITION		//[0, 3] () returns (Coord)
-	SYS GET_CAMERA_FOCUS		//[0, 3] () returns (Coord)
-	PUSHF 1.0					//success
-	PUSHF 1.0
-	NEG							//alignment
-	PUSHI 2451					//HELP_TEXT_TITLE_35
-	PUSHB false					//NO taking picture
 	PUSHI 18					//challengeID set by previous "challenge" statement at compile time
-	SYS UPDATE_SNAPSHOT_PICTURE	//[11, 0] (Coord position, Coord focus, float success, float alignment, int titleStrID, bool takingPicture, int challengeID)
-
-update snapshot details success 1 alignment ModifAl HELP_TEXT_TITLE_35 taking picture
-
 	SYS GET_CAMERA_POSITION		//[0, 3] () returns (Coord)
 	SYS GET_CAMERA_FOCUS		//[0, 3] () returns (Coord)
 	PUSHF 1.0					//success
 	PUSHF [ModifAl]				//alignment
 	PUSHI 2451					//HELP_TEXT_TITLE_35
 	PUSHB true					//taking picture
-	PUSHI 18					//challengeID set by previous "challenge" statement at compile time
-	SYS UPDATE_SNAPSHOT_PICTURE	//[11, 0] (Coord position, Coord focus, float success, float alignment, int titleStrID, bool takingPicture, int challengeID)
+	SYS UPDATE_SNAPSHOT_PICTURE	//[11, 0] (int challengeID, Coord position, Coord focus, float success, float alignment, int titleStrID, bool takingPicture)
 ___________________________________________
 
 3.8.18 set game speed to EXPRESSION

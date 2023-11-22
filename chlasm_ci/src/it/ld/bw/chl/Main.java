@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import it.ld.bw.chl.exceptions.ParseError;
@@ -184,6 +185,22 @@ public class Main {
 		File inp = mandatory(cmd.getArgFile("-i"), "-i");
 		File out = mandatory(cmd.getArgFile("-o"), "-o");
 		if (!out.isDirectory()) throw new Exception("-o must be a directory");
+		List<File> headers = cmd.getArgFiles("-h");
+		for (File file : headers) {
+			if (file.isDirectory()) {
+				for (File f : file.listFiles()) {
+					if (f.getName().endsWith(".h")) {
+						decompiler.addHeader(f);
+					}
+				}
+			} else {
+				decompiler.addHeader(file);
+			}
+		}
+		List<File> aliases = cmd.getArgFiles("-a");
+		for (File file : aliases) {
+			decompiler.addAlias(file);
+		}
 		//
 		System.out.println("Loading compiled CHL...");
 		CHLFile chl = new CHLFile();

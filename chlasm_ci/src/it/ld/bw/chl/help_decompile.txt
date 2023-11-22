@@ -1,8 +1,10 @@
 Compile CHL source files into CHL binary file
 
 Syntax
-  chlasm -decompile -i filename -o path
+  chlasm -decompile -i filename -o path [-h files] [-a files]
 
 Arguments
-  -i     input CHL file
-  -o     output directory
+  -i   input CHL file
+  -o   output directory
+  -h   C header files or directory
+  -a   files for alias definitions

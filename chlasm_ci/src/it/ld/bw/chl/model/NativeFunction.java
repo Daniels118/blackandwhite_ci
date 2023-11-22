@@ -277,7 +277,7 @@ public enum NativeFunction {
 	/*228*/ GET_EVENTS_PER_SECOND("HELP_EVENT_TYPE type", "float"),
 	/*229*/ GET_TIME_SINCE("HELP_EVENT_TYPE type", "float"),
 	/*230*/ GET_TOTAL_EVENTS("HELP_EVENT_TYPE type", "float"),
-	/*231*/ UPDATE_SNAPSHOT("float success, float alignment, int titleStrID, StrPtr reminderScript, float... args, int argc, int challengeID"),
+	/*231*/ UPDATE_SNAPSHOT("int challengeID, float success, float alignment, int titleStrID, StrPtr reminderScript, float... args, int argc"),
 	/*232*/ CREATE_REWARD("REWARD_OBJECT_INFO reward, Coord position, bool fromSky", "Object"),
 	/*233*/ CREATE_REWARD_IN_TOWN("REWARD_OBJECT_INFO reward, Object town, Coord position, bool fromSky", "Object"),
 	/*234*/ SET_FADE("float red, float green, float blue, float time"),

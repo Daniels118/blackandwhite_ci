@@ -54,6 +54,17 @@ public class DataSection extends Section {
 		str.write(data);
 	}
 	
+	public String getString(int offset) {
+		int n = 0;
+		while (data[offset + n] != 0) {
+			n++;
+			if (offset + n >= data.length) {
+				throw new RuntimeException("Missing null terminator for string at offset "+offset);
+			}
+		}
+		return new String(data, offset, n, ASCII);
+	}
+	
 	public List<Const> analyze() {
 		List<Const> res = new LinkedList<Const>();
 		int offset = 0;

@@ -21,6 +21,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.HashMap;
 import java.util.Map;
 
 import it.ld.bw.chl.exceptions.ParseError;
@@ -32,7 +33,13 @@ import it.ld.bw.chl.exceptions.ParseException;
  */
 public class CHeaderParser {
 	public void parse(File file, Map<String, Integer> dst) throws FileNotFoundException, IOException, ParseException {
+		parse(file, dst, null);
+	}
+	
+	public void parse(File file, Map<String, Integer> dst, Map<String, Map<String, Integer>> dstEnums) throws FileNotFoundException, IOException, ParseException {
 		int lineno = 0;
+		String enumName = null;
+		Map<String, Integer> currEnum = null;
 		String wholeline = "";
 		String sVal = "";
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)));) {
@@ -46,6 +53,22 @@ public class CHeaderParser {
 						|| line.startsWith("#")
 						|| line.equals("{")) continue;
 				if (line.startsWith("enum")) {
+					if (dstEnums != null) {
+						if (line.endsWith("{")) line = line.substring(0, line.length() - 1).trim();
+						String[] parts = line.split("\\s+");
+						if (parts.length == 2) {
+							enumName = parts[1];
+							if (dstEnums.containsKey(enumName)) {
+								throw new ParseError("Redefinition of enum "+enumName, file, lineno);
+							}
+							currEnum = new HashMap<>();
+							dstEnums.put(enumName, currEnum);
+						} else {
+							enumName = null;
+							currEnum = null;
+							System.out.println("NOTICE: unnamed enum in "+file.getName()+":"+lineno);
+						}
+					}
 					val = 0;
 				} else {
 					wholeline += line;
@@ -60,11 +83,19 @@ public class CHeaderParser {
 								val = parseExpr(sVal);
 							}
 							//
-							Integer oldVal = dst.get(name);
-							if (oldVal == null) {
-								dst.put(name, val);
-							} else if (oldVal != val) {
-								throw new ParseError("Redefinition of constant "+name+" with different value", file, lineno);
+							if (dst != null) {
+								Integer oldVal = dst.get(name);
+								if (oldVal == null) {
+									dst.put(name, val);
+								} else if (oldVal != val) {
+									throw new ParseError("Redefinition of constant "+name+" with different value", file, lineno);
+								}
+							}
+							if (currEnum != null) {
+								if (currEnum.containsKey(name)) {
+									throw new ParseError("Duplicate entry "+name+" in enum "+enumName, file, lineno);
+								}
+								currEnum.put(name, val);
 							}
 							//
 							val++;
