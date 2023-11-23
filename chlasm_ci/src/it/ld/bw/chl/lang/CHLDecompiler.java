@@ -60,6 +60,7 @@ public class CHLDecompiler {
 	private final ArrayList<ArgType> stack = new ArrayList<>();
 	private List<Instruction> instructions;
 	private ListIterator<Instruction> it;
+	private int ip;
 	private int nextStatementIndex;
 	private Script currentScript;
 	private ArrayList<Block> blocks = new ArrayList<>();
@@ -263,7 +264,7 @@ public class CHLDecompiler {
 				if (var.size > 1) {
 					line += "["+var.size+"]";
 				} else if (var.val != 0) {
-					line += " = " + var.val;
+					line += " = " + format(var.val);
 				}
 				str.write(line+"\r\n");
 			}
@@ -297,7 +298,7 @@ public class CHLDecompiler {
 		it = instructions.listIterator(script.getInstructionAddress());
 		//EXCEPT
 		Instruction except = accept(OPCode.EXCEPT, 1, DataType.INT);
-		pushBlock(new Block(it.nextIndex(), BlockType.SCRIPT, except.intVal - 1, except.intVal));
+		pushBlock(new Block(ip, BlockType.SCRIPT, except.intVal - 1, except.intVal));
 		//Local vars (including parameters)
 		List<Var> localVars = getLocalVars(script);
 		for (int i = 0; i < localVars.size(); i++) {
@@ -317,6 +318,7 @@ public class CHLDecompiler {
 		str.write("start\r\n");
 		//
 		tabs = "\t";
+		incTabs = false;
 		Expression statement = decompileNextStatement();
 		while (statement != END_SCRIPT) {
 			if (statement != null) {
@@ -346,15 +348,15 @@ public class CHLDecompiler {
 		if (popf == null) {
 			throw new DecompileException("Cannot find variable initialization statement");
 		}
-		final int pos = it.nextIndex();
+		nextStatementIndex = ip + 1;
 		Expression statement = decompile();
-		gotoAddress(pos);
+		gotoAddress(nextStatementIndex);
 		return statement;
 	}
 	
 	private Expression decompileNextStatement() throws DecompileException {
 		findEndOfStatement();
-		nextStatementIndex = it.nextIndex();
+		nextStatementIndex = ip + 1;
 		Expression statement = decompile();
 		gotoAddress(nextStatementIndex);
 		return statement;
@@ -445,10 +447,10 @@ public class CHLDecompiler {
 						} else {
 							//PROPERTY of IDENTIFIER
 							pInstr = prev();	//PUSHV [var]
-							verify(it.nextIndex(), pInstr, OPCode.PUSH, OPCodeFlag.REF, DataType.VAR);
+							verify(ip, pInstr, OPCode.PUSH, OPCodeFlag.REF, DataType.VAR);
 							varName = getVar(pInstr.intVal, false);
 							pInstr = prev();	//PUSHI int
-							verify(it.nextIndex(), pInstr, OPCode.PUSH, 1, DataType.INT);
+							verify(ip, pInstr, OPCode.PUSH, 1, DataType.INT);
 							int propertyId = pInstr.intVal;
 							String property = getSymbol(NativeFunction.GET_PROPERTY.args[0].type, propertyId);
 							return new Expression(property + " of " + varName);
@@ -457,48 +459,45 @@ public class CHLDecompiler {
 						op2 = decompile();
 						pInstr = peek(-1);
 						if (pInstr.opcode == OPCode.POP && pInstr.flags == 1) {
-							//PROPERTY of IDENTIFIER = EXPRESSION
+							//PROPERTY of VARIABLE = EXPRESSION
 							pInstr = prev();	//POPI
-							verify(it.nextIndex(), pInstr, OPCode.POP, 1, DataType.INT);
+							verify(ip, pInstr, OPCode.POP, 1, DataType.INT);
 							pInstr = prev();	//SYS2 GET_PROPERTY
-							verify(it.nextIndex(), pInstr, OPCode.SYS, 1, null, NativeFunction.GET_PROPERTY.ordinal());
+							verify(ip, pInstr, OPCode.SYS, 1, null, NativeFunction.GET_PROPERTY.ordinal());
 							pInstr = prev();	//DUP 1
-							verify(it.nextIndex(), pInstr, OPCode.DUP, 0, DataType.NONE, 1);
+							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
 							pInstr = prev();	//DUP 1
-							verify(it.nextIndex(), pInstr, OPCode.DUP, 0, DataType.NONE, 1);
-							pInstr = prev();	//PUSHV var
-							verify(it.nextIndex(), pInstr, OPCode.PUSH, 1, DataType.VAR);
-							varName = getVar(pInstr.intVal, false);
+							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
+							op1 = decompile();	//variable
 							pInstr = prev();	//PUSHI int
-							verify(it.nextIndex(), pInstr, OPCode.PUSH, 1, DataType.INT);
+							verify(ip, pInstr, OPCode.PUSH, 1, DataType.INT);
 							int propertyId = pInstr.intVal;
 							String property = getSymbol(NativeFunction.GET_PROPERTY.args[0].type, propertyId);
-							return new Expression(property + " of " + varName + " = " + op2);
+							//return new Expression(property + " of " + varName + " = " + op2);
+							return new Expression(property + " of " + op1 + " = " + op2);
 						} else if (pInstr.opcode == OPCode.SYS) {
-							//PROPERTY of IDENTIFIER += EXPRESSION
+							//PROPERTY of VARIABLE += EXPRESSION
 							pInstr = prev();	//SYS2 GET_PROPERTY
-							verify(it.nextIndex(), pInstr, OPCode.SYS, 1, DataType.FLOAT, NativeFunction.GET_PROPERTY.ordinal());
+							verify(ip, pInstr, OPCode.SYS, 1, DataType.FLOAT, NativeFunction.GET_PROPERTY.ordinal());
 							pInstr = prev();	//DUP 1
-							verify(it.nextIndex(), pInstr, OPCode.DUP, 0, DataType.NONE, 1);
+							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
 							pInstr = prev();	//DUP 1
-							verify(it.nextIndex(), pInstr, OPCode.DUP, 0, DataType.NONE, 1);
-							pInstr = prev();	//PUSHV [var]
-							verify(it.nextIndex(), pInstr, OPCode.PUSH, OPCodeFlag.REF, DataType.VAR);
-							varName = getVar(pInstr.intVal, false);
+							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
+							op1 = decompile();	//variable
 							pInstr = prev();	//PUSHI int
-							verify(it.nextIndex(), pInstr, OPCode.PUSH, 1, DataType.INT);
+							verify(ip, pInstr, OPCode.PUSH, 1, DataType.INT);
 							int propertyId = pInstr.intVal;
 							String property = getSymbol(NativeFunction.GET_PROPERTY.args[0].type, propertyId);
-							String assignee = property + " of " + varName;
+							String assignee = property + " of " + op1;
 							return new Expression(assignee + op2);
 						} else {
-							throw new DecompileException("Unexpected instruction "+instr+". Expected: POPI|SYS2", currentScript.getName(), it.nextIndex());
+							throw new DecompileException("Unexpected instruction "+instr+". Expected: POPI|SYS2", currentScript.getName(), ip);
 						}
 					} else {
 						return decompile(func);
 					}
 				} catch (InvalidNativeFunctionException e) {
-					throw new DecompileException(currentScript.getName(), it.previousIndex(), e);
+					throw new DecompileException(currentScript.getName(), ip, e);
 				}
 			case CALL:
 				//run [background] script IDENTIFIER[(parameters)]
@@ -518,7 +517,7 @@ public class CHLDecompiler {
 					}
 					return new Expression(line);
 				} catch (InvalidScriptIdException e) {
-					throw new DecompileException(currentScript.getName(), it.previousIndex(), e);
+					throw new DecompileException(currentScript.getName(), ip, e);
 				}
 			case EQ:
 				op2 = decompile();
@@ -577,11 +576,11 @@ public class CHLDecompiler {
 				}
 			case REF_PUSH:
 				//IDENTIFIER\[EXPRESSION\]
-				verify(it.nextIndex(), instr, OPCode.REF_PUSH, OPCodeFlag.REF, DataType.VAR);
+				verify(ip, instr, OPCode.REF_PUSH, OPCodeFlag.REF, DataType.VAR);
 				pInstr = prev();	//ADDF
-				verify(it.nextIndex(), pInstr, OPCode.ADD, 1, DataType.FLOAT);
+				verify(ip, pInstr, OPCode.ADD, 1, DataType.FLOAT);
 				pInstr = prev();	//PUSHF var
-				verify(it.nextIndex(), pInstr, OPCode.PUSH, 1, DataType.VAR);
+				verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 				varName = getVar((int)pInstr.floatVal, false);
 				varIndex = decompile().toString();
 				return new Expression(varName + "[" + varIndex + "]");
@@ -597,11 +596,11 @@ public class CHLDecompiler {
 					//IDENTIFIER = EXPRESSION
 					//IDENTIFIER\[EXPRESSION\] = EXPRESSION
 					pInstr = prev();	//POPI
-					verify(it.nextIndex(), pInstr, OPCode.POP, 1, DataType.INT);
+					verify(ip, pInstr, OPCode.POP, 1, DataType.INT);
 					pInstr = prev();	//REF_AND_OFFSET_PUSH
-					verify(it.nextIndex(), pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.FLOAT);
+					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.FLOAT);
 					pInstr = prev();	//PUSHV var
-					verify(it.nextIndex(), pInstr, OPCode.PUSH, 1, DataType.VAR);
+					verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 					varName = getVar(pInstr.intVal, false);
 					varIndex = decompile().toString();
 					Var var = getVar(varName);
@@ -614,9 +613,9 @@ public class CHLDecompiler {
 					//IDENTIFIER += EXPRESSION
 					//IDENTIFIER\[EXPRESSION\] += EXPRESSION
 					pInstr = prev();	//REF_AND_OFFSET_PUSH
-					verify(it.nextIndex(), pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.FLOAT);
+					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.FLOAT);
 					pInstr = prev();	//PUSHV var
-					verify(it.nextIndex(), pInstr, OPCode.PUSH, 1, DataType.VAR);
+					verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 					varName = getVar(pInstr.intVal, false);
 					varIndex = decompile().toString();
 					Var var = getVar(varName);
@@ -626,20 +625,19 @@ public class CHLDecompiler {
 					}
 					return new Expression(assignee + op2);
 				} else {
-					throw new DecompileException("Unexpected instruction "+instr+". Expected: POPI|REF_AND_OFFSET_PUSH", currentScript.getName(), it.nextIndex());
+					throw new DecompileException("Unexpected instruction "+instr+". Expected: POPI|REF_AND_OFFSET_PUSH", currentScript.getName(), ip);
 				}
 			case JMP:
-				int ip = it.nextIndex();
 				if (currentBlock.is(BlockType.IF, BlockType.ELSIF, BlockType.ELSE) && ip == currentBlock.farEnd) {
 					popBlock();
 					return new Expression("end if");
 				}
 				return null;
 			case JZ:
-				if (currentBlock.exceptionHandlerBegin >= 0 && it.nextIndex() >= currentBlock.exceptionHandlerBegin) {
+				if (currentBlock.exceptionHandlerBegin >= 0 && ip >= currentBlock.exceptionHandlerBegin) {
 					//until CONDITION
 					op1 = decompile();
-					final int beginIndex = it.nextIndex();
+					final int beginIndex = ip;
 					//
 					final int jmpExceptionHandlerEndIp = instr.intVal - 1;
 					Instruction jmpExceptionHandlerEnd = instructions.get(jmpExceptionHandlerEndIp);
@@ -656,7 +654,7 @@ public class CHLDecompiler {
 				} else {
 					if (instr.isForward()) {
 						op1 = decompile();
-						final int beginIndex = it.nextIndex();
+						final int beginIndex = ip;
 						if (currentBlock.is(BlockType.IF, BlockType.ELSIF) && beginIndex == currentBlock.end + 1) {
 							if (op1.isTrue()) {
 								//else
@@ -685,18 +683,18 @@ public class CHLDecompiler {
 							Instruction jmpSkipCase = instructions.get(jmpSkipCaseIp);
 							if (jmpSkipCase.flags == OPCodeFlag.FORWARD) {
 								//if CONDITION
-								while (jmpSkipCase.opcode == OPCode.JMP && jmpSkipCase.flags == OPCodeFlag.FORWARD) {
+								while (jmpSkipCase.opcode == OPCode.JMP && jmpSkipCase.flags == OPCodeFlag.FORWARD && jmpSkipCase.intVal > jmpSkipCaseIp + 1) {
 									jmpSkipCaseIp = jmpSkipCase.intVal;
 									jmpSkipCase = instructions.get(jmpSkipCaseIp);
 								}
 								//
 								pushBlock(new Block(beginIndex, BlockType.IF, endThenIp));
-								currentBlock.farEnd = jmpSkipCaseIp - 1;
+								currentBlock.farEnd = jmpSkipCaseIp;
 								return new Expression("if " + op1);
 							} else {
 								//while CONDITION
 								Instruction except = peek(-1);
-								verify(it.previousIndex(), except, OPCode.EXCEPT, 1, DataType.INT);
+								verify(ip - 1, except, OPCode.EXCEPT, 1, DataType.INT);
 								pushBlock(new Block(beginIndex, BlockType.WHILE, endThenIp, except.intVal));
 								return new Expression("while " + op1);
 							}
@@ -713,7 +711,7 @@ public class CHLDecompiler {
 				Instruction nInstr = findEndOfStatement();
 				if (nInstr.opcode != OPCode.JZ || !nInstr.isForward()) {
 					//begin loop
-					final int beginIndex = it.nextIndex();
+					final int beginIndex = ip;
 					gotoAddress(beginIndex);
 					pushBlock(new Block(beginIndex, BlockType.LOOP, -1, exceptionHandlerBegin));
 					return new Expression("begin loop");
@@ -779,7 +777,7 @@ public class CHLDecompiler {
 			case END:
 				return END_SCRIPT;
 		}
-		throw new DecompileException(instr+" is not supported in "+currentBlock, currentScript.getName(), it.nextIndex());
+		throw new DecompileException(instr+" is not supported in "+currentBlock, currentScript.getName(), ip);
 	}
 	
 	private void pushBlock(Block block) {
@@ -800,7 +798,7 @@ public class CHLDecompiler {
 		if (func.varargs) {
 			nParams--;	//argc is implicit
 			Instruction pushArgc = prev();
-			verify(it.nextIndex(), pushArgc, OPCode.PUSH, 1, DataType.INT);
+			verify(ip, pushArgc, OPCode.PUSH, 1, DataType.INT);
 			int argc = pushArgc.intVal;
 			if (argc > 0) {
 				statement = decompile() + ")";
@@ -810,7 +808,7 @@ public class CHLDecompiler {
 				statement = "(" + statement;
 			}
 			Instruction pushScriptName = prev();
-			verify(it.nextIndex(), pushScriptName, OPCode.PUSH, 1, DataType.INT);
+			verify(ip, pushScriptName, OPCode.PUSH, 1, DataType.INT);
 			int strptr = pushScriptName.intVal;
 			String scriptName = chl.getDataSection().getString(strptr);
 			statement = " " + scriptName + statement;
@@ -1880,7 +1878,7 @@ public class CHLDecompiler {
 				break;
 		}
 		
-		throw new DecompileException(func+" is not supported", currentScript.getName(), it.nextIndex());
+		throw new DecompileException(func+" is not supported", currentScript.getName(), ip);
 	}
 	
 	private Instruction next() throws DecompileException {
@@ -1888,12 +1886,14 @@ public class CHLDecompiler {
 			throw new DecompileException("No more instructions", currentScript.getName(), it.previousIndex());
 		}
 		Instruction instr = it.next();
+		ip = it.previousIndex();
 		stackDo(instr);
 		return instr;
 	}
 	
 	private Instruction prev() throws DecompileException {
 		Instruction instr = it.previous();
+		ip = it.nextIndex();
 		stackUndo(instr);
 		return instr;
 	}
@@ -1990,10 +1990,6 @@ public class CHLDecompiler {
 				push(type);
 			}
 		}
-	}
-	
-	private Instruction peek() throws DecompileException {
-		return peek(0);
 	}
 	
 	private Instruction peek(int offset) throws DecompileException {
