@@ -509,7 +509,7 @@ set CreatureGuardian all desires SCRIPT_FALSE
 
 	PUSHF [CreatureGuardian]			//creature
 	PUSHI 0								//0=SCRIPT_FALSE
-	SYS CREATURE_SET_DESIRE_ACTIVATED2	//[2, 0] (Object creature, SCRIPT_BOOL active)
+	SYS CREATURE_SET_DESIRE_ACTIVATED	//[2, 0] (Object creature, SCRIPT_BOOL active)
 ___________________________________________
 
 3.2.13 set OBJECT desire maximum CONST_EXPR to EXPRESSION
@@ -1360,7 +1360,7 @@ set interaction SCRIPT_INTERFACE_LEVEL_NORMAL		//#LandControlT.txt:48
 	SYS2 SET_INTERFACE_INTERACTION	//[1, 0] (SCRIPT_INTERFACE_LEVEL level)
 ___________________________________________
 
-3.8.15 snapshot CONST_EXPR quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
+3.8.15 snapshot CONST_EXPR quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT_NAME[(PARAMETERS)]
 
 This is used to take a photo for inside the temple so the player can call a reminder script to find out
 what they should be doing in the game to complete any script. You don't have to pass the position of the
@@ -1383,7 +1383,7 @@ snapshot CHALLENGE_CREATURE_DEVELOPMENT quest success 0 alignment 0 HELP_TEXT_TI
 	SYS SNAPSHOT	//[13+, 0] (int challengeID, bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, StrPtr reminderScript, float... args, int argc)
 ___________________________________________
 
-3.8.16 update snapshot CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT[(PARAMETERS)]
+3.8.16 update snapshot CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT_NAME[(PARAMETERS)]
 
 This is used to take a photo for inside the temple so the player can call a reminder script to find out
 what they should be doing in the game to complete any script. You don't have to pass the position of the
@@ -1859,7 +1859,7 @@ start sound constant from LH_SCRIPT_SAMPLE_CHILD_LAUGH_01 to LH_SCRIPT_SAMPLE_CH
 
 	PUSHI 31
 	PUSHI 37
-	SYSF RANDOM_ULONG		//sound
+	SYS2 RANDOM_ULONG		//sound
 	PUSHI 5					//soundbank
 	PUSHF [SwimPos]
 	SYS GET_POSITION		//position
@@ -2206,7 +2206,7 @@ Never found
 	SYS REMOVE_REACTION	//[1, 0] (Object object)
 ___________________________________________
 
-3.9.3 detach reaction OBJECT CONST_EXPR
+3.9.3 detach reaction OBJECT ENUM_REACTION
 
 Removes all reactions of the type associated with this object
 
@@ -2797,7 +2797,7 @@ send good spirit home		//#CreatureDevelopment.txt:1747
 	SYS SPIRIT_HOME	//[1, 0] (HELP_SPIRIT_TYPE spirit)
 ___________________________________________
 
-3.16.2.1 say [single line] STRING [with interaction|without interaction] [by OBJECT]
+3.16.2.1 say [single line] STRING [SAY_MODE] [by OBJECT]
 
 When developing a script it is useful to have a text out function to debug or put in temp text until
 the script has been scripted.
@@ -2807,11 +2807,11 @@ say single line "Sorry, the boss got the cheat removed"		//#LandControlAll.txt:2
 	PUSHB true		//singleLine
 	PUSHI 10804		//"Sorry, the boss got the cheat removed"
 	PUSHI 0			//withInteraction
-	PUSHO 0			//object
+	PUSHO 0			//speaker
 	SYS TEMP_TEXT	//[3, 0] (bool singleLine, StrPtr string, int withInteraction, Object speaker)
 ___________________________________________
 
-3.16.2.2 say [single line] STRING with number EXPRESSION [by OBJECT]
+3.16.2.2 say [single line] STRING with number EXPRESSION [SAY_MODE] [by OBJECT]
 
 When developing a script it is useful to have a text out function to debug or put in temp text until
 the script has been scripted. This version places a value at the
@@ -2822,12 +2822,12 @@ say single line "Actual Height: $d" with number Wert
 	PUSHB true					//singleLine
 	PUSHI 23269					//format
 	PUSHV [Wert]				//value
-	PUSHI 0						//fixed
+	PUSHI 0						//withInteraction
 	PUSHO 0						//speaker
-	SYS TEMP_TEXT_WITH_NUMBER	//[5, 0] (bool singleLine, StrPtr format, float value, int zero, Object speaker)
+	SYS TEMP_TEXT_WITH_NUMBER	//[5, 0] (bool singleLine, StrPtr format, float value, int withInteraction, Object speaker)
 ___________________________________________
 
-3.16.2.3 say [single line] CONST_EXPR [with interaction|without interaction] [by OBJECT]
+3.16.2.3 say [single line] CONST_EXPR [SAY_MODE] [by OBJECT]
 
 This displays text predefined which may have sound attached to it which will be automatically played.
 
@@ -2840,7 +2840,7 @@ say HELP_TEXT_HAND_DEMO_ROTATING_01		// Move the hand to the side of the screen	
 	SYS RUN_TEXT	//[4, 0] (bool singleLine, int textID, int withInteraction, Object speaker)
 ___________________________________________
 
-3.16.2.4 say CONST_EXPR with number EXPRESSION
+3.16.2.4 say [single line] CONST_EXPR with number EXPRESSION [SAY_MODE] [by OBJECT]
 
 This displays text predefined which may have sound attached to it which will be automatically played.
 This version places a value at the
@@ -2848,13 +2848,13 @@ $d-decimal $p-percentage (Gets the number followed by a '%' drawn).
 
 say constant StatText with number Need		//#HelpSystem.txt:108
 
-	PUSHB false					//
+	PUSHB false					//singleLine
 	PUSHV [StatText]			//string
 	CASTI
 	PUSHV [Need]				//number
-	PUSHI 0						//fixed 0
-	PUSHO 0						//fixed?
-	SYS RUN_TEXT_WITH_NUMBER	//[5, 0] (bool alwaysFalse, int string, float number, int alwaysZero, Object obj)
+	PUSHI 0						//withInteraction
+	PUSHO 0						//speaker
+	SYS RUN_TEXT_WITH_NUMBER	//[5, 0] (bool singleLine, int string, float number, int withInteraction, Object speaker)
 ___________________________________________
 
 3.16.2.5 clear dialogue
@@ -5325,7 +5325,7 @@ constant from LH_SCRIPT_SAMPLE_CHILD_LAUGH_01 to LH_SCRIPT_SAMPLE_CHILD_LAUGH_07
 
 	PUSHI 31			//31=LH_SCRIPT_SAMPLE_CHILD_LAUGH_01
 	PUSHI 37			//37=LH_SCRIPT_SAMPLE_CHILD_LAUGH_07
-	SYSF RANDOM_ULONG	//[2, 1] (int min, int max) returns (int)
+	SYS2 RANDOM_ULONG	//[2, 1] (int min, int max) returns (int)
 ___________________________________________
 
 10.3 get action text for OBJECT
@@ -6223,7 +6223,7 @@ Gets the percentage desire a town has for something (See Enums.h).
 Never found (GET_DESIRE)
 ___________________________________________
 
-12.48.1 get CONSTANT events per second
+12.48.1 get HELP_EVENT_TYPE events per second
 
 Gets the events per second (over a very long period).
 
@@ -6233,7 +6233,7 @@ Never found
 	SYS GET_EVENTS_PER_SECOND	//[1, 1] (HELP_EVENT_TYPE type) returns (float)
 ___________________________________________
 
-12.48.2 get time since CONSTANT event
+12.48.2 get time since HELP_EVENT_TYPE event
 
 Gets the time since the last event occurred.
 
@@ -6241,7 +6241,7 @@ Gets the time since the last event occurred.
 	SYS GET_TIME_SINCE	//[1, 1] (HELP_EVENT_TYPE type) returns (float)
 ___________________________________________
 
-12.48.3 get CONSTANT total event[s]
+12.48.3 get HELP_EVENT_TYPE total event[s]
 
 Gets the total amount of events (May be a huge value!).
 

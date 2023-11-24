@@ -2815,14 +2815,22 @@ public class CHLCompiler implements Compiler {
 			if (symbol.is(TokenType.STRING)) {
 				parseString();
 				if (checkAhead("with number")) {
-					//say [single line] STRING with number EXPRESSION [by OBJECT]
+					//say [single line] STRING with number EXPRESSION [SAY_MODE] [by OBJECT]
 					parse("with number EXPRESSION");
-					pushi(0);
+					if (symbol.is("with")) {
+						parse("with interaction");
+						pushi(1);
+					} else if (symbol.is("without")) {
+						parse("without interaction");
+						pushi(2);
+					} else {
+						pushi(0);
+					}
 					parse("[by OBJECT] EOL");
 					sys(TEMP_TEXT_WITH_NUMBER);
 					return replace(start, "STATEMENT");
 				} else {
-					//say [single line] STRING [with interaction|without interaction] [by OBJECT]
+					//say [single line] STRING [SAY_MODE] [by OBJECT]
 					symbol = peek(false);
 					if (symbol.is("with")) {
 						parse("with interaction");
@@ -2840,14 +2848,22 @@ public class CHLCompiler implements Compiler {
 			} else {
 				parseConstExpr(true);
 				if (checkAhead("with number")) {
-					//say CONST_EXPR with number EXPRESSION [by OBJECT]
+					//say [single line] CONST_EXPR with number EXPRESSION [SAY_MODE] [by OBJECT]
 					parse("with number EXPRESSION");
-					pushi(0);
+					if (symbol.is("with")) {
+						parse("with interaction");
+						pushi(1);
+					} else if (symbol.is("without")) {
+						parse("without interaction");
+						pushi(2);
+					} else {
+						pushi(0);
+					}
 					parse("[by OBJECT] EOL");
 					sys(RUN_TEXT_WITH_NUMBER);
 					return replace(start, "STATEMENT");
 				} else {
-					//say [single line] CONST_EXPR [with interaction|without interaction] [by OBJECT]
+					//say [single line] CONST_EXPR [SAY_MODE] [by OBJECT]
 					symbol = peek(false);
 					if (symbol.is("with")) {
 						parse("with interaction");
@@ -3530,7 +3546,7 @@ public class CHLCompiler implements Compiler {
 						return replace(start, "EXPRESSION");
 					} else {
 						parse("CONSTANT event");
-						//get time since CONSTANT event
+						//get time since HELP_EVENT_TYPE event
 						sys(GET_TIME_SINCE);
 						return replace(start, "EXPRESSION");
 					}
@@ -3737,12 +3753,12 @@ public class CHLCompiler implements Compiler {
 							return replace(start, "EXPRESSION");
 						} else if (symbol.is("events")) {
 							parse("events per second");
-							//get CONSTANT events per second
+							//get HELP_EVENT_TYPE events per second
 							sys(GET_EVENTS_PER_SECOND);
 							return replace(start, "EXPRESSION");
 						} else if (symbol.is("total")) {
 							parse("total event|events");
-							//get CONSTANT total event|events
+							//get HELP_EVENT_TYPE total event|events
 							sys(GET_TOTAL_EVENTS);
 							return replace(start, "EXPRESSION");
 						}
@@ -4409,7 +4425,7 @@ public class CHLCompiler implements Compiler {
 					symbol = peek();
 					if (symbol.is("male")) {
 						accept("male");
-						//OBJECT male
+						//OBJECT is male
 						sys(SEX_IS_MALE);
 						return replace(start, "CONDITION");
 					} else if (symbol.is("not")) {
@@ -4643,7 +4659,7 @@ public class CHLCompiler implements Compiler {
 				} else if (symbol.is("held")) {
 					//get held by OBJECT
 					parse("held by OBJECT");
-					sys(GET_OBJECT_HELD);
+					sys(GET_OBJECT_HELD2);
 					return replace(start, "OBJECT");
 				} else if (symbol.is("dropped")) {
 					parse("dropped by OBJECT");

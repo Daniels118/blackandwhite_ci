@@ -100,7 +100,7 @@ public enum NativeFunction {
 	/* 51*/ DANCE_CREATE("Object obj, DANCE_INFO type, Coord position, float duration", "Object"),
 	/* 52*/ CALL_IN("SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype, Object container, bool excludingScripted", "Object"),
 	/* 53*/ CHANGE_INNER_OUTER_PROPERTIES("Object obj, float inner, float outer, float calm"),
-	/* 54*/ SNAPSHOT("int challengeID, bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, StrPtr reminderScript, float... args, int argc"),
+	/* 54*/ SNAPSHOT("int challengeID, bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, Script reminderScript, float... args, int argc"),
 	/* 55*/ GET_ALIGNMENT("int zero", "float", true),
 	/* 56*/ SET_ALIGNMENT(2),
 	/* 57*/ INFLUENCE_OBJECT("Object target, float radius, int zero, int anti", "Object"),
@@ -270,14 +270,14 @@ public enum NativeFunction {
 	/*221*/ SET_ATTACK_OWN_TOWN(2),
 	/*222*/ IS_FIGHTING("Object object", "bool"),
 	/*223*/ SET_MAGIC_RADIUS("Object object, float radius"),
-	/*224*/ TEMP_TEXT_WITH_NUMBER("bool singleLine, StrPtr format, float value, int zero, Object speaker"),
-	/*225*/ RUN_TEXT_WITH_NUMBER("bool alwaysFalse, int string, float number, int zero, Object speaker"),
+	/*224*/ TEMP_TEXT_WITH_NUMBER("bool singleLine, StrPtr format, float value, int withInteraction, Object speaker"),
+	/*225*/ RUN_TEXT_WITH_NUMBER("bool singleLine, int string, float number, int withInteraction, Object speaker"),
 	/*226*/ CREATURE_SPELL_REVERSION(2),
 	/*227*/ GET_DESIRE(2, "float"),
 	/*228*/ GET_EVENTS_PER_SECOND("HELP_EVENT_TYPE type", "float"),
 	/*229*/ GET_TIME_SINCE("HELP_EVENT_TYPE type", "float"),
 	/*230*/ GET_TOTAL_EVENTS("HELP_EVENT_TYPE type", "float"),
-	/*231*/ UPDATE_SNAPSHOT("int challengeID, float success, float alignment, int titleStrID, StrPtr reminderScript, float... args, int argc"),
+	/*231*/ UPDATE_SNAPSHOT("int challengeID, float success, float alignment, int titleStrID, Script reminderScript, float... args, int argc"),
 	/*232*/ CREATE_REWARD("REWARD_OBJECT_INFO reward, Coord position, bool fromSky", "Object"),
 	/*233*/ CREATE_REWARD_IN_TOWN("REWARD_OBJECT_INFO reward, Object town, Coord position, bool fromSky", "Object"),
 	/*234*/ SET_FADE("float red, float green, float blue, float time"),
@@ -312,7 +312,7 @@ public enum NativeFunction {
 	/*263*/ GET_INTERACTION_MAGNITUDE("Object creature", "float"),
 	/*264*/ IS_CREATURE_AVAILABLE("CREATURE_TYPE type", "bool"),
 	/*265*/ CREATE_HIGHLIGHT("int challengeID, HIGHLIGHT_INFO type, Coord position", "Object"),
-	/*266*/ GET_OBJECT_HELD("Object holder", "Object"),
+	/*266*/ GET_OBJECT_HELD2("Object holder", "Object"),
 	/*267*/ GET_ACTION_COUNT("CREATURE_ACTION action, Object creature", "float"),
 	/*268*/ GET_OBJECT_LEASH_TYPE("Object object", "int"),
 	/*269*/ SET_FOCUS_FOLLOW("Object target"),
@@ -775,10 +775,9 @@ public enum NativeFunction {
 		OBJECT_INT("ObjectInt"),
 		INT_OR_FLOAT("int|float"),		//used only with GET_PROPERTY
 		STRPTR("StrPtr"),				//int (byte offset in data section)
+		SCRIPT("Script"),				//int (byte offset in data section)
 		
-		/* The following are enums. Be aware that many enum values defined in .h files are obsolete,
-		 * .txt files are more up to date. TODO: check all required values and write our own version.
-		 */
+		/* The following are enums. */
 		SCRIPT_OBJECT_TYPE(),			//defined in ScriptEnums.h
 		SCRIPT_OBJECT_SUBTYPE(),		//various enums defined in info2.txt
 		SCRIPT_OBJECT_PROPERTY_TYPE(),	//defined in ScriptEnums.h - TODO: assign a type to each property
@@ -819,7 +818,7 @@ public enum NativeFunction {
 		}
 		
 		public final String keyword;
-		public final boolean isInt;
+		public final boolean isEnum;
 		public final int stackCount;
 		
 		private ArgType() {
@@ -832,7 +831,7 @@ public enum NativeFunction {
 		
 		private ArgType(String keyword, int stackCount) {
 			this.keyword = keyword != null ? keyword : this.name();
-			this.isInt = this.ordinal() >= 9;	//STRPTR
+			this.isEnum = keyword == null;
 			this.stackCount = stackCount;
 		}
 		
