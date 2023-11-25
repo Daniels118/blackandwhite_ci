@@ -100,7 +100,7 @@ public enum NativeFunction {
 	/* 51*/ DANCE_CREATE("Object obj, DANCE_INFO type, Coord position, float duration", "Object"),
 	/* 52*/ CALL_IN("SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype, Object container, bool excludingScripted", "Object"),
 	/* 53*/ CHANGE_INNER_OUTER_PROPERTIES("Object obj, float inner, float outer, float calm"),
-	/* 54*/ SNAPSHOT("int challengeID, bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, Script reminderScript, float... args, int argc"),
+	/* 54*/ SNAPSHOT("ScriptChallengeEnums challengeID, bool quest, Coord position, Coord focus, float success, float alignment, HELP_TEXT titleStrID, Script reminderScript, float... args, int argc"),
 	/* 55*/ GET_ALIGNMENT("int zero", "float", true),
 	/* 56*/ SET_ALIGNMENT(2),
 	/* 57*/ INFLUENCE_OBJECT("Object target, float radius, int zero, int anti", "Object"),
@@ -277,7 +277,7 @@ public enum NativeFunction {
 	/*228*/ GET_EVENTS_PER_SECOND("HELP_EVENT_TYPE type", "float"),
 	/*229*/ GET_TIME_SINCE("HELP_EVENT_TYPE type", "float"),
 	/*230*/ GET_TOTAL_EVENTS("HELP_EVENT_TYPE type", "float"),
-	/*231*/ UPDATE_SNAPSHOT("int challengeID, float success, float alignment, int titleStrID, Script reminderScript, float... args, int argc"),
+	/*231*/ UPDATE_SNAPSHOT("ScriptChallengeEnums challengeID, float success, float alignment, HELP_TEXT titleStrID, Script reminderScript, float... args, int argc"),
 	/*232*/ CREATE_REWARD("REWARD_OBJECT_INFO reward, Coord position, bool fromSky", "Object"),
 	/*233*/ CREATE_REWARD_IN_TOWN("REWARD_OBJECT_INFO reward, Object town, Coord position, bool fromSky", "Object"),
 	/*234*/ SET_FADE("float red, float green, float blue, float time"),
@@ -390,7 +390,7 @@ public enum NativeFunction {
 	/*341*/ START_ANGLE_SOUND2("bool enable"),
 	/*342*/ THING_JC_SPECIAL("bool enable, int feature, Object target, float zero"),
 	/*343*/ MUSIC_PLAYED2("int music", "bool"),
-	/*344*/ UPDATE_SNAPSHOT_PICTURE("Coord position, Coord focus, float success, float alignment, int titleStrID, bool takingPicture, int challengeID"),
+	/*344*/ UPDATE_SNAPSHOT_PICTURE("ScriptChallengeEnums challengeID, Coord position, Coord focus, float success, float alignment, HELP_TEXT titleStrID, bool takingPicture"),
 	/*345*/ STOP_SCRIPTS_IN_FILES_EXCLUDING("StrPtr sourceFilename, StrPtr scriptName"),
 	/*346*/ CREATE_RANDOM_VILLAGER_OF_TRIBE("TRIBE_TYPE tribe, Coord position", "Object"),
 	/*347*/ TOGGLE_LEASH("int player"),
@@ -810,7 +810,8 @@ public enum NativeFunction {
 		FIGHT_MOVE(),					//defined in HitRegions.h
 		ScriptCameraPosition(),			//defined in CameraPosEnum.h
 		SCRIPT_PATH(),					//defined in CameraPosEnum.h
-		HELP_TEXT();					//defined in HelpTextEnums.h
+		HELP_TEXT(),					//defined in HelpTextEnums.h
+		ScriptChallengeEnums();			//define din ScriptChallengeEnums.h
 		
 		private static final Map<String, ArgType> map = new HashMap<>();
 		

@@ -84,9 +84,9 @@ SET_ID_PICKUPABLE					enable|disable OBJECT pickup
 SET_CREATURE_SOUND					enable|disable creature sound
 SET_GAME_SOUND						enable|disable sound effects
 SET_INTERFACE_INTERACTION			set interaction CONST_EXPR
-SNAPSHOT							snapshot CONST_EXPR quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT_NAME[(PARAMETERS)]
-UPDATE_SNAPSHOT						update snapshot CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT_NAME[(PARAMETERS)]
-UPDATE_SNAPSHOT_PICTURE				update snapshot details CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR [taking picture]
+SNAPSHOT							snapshot ScriptChallengeEnums quest|challenge [success EXPRESSION] [alignment EXPRESSION] HELP_TEXT SCRIPT_NAME[(PARAMETERS)]
+UPDATE_SNAPSHOT						update snapshot ScriptChallengeEnums [success EXPRESSION] [alignment EXPRESSION] HELP_TEXT SCRIPT_NAME[(PARAMETERS)]
+UPDATE_SNAPSHOT_PICTURE				update snapshot details ScriptChallengeEnums [success EXPRESSION] [alignment EXPRESSION] HELP_TEXT [taking picture]
 SET_GAMESPEED						set game speed to EXPRESSION
 BUILD_BUILDING						build building at COORD_EXPR desire EXPRESSION
 LOAD_MAP							load map STRING

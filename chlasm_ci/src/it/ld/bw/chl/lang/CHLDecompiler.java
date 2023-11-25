@@ -95,6 +95,7 @@ public class CHLDecompiler {
 		addEnumOption("HELP_SPIRIT_TYPE", "none", "good", "evil", "last");
 		addEnumOption("SAY_MODE", null, "with interaction", "without interaction");
 		addEnumOption("[anti]", null, "anti");
+		addEnumOption("DELETE_MODE", null, "with fade", "with explosion", "with temple explosion");
 		//
 		dummyOptions.put("second|seconds", "seconds");
 		dummyOptions.put("event|events", "events");
@@ -1001,7 +1002,7 @@ public class CHLDecompiler {
 	
 	private Expression decompile(NativeFunction func) throws DecompileException {
 		Instruction pInstr, nInstr;
-		String anti;
+		boolean anti;
 		//Special cases (without parameters)
 		switch (func) {
 			case SET_CAMERA_FOCUS:
@@ -1106,7 +1107,7 @@ public class CHLDecompiler {
 					}
 					params.add(0, new Expression(argv));
 				} else {
-					params.add(0, new Expression(""));
+					params.add(0, null);
 				}
 			} else {
 				Expression expr = decompile();
@@ -1129,15 +1130,20 @@ public class CHLDecompiler {
 				}
 				break;
 			case INFLUENCE_OBJECT:
-				//create [anti] influence on OBJECT [radius EXPRESSION]
 				//SYS INFLUENCE_OBJECT(Object target, float radius, int zero, int anti)
-				anti = params.get(3).intVal() != 0 ? " anti" : "";
-				return new Expression("create"+anti+" influence on "+params.get(0)+" radius "+params.get(1));
+				//create [anti] influence on OBJECT [radius EXPRESSION]
+				anti = params.get(3).intVal() != 0;
+				return new Expression("create"+(anti?" anti":"")+" influence on "+params.get(0)+" radius "+params.get(1));
 			case INFLUENCE_POSITION:
-				//create [anti] influence at position COORD_EXPR [radius EXPRESSION]
 				//INFLUENCE_POSITION(Coord position, float radius, int zero, int anti)
-				anti = params.get(3).intVal() != 0 ? " anti" : "";
-				return new Expression("create"+anti+" influence at position "+params.get(0)+" radius "+params.get(1));
+				anti = params.get(3).intVal() != 0;
+				if (anti) {
+					//create anti influence at position COORD_EXPR [radius EXPRESSION]
+					return new Expression("create anti influence at position "+params.get(0)+" radius "+params.get(1));
+				} else {
+					//create influence at position COORD_EXPR [radius EXPRESSION]
+					return new Expression("create influence at "+params.get(0)+" radius "+params.get(1));
+				}
 			case SNAPSHOT:
 				params.set(2, null);	//implicit focus
 				params.set(3, null);	//implicit position
@@ -1261,6 +1267,11 @@ public class CHLDecompiler {
 								statement.add(param.toString());
 							}
 							subtype = null;
+						} else if ("[( PARAMETERS )]".equals(sym.keyword)) {
+							Expression param = params.next();
+							if (param != null) {
+								statement.add("("+param+")");
+							}
 						} else {
 							String param = decompile(func, sym, params);
 							if (arg.type == ArgType.OBJECT_FLOAT && sym.optional

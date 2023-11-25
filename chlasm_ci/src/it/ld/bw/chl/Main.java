@@ -200,6 +200,7 @@ public class Main {
 		for (File file : aliases) {
 			decompiler.addAlias(file);
 		}
+		decompiler.setRespectLinenoEnabled(cmd.getArgFlag("-rln"));
 		//
 		System.out.println("Loading compiled CHL...");
 		CHLFile chl = new CHLFile();

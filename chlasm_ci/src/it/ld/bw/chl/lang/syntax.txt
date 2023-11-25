@@ -206,9 +206,9 @@ STATEMENT: {
 	enable|disable creature sound EOL
 	enable|disable sound effects EOL
 	set interaction CONST_EXPR EOL
-	snapshot CONST_EXPR quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT_NAME[(PARAMETERS)] EOL
-	update snapshot CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT_NAME[(PARAMETERS)] EOL
-	update snapshot details CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR [taking picture] EOL
+	snapshot ScriptChallengeEnums quest|challenge [success EXPRESSION] [alignment EXPRESSION] HELP_TEXT SCRIPT_NAME[(PARAMETERS)] EOL
+	update snapshot ScriptChallengeEnums [success EXPRESSION] [alignment EXPRESSION] HELP_TEXT SCRIPT_NAME[(PARAMETERS)] EOL
+	update snapshot details ScriptChallengeEnums [success EXPRESSION] [alignment EXPRESSION] HELP_TEXT [taking picture] EOL
 	set game speed to EXPRESSION EOL
 	build building at COORD_EXPR desire EXPRESSION EOL
 	add for building OBJECT to OBJECT EOL
@@ -582,7 +582,8 @@ OBJECT: {
 	flock at COORD_EXPR
 	make OBJECT dance CONST_EXPR around COORD_EXPR time EXPRESSION
 	create [anti] influence on OBJECT [radius EXPRESSION]
-	create [anti] influence at position COORD_EXPR [radius EXPRESSION]
+	create influence at COORD_EXPR [radius EXPRESSION]
+	create anti influence at position COORD_EXPR [radius EXPRESSION]
 	get held by OBJECT
 	get dropped by OBJECT
 	get nearest town at COORD_EXPR for player EXPRESSION radius EXPRESSION
@@ -783,6 +784,8 @@ HELP_EVENT_TYPE: CONST_EXPR
 SCRIPT_PATH: CONST_EXPR
 
 HELP_TEXT: CONST_EXPR
+
+ScriptChallengeEnums: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

@@ -1356,7 +1356,7 @@ set interaction SCRIPT_INTERFACE_LEVEL_NORMAL		//#LandControlT.txt:48
 	SYS2 SET_INTERFACE_INTERACTION	//[1, 0] (SCRIPT_INTERFACE_LEVEL level)
 ___________________________________________
 
-3.8.15 snapshot CONST_EXPR quest|challenge [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT_NAME[(PARAMETERS)]
+3.8.15 snapshot ScriptChallengeEnums quest|challenge [success EXPRESSION] [alignment EXPRESSION] HELP_TEXT SCRIPT_NAME[(PARAMETERS)]
 
 This is used to take a photo for inside the temple so the player can call a reminder script to find out
 what they should be doing in the game to complete any script. You don't have to pass the position of the
@@ -1376,10 +1376,10 @@ snapshot CHALLENGE_CREATURE_DEVELOPMENT quest success 0 alignment 0 HELP_TEXT_TI
 	PUSHI 3881		//argv
 	CASTF
 	PUSHI 1			//argc
-	SYS SNAPSHOT	//[13+, 0] (int challengeID, bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, StrPtr reminderScript, float... args, int argc)
+	SYS SNAPSHOT	//[13+, 0] (ScriptChallengeEnums challengeID, bool quest, Coord position, Coord focus, float success, float alignment, int titleStrID, StrPtr reminderScript, float... args, int argc)
 ___________________________________________
 
-3.8.16 update snapshot CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR SCRIPT_NAME[(PARAMETERS)]
+3.8.16 update snapshot ScriptChallengeEnums [success EXPRESSION] [alignment EXPRESSION] HELP_TEXT SCRIPT_NAME[(PARAMETERS)]
 
 This is used to take a photo for inside the temple so the player can call a reminder script to find out
 what they should be doing in the game to complete any script. You don't have to pass the position of the
@@ -1396,10 +1396,10 @@ update snapshot CHALLENGE_CREATURE_DEVELOPMENT success 0.08 alignment 0 HELP_TEX
 	PUSHI 1010	//1010=HELP_TEXT_SHOW_CREATURE_DEVELOPMENT_CRITERIA_02
 	CASTF
 	PUSHI 1		//argc
-	SYS UPDATE_SNAPSHOT	//[?, 0] (int challengeID, float success, float alignment, int titleStrID, StrPtr reminderScript, float...args, int argc)
+	SYS UPDATE_SNAPSHOT	//[?, 0] (ScriptChallengeEnums challengeID, float success, float alignment, int titleStrID, StrPtr reminderScript, float...args, int argc)
 ___________________________________________
 
-3.8.17 update snapshot details CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR [taking picture]
+3.8.17 update snapshot details ScriptChallengeEnums [success EXPRESSION] [alignment EXPRESSION] HELP_TEXT [taking picture]
 
 This is used to take a photo for inside the temple so the player can call a reminder script to find out
 what they should be doing in the game to complete any script. You don't have to pass the position of the
@@ -1415,7 +1415,7 @@ update snapshot details MY_CHALLENGE success 1 alignment ModifAl HELP_TEXT_TITLE
 	PUSHF [ModifAl]				//alignment
 	PUSHI 2451					//HELP_TEXT_TITLE_35
 	PUSHB true					//taking picture
-	SYS UPDATE_SNAPSHOT_PICTURE	//[11, 0] (int challengeID, Coord position, Coord focus, float success, float alignment, int titleStrID, bool takingPicture)
+	SYS UPDATE_SNAPSHOT_PICTURE	//[11, 0] (ScriptChallengeEnums challengeID, Coord position, Coord focus, float success, float alignment, int titleStrID, bool takingPicture)
 ___________________________________________
 
 3.8.18 set game speed to EXPRESSION

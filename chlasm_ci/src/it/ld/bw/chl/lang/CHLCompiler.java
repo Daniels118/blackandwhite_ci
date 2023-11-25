@@ -1521,7 +1521,7 @@ public class CHLCompiler implements Compiler {
 			sys(GAME_DELETE_FIRE);
 			return replace(start, "STATEMENT");
 		} else {
-			//delete OBJECT [with fade]
+			//delete OBJECT [with fade|with explosion|with temple explosion]
 			parse("VARIABLE");
 			symbol = peek();
 			if (symbol.is("with")) {

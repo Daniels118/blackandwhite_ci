@@ -1,0 +1,34 @@
+# Black & White Ultimate challenge project
+
+# How to use this file:
+# 1) copy into this folder all the source files taken from B&W Ultimate;
+# 2) open a command prompt, cd into this directory, and run the following command:
+#    chlasm -compile -p _project.txt -o _challenge.chl
+
+headers_path ../../headers
+header AllMeshes.h
+header AudioMusic.h
+header AudioSFX.h
+header CameraPosEnum.h
+header CreatureEnum.h
+header CreatureSpec.h
+header Enum.h
+header GStates.h
+header HelpTextEnums.h
+header HitRegions.h
+header LHKeyBoard.h
+header LHSample.h
+header ScriptChallengeEnums.h
+header ScriptEnums.h
+header ScriptEnumstwo.h
+
+info_path ../../headers
+info InfoScript1.txt
+info _constants.txt
+
+### Source files ###
+source_path ../decompile
+source IsleHeaders.txt
+
+source_path E:\Games\Black and White\Ultimate\Scripts\CreatureIsles\decompiled
+sourcelist _challenges.txt
