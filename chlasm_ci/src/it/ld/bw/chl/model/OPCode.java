@@ -19,17 +19,23 @@ import static it.ld.bw.chl.model.OPCodeAttr.*;
 
 /* About SWAP
  * 
- * "SWAP n" swaps stack[top] with stack[top - n]. This is used to prepend a value on the stack, for example:
+ * "SWAPF n" copies stack[top] and inserts it at stack[top - n], shifting up the last n items.
+ * This is used to duplicate a value to pass it to 2 functions, for example:
+ * 		PUSHI 346
+ *		SYS CONVERT_CAMERA_FOCUS	//[1, 3] (int) returns (Coord)
  *		PUSHI 346
- *		SYS CONVERT_CAMERA_POSITION	//(1, 3)
+ *		SYS CONVERT_CAMERA_POSITION	//(1, 3) (int) returns (Coord)
  *		PUSHF 7.0
  *		SWAPF 4
- *		SYS MOVE_CAMERA_POSITION	//(4, 0)
- * It is unclear why the value "4" isn't pushed just before calling CONVERT_CAMERA_POSITION.
+ *		SYS MOVE_CAMERA_POSITION	//(4, 0) (Coord position, float time)
+ *		SYS MOVE_CAMERA_FOCUS		//[4, 0] (Coord position, float time)
+ * This duplicates the value 7.0, so that the one that was already on the stack will still be passed as 4th
+ * parameter to MOVE_CAMERA_POSITION, and another copy is inserted before the 3 Coords returned by
+ * CONVERT_CAMERA_POSITION, to be passed as 4th parameter to MOVE_CAMERA_FOCUS.
  * 
  * SWAP alone is used to swap the last 2 values on the stack. This is used to insert the vertical coordinate
  * within a 2D horizontal coordinates coded in source files, for example:
- * 		[1865.61,2641.24]
+ * 		[1865.61, 2641.24]
  * becomes:
  *		PUSHF 1865.61
  *		CASTC
@@ -147,7 +153,7 @@ public enum OPCode {
 /*26*/	{null, {null, "RETEXCEPT"}},
 /*27*/	{null, {null, "ITEREXCEPT"}},
 /*28*/	{null, {null, "BRKEXCEPT"}},
-/*29*/	{null, {null, "SWAP"}},
+/*29*/	{null, {null, "SWAP", "SWAPF"}},
 /*30*/	{{"DUP"}},
 /*31*/	{null, null, {null, null, "LINE"}},
 /*32*/	{null, null, {null, null, null, null, null, null, null, "REF_AND_OFFSET_PUSH"}},

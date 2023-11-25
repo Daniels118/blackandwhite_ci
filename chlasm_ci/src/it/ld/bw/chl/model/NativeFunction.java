@@ -125,7 +125,7 @@ public enum NativeFunction {
 	/* 76*/ CREATURE_SET_DESIRE_ACTIVATED(2, 0),
 	/* 77*/ CREATURE_SET_DESIRE_MAXIMUM("Object creature, CREATURE_DESIRES desire, float value"),
 	/* 78*/ CONVERT_CAMERA_POSITION("int", "Coord"),
-	/* 79*/ CONVERT_CAMERA_FOCUS("int camera_enum", "Coord"),
+	/* 79*/ CONVERT_CAMERA_FOCUS("ScriptCameraPosition camera_enum", "Coord"),
 	/* 80*/ CREATURE_SET_PLAYER("float player, Object creature"),
 	/* 81*/ CREATURE_INITIALISE_NUM_TIMES_PERFORMED_ACTION(2),
 	/* 82*/ CREATURE_GET_NUM_TIMES_ACTION_PERFORMED(2, "float"),
@@ -159,7 +159,7 @@ public enum NativeFunction {
 	/*110*/ GET_REAL_DAY2("", "float"),
 	/*111*/ GET_REAL_MONTH("", "float"),
 	/*112*/ GET_REAL_YEAR("", "float"),
-	/*113*/ RUN_CAMERA_PATH("int cameraEnum"),
+	/*113*/ RUN_CAMERA_PATH("SCRIPT_PATH cameraEnum"),
 	/*114*/ START_DIALOGUE("", "bool"),
 	/*115*/ END_DIALOGUE(),
 	/*116*/ IS_DIALOGUE_READY("", "bool"),
@@ -807,7 +807,9 @@ public enum NativeFunction {
 		DETAIL_ANIM_TYPES(),			//defined in info1.txt (alias of ANIM_LIST in AllMeshes.h)
 		HELP_EVENT_TYPE(),				//see enums.txt
 		HAND_GLOW(),					//see enums.txt
-		FIGHT_MOVE();					//defined in HitRegions.h
+		FIGHT_MOVE(),					//defined in HitRegions.h
+		ScriptCameraPosition(),			//defined in CameraPosEnum.h
+		SCRIPT_PATH();					//defined in CameraPosEnum.h
 		
 		private static final Map<String, ArgType> map = new HashMap<>();
 		

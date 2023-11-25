@@ -148,17 +148,13 @@ ___________________________________________
 
 Set an object to play an animation for a number of times (default 1).
 
-Boy play ANM_P_SWIM2 loop -1
+a play ANM_P_SWIM2 loop -1
 
-	PUSHF [Boy]				//object (1st arg to SET_SCRIPT_STATE)
-	PUSHO [Boy]				//object (1st arg to SET_SCRIPT_ULONG)
-	PUSHI 390				//390=ANM_P_SWIM2
-	PUSHF 1.0				//loop times
+	PUSHV [a]			//object
+	PUSHI 420			//animation
+	PUSHF 1.0			//loop
 	NEG
-	CASTI
-	SYS SET_SCRIPT_ULONG	//[3, 0] (ObjectObj object, int animation, int loop)
-	PUSHI 200				//200=VILLAGER_STATE_SCRIPT_PLAY_ANIM
-	SYS SET_SCRIPT_STATE	//[2, 0] (Object object, VILLAGER_STATES state)
+	SYS THING_PLAY_ANIM	//[3, 0] (Object object, int animation, float loop)
 ___________________________________________
 
 3.1.7 set OBJECT anim CONST_EXPR
@@ -2427,39 +2423,35 @@ disable Storm affected by wind		//#singingstonecircle.txt:790
 	SYS SET_AFFECTED_BY_WIND	//[2, 0] (bool enable, Object object)
 ___________________________________________
 
-3.14 state OBJECT CONST_EXPR [position COORD_EXPR] [float EXPRESSION] [ulong EXPRESSION, EXPRESSION]
+3.14.1 state OBJECT CONST_EXPR
 
 This is a dangerous feature, where you can set the object in a state. Do not set them into a simulation
 state as it may go mad! States have data which needs to be set up for the specific state, the float,
 ulong, and position params may need to be filled for the state. BE CAREFUL!
 
 state Mother WANDER_AROUND
-position [SoapBox]
-float 6
-ulong 4, 20
 
-	PUSHF [Mother]				//1st arg to SET_SCRIPT_STATE
-	PUSHI 199					//2st arg to SET_SCRIPT_STATE (199=WANDER_AROUND)
-	PUSHI [Mother]				//	1st arg to SET_SCRIPT_STATE_POS
-	PUSHF [SoapBox]				//		arg to GET_POSITION
-	SYS GET_POSITION			//	2nd arg to SET_SCRIPT_STATE_POS
-	SYS SET_SCRIPT_STATE_POS	//[4, 0] (ObjectInt object, Coord position)
-	PUSHI [Mother]				//object
-	PUSHF 6.0					//value
-	SYS SET_SCRIPT_FLOAT		//[2, 0] (ObjectInt object, float value)
-	PUSHI [Mother]				//object
-	PUSHF 4.0					//animation
-	CASTI
-	PUSHF 20.0					//loop
-	CASTI
-	SYS SET_SCRIPT_ULONG		//[3, 0] (ObjectObj object, int animation, int loop)
+	PUSHF [Mother]				//object
+	PUSHI 199					//state
 	SYS SET_SCRIPT_STATE		//[2, 0] (Object object, VILLAGER_STATES state)
-	
-Equivalent SYS calls:
-	SET_SCRIPT_STATE_POS(Mother, GET_POSITION(SoapBox))
-	SET_SCRIPT_FLOAT(Mother, 6.0)
-	SET_SCRIPT_ULONG(Mother, (int) 4.0, (int) 20.0)
-	SET_SCRIPT_STATE(Mother, WANDER_AROUND)
+___________________________________________
+
+3.14.2 state OBJECT CONST_EXPR position COORD_EXPR float EXPRESSION ulong EXPRESSION, EXPRESSION
+
+This is a dangerous feature, where you can set the object in a state. Do not set them into a simulation
+state as it may go mad! States have data which needs to be set up for the specific state, the float,
+ulong, and position params may need to be filled for the state. BE CAREFUL!
+
+state a ANM_P_SWIM2 position [e] float 1 ulong 2, 3
+
+	PUSHV [a]							//object
+	PUSHI 420							//state
+	PUSHV [e]							//
+	SYS GET_POSITION					//position
+	PUSHF 1.0							//float
+	PUSHF 2.0							//ulong0
+	PUSHF 3.0							//ulong1
+	SYS SET_SCRIPT_STATE_WITH_PARAMS	//[8, 0] (Object obj, int state, Coord pos, float fVal, int ulong0, int ulong1)
 ___________________________________________
 
 3.15.1 if CONDITION STATEMENTS (elsif CONDITION STATEMENTS)* [else STATEMENTS] end if
@@ -3168,13 +3160,7 @@ ___________________________________________
 
 3.18.20 camera follow OBJECT distance EXPRESSION
 
-This sets the camera to follow an object with the current heading at the defined distance.
-
-set camera follow Son distance 3								// camera follow boy running		//#followus.txt:396
-
-	PUSHF [Son]							//target
-	PUSHF 3.0							//distance
-	SYS SET_FOCUS_AND_POSITION_FOLLOW	//[2, 0] (Object target, float distance)
+Wrong syntax, see 3.18.17
 ___________________________________________
 
 3.18.21 set camera properties distance EXPRESSION speed EXPRESSION angle EXPRESSION enable|disable behind
@@ -3192,21 +3178,21 @@ set camera properties distance 3 speed 0 angle 22.5 enable behind		//#followus.t
 	SYS CAMERA_PROPERTIES	//[4, 0] (float distance, float speed, float angle, bool enableBehind)
 ___________________________________________
 
-3.18.22 set camera to CONSTANT
+3.18.22 set camera to IDENTIFIER CONSTANT
 
 Instantly sets the camera to a camera position and focus defined in the camera editor.
 
-set camera to T00_000		//#LearnInfluence.txt:19
+set camera to Foo ALLY_SPEAKST00_001
 
-	PUSHI 368					//T00_000
-	SYS CONVERT_CAMERA_FOCUS	//[1, 3] (int) returns (Coord)
-	PUSHI 368					//T00_000
-	SYS CONVERT_CAMERA_POSITION	//[1, 3] (int) returns (Coord)
+	PUSHI 1						//CONSTANT
+	SYS CONVERT_CAMERA_FOCUS	//[1, 3] (int camera_enum) returns (Coord)
+	PUSHI 1						//CONSTANT
+	SYS CONVERT_CAMERA_POSITION	//[1, 3] (int camera_enum) returns (Coord)
 	SYS SET_CAMERA_POSITION		//[3, 0] (Coord position)
 	SYS SET_CAMERA_FOCUS		//[3, 0] (Coord position)
 ___________________________________________
 
-3.18.23 move camera to CONSTANT time EXPRESSION
+3.18.23 move camera to IDENTIFIER CONSTANT time EXPRESSION
 
 Moves the camera to a camera position and focus defined in the camera editor in a define time.
 WARNING: this implementation looks bugged, the "time" should be pushed 2 times.
@@ -3223,14 +3209,14 @@ move camera to T00_000 time 3											// Cam look at dying brother		//#lostbro
 	SYS MOVE_CAMERA_FOCUS		//[4, 0] (Coord position, float time)
 ___________________________________________
 
-3.18.24 camera path CONSTANT
+3.18.24 camera path SCRIPT_PATH
 
 In the camera editor you can create camera paths. An enum in cameraposenum.h
 
 camera path TRACK00		//#lostbrother.txt:788
 
 	PUSHI 39
-	SYS RUN_CAMERA_PATH	//[1, 0] (int cameraEnum)
+	SYS RUN_CAMERA_PATH	//[1, 0] (SCRIPT_PATH cameraEnum)
 ___________________________________________
 
 3.18.25 enable|disable camera fixed rotation at COORD_EXPR

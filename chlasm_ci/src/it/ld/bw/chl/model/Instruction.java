@@ -441,6 +441,10 @@ public class Instruction extends Struct {
 		return opcode == OPCode.ENDEXCEPT && (flags & FREE) == FREE;
 	}
 	
+	public boolean is(NativeFunction func) {
+		return opcode == OPCode.SYS && intVal == func.ordinal();
+	}
+	
 	/**Creates an Instruction instance based on the given mnemonic. The instruction has the opcode, flags and
 	 * datatype already initialized. Flags and datatype may require further modifications depending on the operand.
 	 * @param keyword

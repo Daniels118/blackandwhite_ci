@@ -39,7 +39,9 @@ import it.ld.bw.chl.model.OPCodeFlag;
 import it.ld.bw.chl.model.Script;
 
 public class CHLDecompiler {
-	private static final String STATEMENTS_FILE = "statements.tsv";
+	public static boolean traceEnabled = false;
+	
+	private static final String STATEMENTS_FILE = "statements.txt";
 	private static final String SUBTYPES_FILE = "subtypes.txt";
 	
 	private static final char[] ILLEGAL_CHARACTERS = {'/', '\n', '\r', '\t', '\0', '\f', '`', '?', '*', '\\', '<', '>', '|', '\"', ':'};
@@ -78,6 +80,8 @@ public class CHLDecompiler {
 		//
 		addEnumOption("HELP_SPIRIT_TYPE", "none", "good", "evil", "last");
 		addEnumOption("SAY_MODE", null, "with interaction", "without interaction");
+		addEnumOption("SAY_MODE", null, "with interaction", "without interaction");
+		addEnumOption("[anti]", null, "anti");
 		//
 		dummyOptions.put("second|seconds", "seconds");
 		dummyOptions.put("event|events", "events");
@@ -97,10 +101,12 @@ public class CHLDecompiler {
 	
 	private final Map<String, Var> globalMap = new HashMap<>();
 	private final Map<String, Var> localMap = new HashMap<>();
-	private final ArrayList<ArgType> stack = new ArrayList<>();
+	private final ArrayList<StackVal> stack = new ArrayList<>();
+	private final ArrayList<Integer> argcStack = new ArrayList<>();
 	private List<Instruction> instructions;
 	private ListIterator<Instruction> it;
 	private int ip;
+	private int lastTracedIp;
 	private int nextStatementIndex;
 	private Script currentScript;
 	private ArrayList<Block> blocks = new ArrayList<>();
@@ -209,6 +215,7 @@ public class CHLDecompiler {
 		globalMap.clear();
 		stack.clear();
 		instructions = chl.getCode().getItems();
+		lastTracedIp = -1;
 		currentScript = null;
 		mapGlobalVars();
 		//
@@ -352,6 +359,7 @@ public class CHLDecompiler {
 	
 	private void writeScript(CHLFile chl, Writer str, Script script) throws IOException, DecompileException {
 		currentScript = script;
+		trace("begin " + script.getSignature());
 		//Load parameters on the stack
 		for (int i = 0; i < script.getParameterCount(); i++) {
 			push(ArgType.UNKNOWN);
@@ -394,6 +402,7 @@ public class CHLDecompiler {
 		}
 		//
 		str.write("end script " + script.getName() + "\r\n");
+		trace("end script " + script.getName() + "\r\n");
 		if (!stack.isEmpty()) {
 			out.println("Stack is not empty at end of script "+script.getName()+":");
 			out.println(stack);
@@ -406,9 +415,10 @@ public class CHLDecompiler {
 	}
 	
 	private Expression decompileLocalVarAssignment(Var var) throws DecompileException {
+		int start = ip;
 		Instruction popf = find(OPCode.POP, OPCodeFlag.REF, DataType.FLOAT, var.index);
 		if (popf == null) {
-			throw new DecompileException("Cannot find variable initialization statement");
+			throw new DecompileException("Cannot find initialization statement for variable "+var, currentScript.getName(), start);
 		}
 		nextStatementIndex = ip + 1;
 		Expression statement = decompile();
@@ -427,7 +437,7 @@ public class CHLDecompiler {
 	private Expression decompile() throws DecompileException {
 		Expression op1, op2, op3;
 		String varName, varIndex;
-		Instruction pInstr;
+		Instruction pInstr, nInstr, nInstr2;
 		Instruction instr = prev();
 		switch (instr.opcode) {
 			case ADD:
@@ -534,7 +544,7 @@ public class CHLDecompiler {
 							pInstr = prev();	//POPI
 							verify(ip, pInstr, OPCode.POP, 1, DataType.INT);
 							pInstr = prev();	//SYS2 GET_PROPERTY
-							verify(ip, pInstr, OPCode.SYS, 1, null, NativeFunction.GET_PROPERTY.ordinal());
+							verify(ip, pInstr, NativeFunction.GET_PROPERTY);
 							pInstr = prev();	//DUP 1
 							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
 							pInstr = prev();	//DUP 1
@@ -549,7 +559,7 @@ public class CHLDecompiler {
 						} else if (pInstr.opcode == OPCode.SYS) {
 							//PROPERTY of VARIABLE += EXPRESSION
 							pInstr = prev();	//SYS2 GET_PROPERTY
-							verify(ip, pInstr, OPCode.SYS, 1, DataType.FLOAT, NativeFunction.GET_PROPERTY.ordinal());
+							verify(ip, pInstr, NativeFunction.GET_PROPERTY);
 							pInstr = prev();	//DUP 1
 							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
 							pInstr = prev();	//DUP 1
@@ -562,7 +572,7 @@ public class CHLDecompiler {
 							String assignee = property + " of " + op1;
 							return new Expression(assignee + op2);
 						} else {
-							throw new DecompileException("Unexpected instruction "+instr+". Expected: POPI|SYS2", currentScript.getName(), ip);
+							throw new DecompileException("Expected: POPI|SYS2", currentScript.getName(), ip, instr);
 						}
 					} else {
 						return decompile(func);
@@ -651,7 +661,7 @@ public class CHLDecompiler {
 				pInstr = prev();	//ADDF
 				verify(ip, pInstr, OPCode.ADD, 1, DataType.FLOAT);
 				pInstr = prev();	//PUSHF var
-				verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
+				verify(ip, pInstr, OPCode.PUSH, 1, DataType.FLOAT);
 				varName = getVar((int)pInstr.floatVal, false);
 				varIndex = decompile().toString();
 				return new Expression(varName + "[" + varIndex + "]");
@@ -669,7 +679,7 @@ public class CHLDecompiler {
 					pInstr = prev();	//POPI
 					verify(ip, pInstr, OPCode.POP, 1, DataType.INT);
 					pInstr = prev();	//REF_AND_OFFSET_PUSH
-					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.FLOAT);
+					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.VAR);
 					pInstr = prev();	//PUSHV var
 					verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 					varName = getVar(pInstr.intVal, false);
@@ -684,7 +694,7 @@ public class CHLDecompiler {
 					//IDENTIFIER += EXPRESSION
 					//IDENTIFIER\[EXPRESSION\] += EXPRESSION
 					pInstr = prev();	//REF_AND_OFFSET_PUSH
-					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.FLOAT);
+					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.VAR);
 					pInstr = prev();	//PUSHV var
 					verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 					varName = getVar(pInstr.intVal, false);
@@ -696,7 +706,7 @@ public class CHLDecompiler {
 					}
 					return new Expression(assignee + op2);
 				} else {
-					throw new DecompileException("Unexpected instruction "+instr+". Expected: POPI|REF_AND_OFFSET_PUSH", currentScript.getName(), ip);
+					throw new DecompileException("Expected: POPI|REF_AND_OFFSET_PUSH", currentScript.getName(), ip, instr);
 				}
 			case JMP:
 				if (currentBlock.is(BlockType.IF, BlockType.ELSIF, BlockType.ELSE) && ip == currentBlock.farEnd) {
@@ -771,15 +781,39 @@ public class CHLDecompiler {
 							}
 						}
 					} else {
-						//wait until CONDITION
-						op1 = decompile();
-						return new Expression("wait until " + op1);
+						pInstr = peek(-1);
+						if (pInstr.is(NativeFunction.START_DIALOGUE)) {
+							nInstr = peek(+1);
+							if (nInstr.is(NativeFunction.START_CAMERA_CONTROL)) {
+								nInstr = peek(+3);
+								if (nInstr.is(NativeFunction.START_GAME_SPEED)) {
+									nInstr = peek(+4);
+									nInstr2 = peek(+5);
+									if (nInstr.opcode == OPCode.PUSH && nInstr2.is(NativeFunction.SET_WIDESCREEN)) {
+										this.nextStatementIndex += 5;
+										incTabs = true;
+										return new Expression("begin cinema");
+									} else {
+										this.nextStatementIndex += 3;
+										incTabs = true;
+										return new Expression("begin camera");
+									}
+								}
+							} else {
+								incTabs = true;
+								return new Expression("begin dialogue");
+							}
+						} else {
+							//wait until CONDITION
+							op1 = decompile();
+							return new Expression("wait until " + op1);
+						}
 					}
 				}
 			case EXCEPT:
 				final int exceptionHandlerBegin = instr.intVal;
 				next();	//Skip EXCEPT
-				Instruction nInstr = findEndOfStatement();
+				nInstr = findEndOfStatement();
 				if (nInstr.opcode != OPCode.JZ || !nInstr.isForward()) {
 					//begin loop
 					final int beginIndex = ip;
@@ -864,7 +898,7 @@ public class CHLDecompiler {
 			case END:
 				return END_SCRIPT;
 		}
-		throw new DecompileException(instr+" is not supported in "+currentBlock+" "+currentBlock.begin, currentScript.getName(), ip);
+		throw new DecompileException("Unsupported instruction in "+currentBlock+" "+currentBlock.begin, currentScript.getName(), ip, instr);
 	}
 	
 	private void pushBlock(Block block) {
@@ -880,16 +914,94 @@ public class CHLDecompiler {
 	}
 	
 	private Expression decompile(NativeFunction func) throws DecompileException {
+		Instruction pInstr, nInstr;
+		//Special cases (without parameters)
+		switch (func) {
+			case SET_CAMERA_FOCUS:
+				pInstr = peek(-1);		//SYS SET_CAMERA_POSITION ?
+				if (pInstr.opcode == OPCode.SYS) {
+					//set camera to IDENTIFIER CONSTANT
+					verify(ip - 1, pInstr, NativeFunction.SET_CAMERA_POSITION);
+					pInstr = peek(-2);	//SYS CONVERT_CAMERA_POSITION
+					verify(ip - 2, pInstr, NativeFunction.CONVERT_CAMERA_POSITION);
+					pInstr = peek(-3);	//PUSHI const
+					verify(ip - 3, pInstr, OPCode.PUSH, 1, DataType.INT);
+					int val = pInstr.intVal;
+					pInstr = peek(-4);	//SYS CONVERT_CAMERA_FOCUS
+					verify(ip - 4, pInstr, NativeFunction.CONVERT_CAMERA_FOCUS);
+					pInstr = peek(-5);	//PUSHI const
+					verify(ip - 5, pInstr, OPCode.PUSH, 1, DataType.INT, val);
+					String op1 = getSymbol(ArgType.ScriptCameraPosition, val);
+					return new Expression("set camera to "+op1+" "+op1);
+				}
+				break;
+			case MOVE_CAMERA_FOCUS:
+				pInstr = peek(-1);		//SYS MOVE_CAMERA_POSITION ?
+				if (pInstr.opcode == OPCode.SYS) {
+					//move camera to IDENTIFIER CONSTANT time EXPRESSION
+					verify(ip - 1, pInstr, NativeFunction.MOVE_CAMERA_POSITION);
+					pInstr = peek(-2);	//SWAPF 4
+					verify(ip - 2, pInstr, OPCode.SWAP, 1, DataType.FLOAT, 4);
+					pInstr = peek(-3);	//PUSHF time
+					verify(ip - 3, pInstr, OPCode.PUSH, 1, DataType.FLOAT);
+					String op2 = String.valueOf(pInstr.floatVal);
+					pInstr = peek(-4);	//SYS CONVERT_CAMERA_POSITION
+					verify(ip - 4, pInstr, NativeFunction.CONVERT_CAMERA_POSITION);
+					pInstr = peek(-5);	//PUSHI const
+					verify(ip - 5, pInstr, OPCode.PUSH, 1, DataType.INT);
+					int val = pInstr.intVal;
+					pInstr = peek(-6);	//SYS CONVERT_CAMERA_FOCUS
+					verify(ip - 6, pInstr, NativeFunction.CONVERT_CAMERA_FOCUS);
+					pInstr = peek(-7);	//PUSHI const
+					verify(ip - 7, pInstr, OPCode.PUSH, 1, DataType.INT, val);
+					String op1 = getSymbol(ArgType.ScriptCameraPosition, val);
+					return new Expression("move camera to "+op1+" "+op1+" time "+op2);
+				}
+				break;
+			case START_CANNON_CAMERA:
+				incTabs = true;
+				return new Expression("begin cannon");
+			case SET_WIDESCREEN:
+				accept(NativeFunction.SET_WIDESCREEN);
+				accept(NativeFunction.END_GAME_SPEED);
+				accept(NativeFunction.END_CAMERA_CONTROL);
+				accept(NativeFunction.END_DIALOGUE);
+				nInstr = peek(+1);
+				if (nInstr.is(NativeFunction.GAME_HOLD_WIDESCREEN)) {
+					accept(NativeFunction.GAME_HOLD_WIDESCREEN);
+					this.nextStatementIndex = ip + 1;
+					decTabs();
+					return new Expression("end cinema with widescreen");
+				} else {
+					this.nextStatementIndex = ip + 1;
+					decTabs();
+					return new Expression("end cinema");
+				}
+			case END_GAME_SPEED:
+				accept(NativeFunction.END_GAME_SPEED);
+				accept(NativeFunction.END_CAMERA_CONTROL);
+				accept(NativeFunction.END_DIALOGUE);
+				this.nextStatementIndex = ip + 1;
+				decTabs();
+				return new Expression("end camera");
+			case RELEASE_DUAL_CAMERA:
+				decTabs();
+				return new Expression("end dual camera");
+			case END_CANNON_CAMERA:
+				decTabs();
+				return new Expression("end cannon");
+			case END_DIALOGUE:
+				decTabs();
+				return new Expression("end dialogue");
+			default:
+		}
 		//Read parameters
 		int argc = 0;
-		List<Expression> params = new ArrayList<>(func.args.length);
-		for (int i = func.args.length - 1; i >= 0; i--) {
-			params.add(null);
-		}
+		List<Expression> params = new LinkedList<>();
 		for (int i = func.args.length - 1; i >= 0; i--) {
 			if (i > 0 && func.args[i - 1].varargs) {
 				Expression expr = decompile();
-				params.set(i, expr);
+				params.add(0, expr);
 				argc = expr.intVal();
 			} else if (func.args[i].varargs) {
 				if (argc > 0) {
@@ -897,14 +1009,14 @@ public class CHLDecompiler {
 					for (int j = 1; j < argc; j++) {
 						argv = decompile() + ", " + argv;
 					}
-					params.set(i, new Expression(argv));
+					params.add(0, new Expression(argv));
 				}
 			} else {
 				Expression expr = decompile();
-				params.set(i, expr);
+				params.add(0, expr);
 			}
 		}
-		//Format the function call
+		//Special cases (with parameters)
 		switch (func) {
 			case CREATE:
 				//Object CREATE(SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype, Coord position)
@@ -912,19 +1024,40 @@ public class CHLDecompiler {
 				if ("SCRIPT_OBJECT_TYPE_MARKER".equals(typeStr)) {
 					//marker at COORD_EXPR
 					if (params.get(1).intVal() != 0) {
-						throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript.getName(), ip);
+						throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript.getName(), ip, instructions.get(ip));
 					}
 					return new Expression("marker at " + params.get(2));
 				}
 				break;
+			case SNAPSHOT:
+				params.remove(3);	//implicit focus
+				params.remove(2);	//implicit position
+				break;
+			case UPDATE_SNAPSHOT_PICTURE:
+				params.remove(2);	//implicit focus
+				params.remove(1);	//implicit position
+				break;
+			case START_DUAL_CAMERA:
+				incTabs = true;
+				return new Expression("begin dual camera to "+params.get(0)+" "+params.get(1));
+			case CREATURE_AUTOSCALE:
+				boolean enable = params.get(0).boolVal();
+				if (enable) {
+					//enable OBJECT auto scale EXPRESSION
+					return new Expression("enable "+params.get(1)+" auto scale "+params.get(2));
+				} else {
+					//disable OBJECT auto scale
+					return new Expression("disable "+params.get(1)+" auto scale");
+				}
 			default:
 		}
+		//Format the function call
 		Symbol symbol = statements[func.ordinal()];
 		if (symbol != null) {
 			String statement = decompile(func, symbol, params.listIterator());
 			return new Expression(statement);
 		}
-		throw new DecompileException(func+" is not supported", currentScript.getName(), ip);
+		throw new DecompileException(func+" is not supported", currentScript.getName(), ip, instructions.get(ip));
 	}
 	
 	private String decompile(NativeFunction func, Symbol symbol, ListIterator<Expression> params) throws DecompileException {
@@ -934,7 +1067,7 @@ public class CHLDecompiler {
 			if (sym.terminal) {
 				if (sym.terminalType == TerminalType.KEYWORD) {
 					statement.add(sym.keyword);
-				} else {
+				} else if (sym.terminalType != TerminalType.EOL) {
 					String param = decompile(func, params);
 					statement.add(param);
 				}
@@ -965,42 +1098,52 @@ public class CHLDecompiler {
 					}
 				}
 			} else if (sym.expression != null) {
-				Argument arg = func.args[params.nextIndex()];
-				if (arg.type == ArgType.SCRIPT) {
+				String[] words = enumOptions.get(sym.keyword);
+				if (words != null) {
 					Expression param = params.next();
-					int strptr = param.intVal();
-					String string = chl.getDataSection().getString(strptr);
-					statement.add(string);
-				} else if (arg.type == ArgType.SCRIPT_OBJECT_TYPE) {
-					Expression param = params.next();
-					subtype = null;
-					if (param.isNumber()) {
-						int val = param.intVal();
-						String typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, val);
-						if (typeName != null) {
-							subtype = subtypes.get(typeName);
-						}
-						String alias = getSymbol(ArgType.SCRIPT_OBJECT_TYPE, val);
-						statement.add(alias);
-					} else {
-						statement.add(param.toString());
+					int val = param.intVal();
+					String opt = words[val];
+					if (opt != null) {
+						statement.add(opt);
 					}
-				} else if (arg.type == ArgType.SCRIPT_OBJECT_SUBTYPE && subtype != null) {
-					Expression param = params.next();
-					if (param.isNumber()) {
-						int val = param.intVal();
-						String alias = getSymbol(subtype, val);
-						statement.add(alias);
-					} else {
-						statement.add(param.toString());
-					}
-					subtype = null;
 				} else {
-					String param = decompile(func, sym, params);
-					statement.add(param);
+					Argument arg = func.args[params.nextIndex()];
+					if (arg.type == ArgType.SCRIPT) {
+						Expression param = params.next();
+						int strptr = param.intVal();
+						String string = chl.getDataSection().getString(strptr);
+						statement.add(string);
+					} else if (arg.type == ArgType.SCRIPT_OBJECT_TYPE) {
+						Expression param = params.next();
+						subtype = null;
+						if (param.isNumber()) {
+							int val = param.intVal();
+							String typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, val);
+							if (typeName != null) {
+								subtype = subtypes.get(typeName);
+							}
+							String alias = getSymbol(ArgType.SCRIPT_OBJECT_TYPE, val);
+							statement.add(alias);
+						} else {
+							statement.add(param.toString());
+						}
+					} else if (arg.type == ArgType.SCRIPT_OBJECT_SUBTYPE && subtype != null) {
+						Expression param = params.next();
+						if (param.isNumber()) {
+							int val = param.intVal();
+							String alias = getSymbol(subtype, val);
+							statement.add(alias);
+						} else {
+							statement.add(param.toString());
+						}
+						subtype = null;
+					} else {
+						String param = decompile(func, sym, params);
+						statement.add(param);
+					}
 				}
 			} else {
-				throw new DecompileException("Bad symbol: "+sym, currentScript.getName(), ip);
+				throw new DecompileException("Bad symbol: "+sym, currentScript.getName(), ip, instructions.get(ip));
 			}
 		}
 		//
@@ -1035,6 +1178,19 @@ public class CHLDecompiler {
 		}
 	}
 	
+	private void trace(String string) {
+		if (traceEnabled) {
+			out.println(string);
+		}
+	}
+	
+	private void trace(Instruction instr) {
+		if (traceEnabled && ip > lastTracedIp) {
+			out.println(String.format("\t%-50s %s", instr, stack));
+			lastTracedIp = ip;
+		}
+	}
+	
 	private Instruction next() throws DecompileException {
 		if (!it.hasNext()) {
 			throw new DecompileException("No more instructions", currentScript.getName(), it.previousIndex());
@@ -1042,6 +1198,7 @@ public class CHLDecompiler {
 		Instruction instr = it.next();
 		ip = it.previousIndex();
 		stackDo(instr);
+		trace(instr);
 		return instr;
 	}
 	
@@ -1056,19 +1213,21 @@ public class CHLDecompiler {
 		if (instr.opcode == OPCode.SYS) {
 			try {
 				NativeFunction func = NativeFunction.fromCode(instr.intVal);
-				if (func.varargs) {
-					Instruction pushArgc = peek(-1);
-					verify(it.previousIndex() - 1, pushArgc, OPCode.PUSH, 1, DataType.INT);
-					int argc = pushArgc.intVal;
-					pop();	//argc
-					for (int i = 0; i < argc; i++) {
-						pop();	//argv
-					}
-				}
+				int argc = 0;
 				for (int i = func.args.length - 1; i >= 0; i--) {
-					ArgType type = func.args[i].type;
-					for (int j = 0; j < type.stackCount; j++) {
-						pop();
+					if (i > 0 && func.args[i - 1].varargs) {
+						argc = pop().intVal();
+						argcStack.add(argc);
+					} else if (func.args[i].varargs) {
+						for (int j = 0; j < argc; j++) {
+							pop();	//argv
+						}
+						argc = 0;
+					} else {
+						ArgType type = func.args[i].type;
+						for (int j = 0; j < type.stackCount; j++) {
+							pop();
+						}
 					}
 				}
 				if (func.returnType != null) {
@@ -1088,6 +1247,42 @@ public class CHLDecompiler {
 			} catch (InvalidScriptIdException e) {
 				throw new DecompileException(currentScript.getName(), it.previousIndex(), e);
 			}
+		} else if (instr.opcode == OPCode.SWAP && instr.dataType != DataType.INT) {
+			StackVal val = stack.get(stack.size() - 1);
+			stack.add(stack.size() - instr.intVal, val);
+		} else if (instr.opcode == OPCode.PUSH) {
+			ArgType type = typeMap[instr.dataType.ordinal()];
+			switch (type) {
+				case BOOL:
+					push(instr.boolVal);
+					break;
+				case FLOAT:
+					push(instr.floatVal);
+					break;
+				case COORD:
+					push(new StackVal(type, instr.floatVal));
+					break;
+				default:
+					push(new StackVal(type, instr.intVal));
+			}
+		} else if ((instr.opcode == OPCode.ADD || instr.opcode == OPCode.SUB) && instr.dataType == DataType.COORDS) {
+			pop();
+			pop();
+			pop();
+			pop();
+			pop();
+			pop();
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+		} else if ((instr.opcode == OPCode.MUL || instr.opcode == OPCode.DIV) && instr.dataType == DataType.COORDS) {
+			pop();
+			pop();
+			pop();
+			pop();
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+			push(ArgType.COORD);
 		} else {
 			for (int i = 0; i < instr.opcode.pop; i++) {
 				pop();
@@ -1108,19 +1303,21 @@ public class CHLDecompiler {
 						pop();
 					}
 				}
-				if (func.varargs) {
-					Instruction pushArgc = peek(-1);
-					verify(it.previousIndex() - 1, pushArgc, OPCode.PUSH, 1, DataType.INT);
-					int argc = pushArgc.intVal;
-					stack.add(ArgType.INT);	//argc
-					for (int i = 0; i < argc; i++) {
-						push(ArgType.UNKNOWN);	//argv
-					}
-				}
-				for (int i = func.args.length - 1; i >= 0; i--) {
-					ArgType type = func.args[i].type;
-					for (int j = 0; j < type.stackCount; j++) {
-						push(type);
+				int argc = 0;
+				for (int i = 0; i < func.args.length; i++) {
+					if (func.args[i].varargs) {
+						argc = argcStack.remove(argcStack.size() - 1);
+						for (int j = 0; j < argc; j++) {
+							push(ArgType.UNKNOWN);
+						}
+					} else if (i > 0 && func.args[i - 1].varargs) {
+						push(argc);
+						argc = 0;
+					} else {
+						ArgType type = func.args[i].type;
+						for (int j = 0; j < type.stackCount; j++) {
+							push(type);
+						}
 					}
 				}
 			} catch (InvalidNativeFunctionException e) {
@@ -1135,6 +1332,34 @@ public class CHLDecompiler {
 			} catch (InvalidScriptIdException e) {
 				throw new DecompileException(currentScript.getName(), it.previousIndex(), e);
 			}
+		} else if (instr.opcode == OPCode.SWAP && instr.dataType != DataType.INT) {
+			stack.remove(stack.size() - 1 - instr.intVal);
+		} else if ((instr.opcode == OPCode.ADD || instr.opcode == OPCode.SUB) && instr.dataType == DataType.COORDS) {
+			pop();
+			pop();
+			pop();
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+		} else if (instr.opcode == OPCode.MUL && instr.dataType == DataType.COORDS) {
+			pop();
+			pop();
+			pop();
+			push(ArgType.FLOAT);
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+		} else if (instr.opcode == OPCode.DIV && instr.dataType == DataType.COORDS) {
+			pop();
+			pop();
+			pop();
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+			push(ArgType.COORD);
+			push(ArgType.FLOAT);
 		} else {
 			for (int i = 0; i < instr.opcode.push; i++) {
 				pop();
@@ -1166,29 +1391,39 @@ public class CHLDecompiler {
 		return instr;
 	}
 	
+	private Instruction accept(NativeFunction func) throws DecompileException {
+		Instruction instr = next();
+		verify(it.previousIndex(), instr, OPCode.SYS, 1, null, func.ordinal());
+		return instr;
+	}
+	
 	private void verify(int index, Instruction instr, OPCode opcode, int flags, DataType type) throws DecompileException {
 		if (instr.opcode != opcode
-				&& instr.flags != flags
-				&& instr.dataType != type) {
-			throw new DecompileException("Unexpected instruction: "+instr+". Expected "+opcode, currentScript.getName(), index);
+				|| instr.flags != flags
+				|| (instr.dataType != type && type != null)) {
+			throw new DecompileException("Expected "+opcode, currentScript.getName(), index, instr);
 		}
+	}
+	
+	private void verify(int index, Instruction instr, NativeFunction func) throws DecompileException {
+		verify(index, instr, OPCode.SYS, 1, null, func.ordinal());
 	}
 	
 	private void verify(int index, Instruction instr, OPCode opcode, int flags, DataType type, int arg) throws DecompileException {
 		if (instr.opcode != opcode
-				&& instr.flags != flags
-				&& (instr.dataType != type || type == null)
-				&& instr.intVal != arg) {
-			throw new DecompileException("Unexpected instruction: "+instr+". Expected "+opcode, currentScript.getName(), index);
+				|| instr.flags != flags
+				|| (instr.dataType != type && type != null)
+				|| instr.intVal != arg) {
+			throw new DecompileException("Expected "+opcode, currentScript.getName(), index, instr);
 		}
 	}
 	
 	private void verify(int index, Instruction instr, OPCode opcode, int flags, DataType type, float arg) throws DecompileException {
 		if (instr.opcode != opcode
-				&& instr.flags != flags
-				&& (instr.dataType != type || type == null)
-				&& instr.floatVal != arg) {
-			throw new DecompileException("Unexpected instruction: "+instr+". Expected "+opcode, currentScript.getName(), index);
+				|| instr.flags != flags
+				|| (instr.dataType != type && type != null)
+				|| instr.floatVal != arg) {
+			throw new DecompileException("Expected "+opcode, currentScript.getName(), index, instr);
 		}
 	}
 	
@@ -1221,11 +1456,30 @@ public class CHLDecompiler {
 	}
 	
 	private void push(ArgType type) {
-		stack.add(type);
+		stack.add(new StackVal(type));
 	}
 	
-	private void pop() {
-		stack.remove(stack.size() - 1);
+	private void push(int intVal) {
+		stack.add(new StackVal(ArgType.INT, intVal));
+	}
+	
+	private void push(float floatVal) {
+		stack.add(new StackVal(ArgType.FLOAT, floatVal));
+	}
+	
+	private void push(boolean boolVal) {
+		stack.add(new StackVal(ArgType.BOOL, boolVal));
+	}
+	
+	private void push(StackVal val) {
+		stack.add(val);
+	}
+	
+	private StackVal pop() throws DecompileException {
+		if (stack.isEmpty()) {
+			throw new DecompileException("Cannot pop value from empty stack", currentScript.getName(), ip, instructions.get(ip));
+		}
+		return stack.remove(stack.size() - 1);
 	}
 	
 	private void decTabs() {
@@ -1312,14 +1566,13 @@ public class CHLDecompiler {
 				lineno++;
 				line = line.trim();
 				if (line.isEmpty() || line.startsWith("#")) continue;
-				String[] parts = line.split("\t");
+				String[] parts = line.split("\\s+", 2);
 				if (parts.length != 2) {
 					throw new RuntimeException("Wrong number of columns");
 				}
 				String funcName = parts[0];
 				String statement = parts[1];
 				NativeFunction func = NativeFunction.valueOf(funcName);
-				int funcId = func.ordinal();
 				Symbol symbol = Syntax.getSymbol(statement);
 				if (symbol == null) {
 					symbol = Syntax.getSymbol(statement + " EOL");	//handle standalone statements
@@ -1327,7 +1580,7 @@ public class CHLDecompiler {
 				if (symbol == null) {
 					throw new RuntimeException("Symbol not found for statement \""+statement+"\"");
 				}
-				statements[funcId] = symbol;
+				statements[func.ordinal()] = symbol;
 			}
 		} catch (Exception e) {
 			throw new RuntimeException(e.getMessage() + " at line " + lineno, e);
@@ -1477,6 +1730,61 @@ public class CHLDecompiler {
 		@Override
 		public String toString() {
 			return type.name();
+		}
+	}
+	
+	
+	private static class StackVal {
+		public final ArgType type;
+		private Integer intVal;
+		private Float floatVal;
+		private Boolean boolVal;
+		
+		public StackVal(ArgType type) {
+			this.type = type;
+		}
+		
+		public StackVal(ArgType type, int intVal) {
+			this.type = type;
+			this.intVal = intVal;
+		}
+		
+		public StackVal(ArgType type, float floatVal) {
+			this.type = type;
+			this.floatVal = floatVal;
+		}
+		
+		public StackVal(ArgType type, boolean boolVal) {
+			this.type = type;
+			this.boolVal = boolVal;
+		}
+		
+		public int intVal() throws DecompileException {
+			if (intVal == null) throw new DecompileException("Unknown stack value");
+			return intVal;
+		}
+		
+		public float floatVal() throws DecompileException {
+			if (floatVal == null) throw new DecompileException("Unknown stack value");
+			return floatVal;
+		}
+		
+		public boolean boolVal() throws DecompileException {
+			if (boolVal == null) throw new DecompileException("Unknown stack value");
+			return boolVal;
+		}
+		
+		@Override
+		public String toString() {
+			String r = type.toString();
+			if (intVal != null) {
+				r += " " + intVal;
+			} else if (floatVal != null) {
+				r += " " + floatVal;
+			} else if (boolVal != null) {
+				r += " " + boolVal;
+			}
+			return r;
 		}
 	}
 }

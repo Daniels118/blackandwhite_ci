@@ -98,7 +98,7 @@ STATEMENT: {
 	set OBJECT disciple CONST_EXPR [with sound] EOL
 	set OBJECT focus to COORD_EXPR EOL
 	set OBJECT focus on OBJECT EOL
-	OBJECT play CONST_EXPR loop EXPRESSION EOL
+	OBJECT play CONST_EXPR [loop EXPRESSION] EOL
 	set OBJECT anim CONST_EXPR EOL
 	delete OBJECT [DELETE_MODE] EOL
 	set OBJECT properties inner EXPRESSION outer EXPRESSION [calm EXPRESSION] EOL
@@ -288,20 +288,21 @@ STATEMENT: {
 	set OBJECT properties clouds EXPRESSION shade EXPRESSION height EXPRESSION EOL
 	set OBJECT properties sheetmin EXPRESSION sheetmax EXPRESSION forkmin EXPRESSION forkmax EXPRESSION EOL
 	enable|disable OBJECT affected by wind EOL
-	state OBJECT CONST_EXPR EOL position COORD_EXPR EOL float EXPRESSION EOL ulong EXPRESSION, EXPRESSION EOL
+	state OBJECT CONST_EXPR EOL
+	state OBJECT CONST_EXPR position COORD_EXPR float EXPRESSION ulong EXPRESSION, EXPRESSION EOL
 	
 	IF_ELSIF_ELSE EOL
 	WHILE EOL
 	LOOP EOL
 	
-	CINEMA
+	CINEMA EOL
+	CAMERA EOL
+	DIALOGUE EOL
+	DUAL_CAMERA EOL
+	KNOWN_CINEMA EOL
+	KNOWN_DIALOGUE EOL
+	CANNON EOL
 	
-	begin camera STATEMENTS EXCEPTIONS end camera EOL
-	begin dialogue STATEMENTS EXCEPTIONS end dialogue EOL
-	begin known dialogue STATEMENTS end known dialogue EOL
-	begin known cinema STATEMENTS end known cinema EOL
-	begin dual camera to OBJECT OBJECT STATEMENTS end dual camera EOL
-	begin cannon STATEMENTS end cannon EOL
 	make HELP_SPIRIT_TYPE spirit point to OBJECT [in world] EOL
 	make HELP_SPIRIT_TYPE spirit point at COORD_EXPR EOL
 	make HELP_SPIRIT_TYPE spirit play across EXPRESSION down EXPRESSION CONST_EXPR [speed EXPRESSION] EOL
@@ -347,11 +348,10 @@ STATEMENT: {
 	set camera follow OBJECT distance EXPRESSION EOL
 	move camera focus follow OBJECT EOL
 	move camera position follow OBJECT EOL
-	camera follow OBJECT distance EXPRESSION EOL
 	set camera properties distance EXPRESSION speed EXPRESSION angle EXPRESSION enable|disable behind EOL
 	set camera to CONSTANT EOL
 	move camera to CONSTANT time EXPRESSION EOL
-	camera path CONSTANT EOL
+	camera path SCRIPT_PATH EOL
 	enable|disable camera fixed rotation at COORD_EXPR EOL
 	shake camera at COORD_EXPR radius EXPRESSION amplitude EXPRESSION time EXPRESSION EOL
 	set dual camera to OBJECT OBJECT EOL
@@ -411,6 +411,37 @@ CINEMA:
 	end cinema [with widescreen] [with dialogue
 		STATEMENTS
 	end dialogue]
+
+CAMERA:
+	begin camera
+		STATEMENTS
+	end camera
+
+DIALOGUE:
+	begin dialogue
+		STATEMENTS
+	end dialogue
+
+DUAL_CAMERA:
+	begin dual camera to OBJECT OBJECT
+		STATEMENTS
+	end dual camera
+
+KNOWN_CINEMA:
+	begin known cinema
+		STATEMENTS
+	end known cinema
+
+KNOWN_DIALOGUE:
+	begin known dialogue
+		STATEMENTS
+	end known dialogue
+
+CANNON:
+	begin cannon
+		STATEMENTS
+	end cannon
+
 
 ### 4 Exceptions
 EXCEPTIONS: {EXCEPTION}
@@ -550,10 +581,8 @@ OBJECT: {
 	reward CONST_EXPR in OBJECT at COORD_EXPR [from sky]
 	flock at COORD_EXPR
 	make OBJECT dance CONST_EXPR around COORD_EXPR time EXPRESSION
-	create influence on OBJECT [radius EXPRESSION]
-	create influence at COORD_EXPR [radius EXPRESSION]
-	create anti influence on OBJECT [radius EXPRESSION]
-	create anti influence at position COORD_EXPR [radius EXPRESSION]
+	create [anti] influence on OBJECT [radius EXPRESSION]
+	create [anti] influence at position COORD_EXPR [radius EXPRESSION]
 	get held by OBJECT
 	get dropped by OBJECT
 	get nearest town at COORD_EXPR for player EXPRESSION radius EXPRESSION
@@ -750,6 +779,8 @@ ENUM_REACTION: CONST_EXPR
 HIGHLIGHT_INFO: CONST_EXPR
 
 HELP_EVENT_TYPE: CONST_EXPR
+
+SCRIPT_PATH: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

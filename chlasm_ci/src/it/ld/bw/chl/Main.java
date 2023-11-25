@@ -38,7 +38,6 @@ import it.ld.utils.CmdLine;
 
 public class Main {
 	private static boolean verbose = false;
-	private static boolean trace = false;
 	
 	public static void main(String[] args) {
 		boolean printJavaStackTrace = true;
@@ -47,9 +46,9 @@ public class Main {
 			printJavaStackTrace = cmd.getArgFlag("-jst");
 			verbose = cmd.getArgFlag("-v");
 			if (cmd.getArgFlag("-trace")) {
-				trace = true;
 				CHLFile.traceEnabled = true;
 				Code.traceEnabled = true;
+				CHLDecompiler.traceEnabled = true;
 			}
 			if (cmd.getArgFlag("-chlasm")) {
 				chlToAsm(cmd);

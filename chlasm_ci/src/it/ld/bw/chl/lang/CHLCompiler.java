@@ -63,7 +63,6 @@ public class CHLCompiler implements Compiler {
 	private int col;
 	
 	private boolean optimizeAssignmentEnabled = false;
-	private boolean fixBugsEnabled = false;
 	private boolean ignoreMissingScriptsEnabled = false;
 	private boolean sharedStringsEnabled = true;
 	private boolean staticArrayCheckEnabled = true;
@@ -141,14 +140,6 @@ public class CHLCompiler implements Compiler {
 	
 	public void setOptimizeAssignmentEnabled(boolean optimizeAssignmentEnabled) {
 		this.optimizeAssignmentEnabled = optimizeAssignmentEnabled;
-	}
-	
-	public boolean isFixBugsEnabled() {
-		return fixBugsEnabled;
-	}
-	
-	public void setFixBugsEnabled(boolean fixBugsEnabled) {
-		this.fixBugsEnabled = fixBugsEnabled;
 	}
 	
 	public boolean isIgnoreMissingScriptsEnabled() {
@@ -977,33 +968,17 @@ public class CHLCompiler implements Compiler {
 					sys(MOVE_CAMERA_TO_FACE_OBJECT);
 					return replace(start, "STATEMENT");
 				} else {
-					//move camera to CONSTANT time EXPRESSION
+					//move camera to IDENTIFIER CONSTANT time EXPRESSION
+					accept(TokenType.IDENTIFIER);
 					symbol = accept(TokenType.IDENTIFIER);
-					String camEnum = challengeName + symbol.token.value;
+					String camEnum = symbol.token.value;
 					int constVal = getConstant(camEnum);
 					pushi(constVal);
 					sys(CONVERT_CAMERA_FOCUS);
 					pushi(constVal);
 					sys(CONVERT_CAMERA_POSITION);
-					if (fixBugsEnabled) {	//See notes in 3.18.23
-						symbol = parse("time ANY EOL")[1];
-						if (symbol.is(TokenType.IDENTIFIER)) {
-							String varName = symbol.token.value;
-							pushf(varName);
-							swap(4);
-							pushf(varName);
-						} else if (symbol.is(TokenType.NUMBER)) {
-							float timeVal = symbol.token.floatVal();
-							pushf(timeVal);
-							swap(4);
-							pushf(timeVal);
-						} else {
-							throw new ParseException("Unexpected token: "+symbol+". Expected: NUMBER|IDENTIFIER", lastParseException, file, symbol.token.line, symbol.token.col);
-						}
-					} else {
-						parse("time EXPRESSION EOL");
-						swap(4);
-					}
+					parse("time EXPRESSION EOL");
+					swapf(4);
 					sys(MOVE_CAMERA_POSITION);
 					sys(MOVE_CAMERA_FOCUS);
 					return replace(start, "STATEMENT");
@@ -1205,9 +1180,10 @@ public class CHLCompiler implements Compiler {
 					sys(SET_CAMERA_TO_FACE_OBJECT);
 					return replace(start, "STATEMENT");
 				} else {
-					//set camera to CONSTANT
-					symbol = parse("IDENTIFIER EOL")[0];
-					String camEnum = challengeName + symbol.token.value;
+					//set camera to IDENTIFIER CONSTANT
+					checkInCameraBlock("set camera to IDENTIFIER CONSTANT");
+					symbol = parse("IDENTIFIER IDENTIFIER EOL")[1];
+					String camEnum = symbol.token.value;
 					int constVal = getConstant(camEnum);
 					pushi(constVal);
 					sys(CONVERT_CAMERA_FOCUS);
@@ -6245,6 +6221,13 @@ public class CHLCompiler implements Compiler {
 	
 	private void swap(int offset) {
 		Instruction instruction = Instruction.fromKeyword("SWAP");
+		instruction.intVal = offset;
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void swapf(int offset) {
+		Instruction instruction = Instruction.fromKeyword("SWAPF");
 		instruction.intVal = offset;
 		instruction.lineNumber = line;
 		instructions.add(instruction);

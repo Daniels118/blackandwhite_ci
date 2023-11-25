@@ -21,15 +21,14 @@ import java.util.Map;
 
 import it.ld.bw.chl.exceptions.InvalidScriptIdException;
 import it.ld.bw.chl.exceptions.ScriptNotFoundException;
+import it.ld.utils.EndianDataInputStream;
 
 public class Scripts extends StructArray<Script> {
-	private final CHLFile chl;
-	
 	private boolean scriptsFinalized = false;
 	private Map<Integer, Script> entrypointScripts;
 	
 	public Scripts(CHLFile chl) {
-		this.chl = chl;
+		
 	}
 	
 	public void finalizeScripts() {
@@ -48,7 +47,8 @@ public class Scripts extends StructArray<Script> {
 				script.setLastInstructionAddress(nextEntrypoint - 1);
 			}
 			Script script = getScriptFromEntrypoint(entrypoints[entrypoints.length - 1]);
-			script.setLastInstructionAddress(chl.getCode().getItems().size() - 1);
+			script.setLastInstructionAddress(Integer.MAX_VALUE);
+			scriptsFinalized = true;
 		}
 	}
 	
@@ -75,6 +75,12 @@ public class Scripts extends StructArray<Script> {
 	@Override
 	public Class<Script> getItemClass() {
 		return Script.class;
+	}
+	
+	@Override
+	public void read(EndianDataInputStream str) throws Exception {
+		super.read(str);
+		this.finalizeScripts();
 	}
 	
 	public Script getScript(int scriptID) throws InvalidScriptIdException {
