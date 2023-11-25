@@ -2829,7 +2829,7 @@ say HELP_TEXT_HAND_DEMO_ROTATING_01		// Move the hand to the side of the screen	
 	PUSHI 5131		//textID
 	PUSHI 0			//withInteraction
 	PUSHO 0			//speaker
-	SYS RUN_TEXT	//[4, 0] (bool singleLine, int textID, int withInteraction, Object speaker)
+	SYS RUN_TEXT	//[4, 0] (bool singleLine, HELP_TEXT textID, int withInteraction, Object speaker)
 ___________________________________________
 
 3.16.2.4 say [single line] CONST_EXPR with number EXPRESSION [SAY_MODE] [by OBJECT]
@@ -2846,7 +2846,7 @@ say constant StatText with number Need		//#HelpSystem.txt:108
 	PUSHV [Need]				//number
 	PUSHI 0						//withInteraction
 	PUSHO 0						//speaker
-	SYS RUN_TEXT_WITH_NUMBER	//[5, 0] (bool singleLine, int string, float number, int withInteraction, Object speaker)
+	SYS RUN_TEXT_WITH_NUMBER	//[5, 0] (bool singleLine, HELP_TEXT string, float number, int withInteraction, Object speaker)
 ___________________________________________
 
 3.16.2.5 clear dialogue

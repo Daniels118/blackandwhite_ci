@@ -178,8 +178,8 @@ SPIRIT_DISAPPEAR					make HELP_SPIRIT_TYPE spirit disappear
 SPIRIT_HOME							send HELP_SPIRIT_TYPE spirit home
 TEMP_TEXT							say [single line] STRING [SAY_MODE] [by OBJECT]
 TEMP_TEXT_WITH_NUMBER				say [single line] STRING with number EXPRESSION [SAY_MODE] [by OBJECT]
-RUN_TEXT							say [single line] CONST_EXPR [SAY_MODE] [by OBJECT]
-RUN_TEXT_WITH_NUMBER				say [single line] CONST_EXPR with number EXPRESSION [SAY_MODE] [by OBJECT]
+RUN_TEXT							say [single line] HELP_TEXT [SAY_MODE] [by OBJECT]
+RUN_TEXT_WITH_NUMBER				say [single line] HELP_TEXT with number EXPRESSION [SAY_MODE] [by OBJECT]
 GAME_CLEAR_DIALOGUE					clear dialogue
 GAME_CLOSE_DIALOGUE					close dialogue
 GAME_DRAW_TEXT						draw text CONST_EXPR across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds
@@ -250,7 +250,6 @@ COMPUTER_PLAYER_READY				computer player EXPRESSION ready
 FLOCK_MEMBER						OBJECT in OBJECT
 IN_CREATURE_HAND					OBJECT in OBJECT hand
 IS_CREATURE_AVAILABLE				creature CONST_EXPR is available
-GET_PROPERTY						OBJECT is CONST_EXPR
 TEXT_READ							read
 THING_VALID							OBJECT exists
 IS_AFFECTED_BY_SPELL				OBJECT affected by spell CONST_EXPR
@@ -297,8 +296,6 @@ CREATE_TIMER						create timer for EXPRESSION second|seconds
 CREATE_REWARD						reward CONST_EXPR at COORD_EXPR [from sky]
 CREATE_REWARD_IN_TOWN				reward CONST_EXPR in OBJECT at COORD_EXPR [from sky]
 FLOCK_CREATE						flock at COORD_EXPR
-INFLUENCE_OBJECT					create [anti] influence on OBJECT [radius EXPRESSION]
-INFLUENCE_POSITION					create [anti] influence at position COORD_EXPR [radius EXPRESSION]
 GET_OBJECT_HELD2					get held by OBJECT
 GET_OBJECT_DROPPED					get dropped by OBJECT
 GET_NEAREST_TOWN_OF_PLAYER			get nearest town at COORD_EXPR for player EXPRESSION radius EXPRESSION

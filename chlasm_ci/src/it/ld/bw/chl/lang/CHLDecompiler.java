@@ -78,8 +78,16 @@ public class CHLDecompiler {
 		addBoolOption("enter", "exit");
 		addBoolOption("left", "right");
 		//
+		addBoolOption("single line");
+		addBoolOption("with pause on trigger");
+		addBoolOption("without hand modify");
+		addBoolOption("excluding scripted");
+		addBoolOption("in world");
+		addBoolOption("extra");
+		addBoolOption("from sky");
+		addBoolOption("as leader");
+		//
 		addEnumOption("HELP_SPIRIT_TYPE", "none", "good", "evil", "last");
-		addEnumOption("SAY_MODE", null, "with interaction", "without interaction");
 		addEnumOption("SAY_MODE", null, "with interaction", "without interaction");
 		addEnumOption("[anti]", null, "anti");
 		//
@@ -90,6 +98,10 @@ public class CHLDecompiler {
 	
 	private static void addBoolOption(String wordTrue, String wordFalse) {
 		boolOptions.put(wordTrue + "|" + wordFalse, new String[] {wordTrue, wordFalse});
+	}
+	
+	private static void addBoolOption(String wordTrue) {
+		boolOptions.put("[" + wordTrue + "]", new String[] {wordTrue, null});
 	}
 	
 	private static void addEnumOption(String keyword, String...options) {
@@ -112,6 +124,8 @@ public class CHLDecompiler {
 	private ArrayList<Block> blocks = new ArrayList<>();
 	private Block currentBlock = null;
 	
+	private Writer writer;
+	private int lineno;
 	private String tabs = "";
 	private boolean incTabs = false;
 	
@@ -119,6 +133,8 @@ public class CHLDecompiler {
 	private Path path;
 	
 	private PrintStream out;
+	
+	private boolean respectLinenoEnabled = false;
 	
 	public CHLDecompiler() {
 		this(System.out);
@@ -128,20 +144,34 @@ public class CHLDecompiler {
 		this.out = out;
 	}
 	
+	public boolean isRespectLinenoEnabled() {
+		return respectLinenoEnabled;
+	}
+
+	public void setRespectLinenoEnabled(boolean respectLinenoEnabled) {
+		this.respectLinenoEnabled = respectLinenoEnabled;
+	}
+
 	public void addHeader(File file) throws FileNotFoundException, IOException, ParseException {
 		CHeaderParser parser = new CHeaderParser();
 		Map<String, Map<String, Integer>> lEnums = new HashMap<>();
 		parser.parse(file, null, lEnums);
 		for (Entry<String, Map<String, Integer>> e : lEnums.entrySet()) {
 			String enumName = e.getKey();
+			if ("HelpTextEnums.h".equals(file.getName()) && enumName.startsWith("_unknown")) {
+				enumName = "HELP_TEXT";
+			}
 			Map<String, Integer> enumEntries = e.getValue();
-			Map<Integer, String> revEntries = new HashMap<>();
+			Map<Integer, String> revEntries = enums.get(enumName);
+			if (revEntries == null) {
+				revEntries = new HashMap<>();
+				enums.put(enumName, revEntries);
+			}
 			for (Entry<String, Integer> entry : enumEntries.entrySet()) {
 				String entryName = entry.getKey();
 				Integer entryVal = entry.getValue();
 				revEntries.put(entryVal, entryName);
 			}
-			enums.put(enumName, revEntries);
 		}
 	}
 	
@@ -223,21 +253,25 @@ public class CHLDecompiler {
 		out.println("Writing _challenges.txt");
 		File listFile = path.resolve("_challenges.txt").toFile();
 		try (FileWriter str = new FileWriter(listFile);) {
-			str.write("//Source files list\r\n");
+			writer = str;
+			lineno = 1;
+			writeln("//Source files list");
 			for (String sourceFilename : sources) {
 				if (!isValidFilename(sourceFilename)) {
 					throw new RuntimeException("Invalid source filename: " + sourceFilename);
 				}
-				str.write(sourceFilename + "\r\n");
+				writeln(sourceFilename);
 			}
-			str.write("_autorun.txt\r\n");
+			writeln("_autorun.txt");
 		}
 		//
 		out.println("Writing _autorun.txt");
 		File autostartFile = path.resolve("_autorun.txt").toFile();
 		try (FileWriter str = new FileWriter(autostartFile);) {
-			writeHeader(chl, str);
-			writeAutoStartScripts(chl, str);
+			writer = str;
+			lineno = 1;
+			writeHeader(chl);
+			writeAutoStartScripts(chl);
 		}
 		//
 		for (String sourceFilename : sources) {
@@ -247,8 +281,10 @@ public class CHLDecompiler {
 			File sourceFile = path.resolve(sourceFilename).toFile();
 			out.println("Writing "+sourceFilename);
 			try (Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
-				writeHeader(chl, str);
-				writeScripts(chl, str, sourceFilename);
+				writer = str;
+				lineno = 1;
+				writeHeader(chl);
+				writeScripts(chl, sourceFilename);
 			}
 		}
 	}
@@ -278,27 +314,32 @@ public class CHLDecompiler {
 		}
 	}
 	
-	private void writeHeader(CHLFile chl, Writer str) throws IOException {
-		str.write("//LHVM Challenge source version "+chl.getHeader().getVersion()+"\r\n");
-		str.write("//Decompiled with CHLASM tool by Daniels118\r\n");
-		str.write("\r\n");
+	private void writeln(String string) throws IOException {
+		writer.write(string + "\r\n");
+		lineno++;
 	}
 	
-	private void writeAutoStartScripts(CHLFile chl, Writer str) throws IOException, DecompileException {
+	private void writeHeader(CHLFile chl) throws IOException {
+		writeln("//LHVM Challenge source version "+chl.getHeader().getVersion());
+		writeln("//Decompiled with CHLASM tool by Daniels118");
+		writeln("");
+	}
+	
+	private void writeAutoStartScripts(CHLFile chl) throws IOException, DecompileException {
 		for (int scriptID : chl.getAutoStartScripts().getScripts()) {
 			try {
 				Script script = chl.getScriptsSection().getScript(scriptID);
-				str.write("run script "+script.getName()+"\r\n");
+				writeln("run script "+script.getName());
 			} catch (InvalidScriptIdException e) {
 				String msg = "Invalid autorun script id: " + scriptID;
-				str.write("//" + msg + "\r\n");
+				writeln("//" + msg);
 				throw new DecompileException(msg);
 			}
 		}
-		str.write("\r\n");
+		writeln("");
 	}
 	
-	private void writeScripts(CHLFile chl, Writer str, String sourceFilename) throws IOException, DecompileException {
+	private void writeScripts(CHLFile chl, String sourceFilename) throws IOException, DecompileException {
 		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
 		int firstGlobal = 0;
 		Script script = null;
@@ -311,20 +352,20 @@ public class CHLDecompiler {
 			}
 			firstGlobal = script.getGlobalCount();
 		}
-		writeGlobals(chl, str, firstGlobal, script.getGlobalCount());
+		writeGlobals(chl, firstGlobal, script.getGlobalCount());
 		firstGlobal = script.getGlobalCount();
-		str.write("\r\n");
+		writeln("");
 		while (it.hasNext()) {
 			script = it.next();
 			if (!script.getSourceFilename().equals(sourceFilename)) {
 				break;
 			}
-			writeScript(chl, str, script);
-			str.write("\r\n");
+			writeScript(chl, script);
+			writeln("");
 		}
 	}
 	
-	private void writeGlobals(CHLFile chl, Writer str, int start, int end) throws IOException {
+	private void writeGlobals(CHLFile chl, int start, int end) throws IOException {
 		List<String> names = chl.getGlobalVariables().getNames().subList(start, end);
 		for (String name : names) {
 			if (!"LHVMA".equals(name)) {
@@ -335,7 +376,7 @@ public class CHLDecompiler {
 				} else if (var.val != 0) {
 					line += " = " + format(var.val);
 				}
-				str.write(line+"\r\n");
+				writeln(line);
 			}
 		}
 	}
@@ -357,60 +398,76 @@ public class CHLDecompiler {
 		return res;
 	}
 	
-	private void writeScript(CHLFile chl, Writer str, Script script) throws IOException, DecompileException {
-		currentScript = script;
-		trace("begin " + script.getSignature());
-		//Load parameters on the stack
-		for (int i = 0; i < script.getParameterCount(); i++) {
-			push(ArgType.UNKNOWN);
-		}
-		str.write("begin " + script.getSignature() + "\r\n");
-		it = instructions.listIterator(script.getInstructionAddress());
-		//EXCEPT
-		Instruction except = accept(OPCode.EXCEPT, 1, DataType.INT);
-		pushBlock(new Block(ip, BlockType.SCRIPT, except.intVal - 1, except.intVal));
-		//Local vars (including parameters)
-		List<Var> localVars = getLocalVars(script);
-		for (int i = 0; i < localVars.size(); i++) {
-			Var var = localVars.get(i);
-			localMap.put(var.name, var);
-			if (i < script.getParameterCount()) {								//parameter
-				accept(OPCode.POP, OPCodeFlag.REF, DataType.FLOAT, var.index);
-			} else if (var.isArray()) {											//array
-				str.write("\t"+var.name+"["+var.size+"]\r\n");
-			} else {															//atomic var
-				Expression statement = decompileLocalVarAssignment(var);
-				str.write("\t"+statement+"\r\n");
+	private void writeScript(CHLFile chl, Script script) throws IOException, DecompileException {
+		try {
+			currentScript = script;
+			trace("begin " + script.getSignature());
+			//Load parameters on the stack
+			for (int i = 0; i < script.getParameterCount(); i++) {
+				push(ArgType.UNKNOWN);
 			}
-		}
-		//START
-		accept(OPCode.ENDEXCEPT, OPCodeFlag.FREE, DataType.INT, 0);
-		str.write("start\r\n");
-		//
-		tabs = "\t";
-		incTabs = false;
-		Expression statement = decompileNextStatement();
-		while (statement != END_SCRIPT) {
-			if (statement != null) {
-				str.write(tabs + statement + "\r\n");
+			writeln("begin " + script.getSignature());
+			it = instructions.listIterator(script.getInstructionAddress());
+			//EXCEPT
+			Instruction except = accept(OPCode.EXCEPT, 1, DataType.INT);
+			pushBlock(new Block(ip, BlockType.SCRIPT, except.intVal - 1, except.intVal));
+			//Local vars (including parameters)
+			List<Var> localVars = getLocalVars(script);
+			for (int i = 0; i < localVars.size(); i++) {
+				Var var = localVars.get(i);
+				localMap.put(var.name, var);
+				if (i < script.getParameterCount()) {								//parameter
+					accept(OPCode.POP, OPCodeFlag.REF, DataType.FLOAT, var.index);
+				} else if (var.isArray()) {											//array
+					writeln("\t"+var.name+"["+var.size+"]");
+				} else {															//atomic var
+					Expression statement = decompileLocalVarAssignment(var);
+					writeln("\t"+statement);
+				}
 			}
-			if (incTabs) {
-				tabs += "\t";	//Indentation must be delayed by one statement
-				incTabs = false;
+			//START
+			accept(OPCode.ENDEXCEPT, OPCodeFlag.FREE, DataType.INT, 0);
+			writeln("start");
+			//
+			tabs = "\t";
+			incTabs = false;
+			Expression statement = decompileNextStatement();
+			while (statement != END_SCRIPT) {
+				if (statement != null) {
+					if (respectLinenoEnabled) {
+						alignToLineno();
+					}
+					writeln(tabs + statement);
+				}
+				if (incTabs) {
+					tabs += "\t";	//Indentation must be delayed by one statement
+					incTabs = false;
+				}
+				statement = decompileNextStatement();
 			}
-			statement = decompileNextStatement();
+			//
+			writeln("end script " + script.getName());
+			trace("end script " + script.getName());
+			if (!stack.isEmpty()) {
+				out.println("Stack is not empty at end of script "+script.getName()+":");
+				out.println(stack);
+				out.println();
+			}
+			if (!blocks.isEmpty()) {
+				out.println("Blocks stack is not empty at end of script "+script.getName()+":");
+				out.println();
+			}
+		} catch (RuntimeException e) {
+			throw new DecompileException(script, ip, instructions.get(ip), e);
 		}
-		//
-		str.write("end script " + script.getName() + "\r\n");
-		trace("end script " + script.getName() + "\r\n");
-		if (!stack.isEmpty()) {
-			out.println("Stack is not empty at end of script "+script.getName()+":");
-			out.println(stack);
-			out.println();
-		}
-		if (!blocks.isEmpty()) {
-			out.println("Blocks stack is not empty at end of script "+script.getName()+":");
-			out.println();
+	}
+	
+	private void alignToLineno() throws IOException {
+		Instruction instr = instructions.get(ip);
+		if (instr.opcode != OPCode.JZ) {
+			while (lineno < instr.lineNumber) {
+				writeln("");
+			}
 		}
 	}
 	
@@ -418,7 +475,7 @@ public class CHLDecompiler {
 		int start = ip;
 		Instruction popf = find(OPCode.POP, OPCodeFlag.REF, DataType.FLOAT, var.index);
 		if (popf == null) {
-			throw new DecompileException("Cannot find initialization statement for variable "+var, currentScript.getName(), start);
+			throw new DecompileException("Cannot find initialization statement for variable "+var, currentScript, start);
 		}
 		nextStatementIndex = ip + 1;
 		Expression statement = decompile();
@@ -515,6 +572,9 @@ public class CHLDecompiler {
 					case OBJECT:
 						//CASTO
 						return decompile();
+					case BOOLEAN:
+						//CASTB
+						return decompile();
 					default:
 				}
 				break;
@@ -527,6 +587,16 @@ public class CHLDecompiler {
 							//PROPERTY of VARIABLE += EXPRESSION
 							next();
 							return SELF_ASSIGN;
+						} else if (pInstr.opcode == OPCode.SWAP) {
+							//OBJECT is CONST_EXPR
+							prev();				//SWAP
+							op2 = decompile();	//SCRIPT_OBJECT_PROPERTY_TYPE
+							String property = op2.toString();
+							if (op2.isNumber()) {
+								property = getSymbol(ArgType.SCRIPT_OBJECT_PROPERTY_TYPE, op2.intVal());
+							}
+							op1 = decompile();	//OBJECT
+							return new Expression(op1 + " is " + property);
 						} else {
 							//PROPERTY of VARIABLE
 							op1 = decompile();	//variable
@@ -572,13 +642,13 @@ public class CHLDecompiler {
 							String assignee = property + " of " + op1;
 							return new Expression(assignee + op2);
 						} else {
-							throw new DecompileException("Expected: POPI|SYS2", currentScript.getName(), ip, instr);
+							throw new DecompileException("Expected: POPI|SYS2", currentScript, ip, instr);
 						}
 					} else {
 						return decompile(func);
 					}
 				} catch (InvalidNativeFunctionException e) {
-					throw new DecompileException(currentScript.getName(), ip, e);
+					throw new DecompileException(currentScript, ip, e);
 				}
 			case CALL:
 				//run [background] script IDENTIFIER[(parameters)]
@@ -598,7 +668,7 @@ public class CHLDecompiler {
 					}
 					return new Expression(line);
 				} catch (InvalidScriptIdException e) {
-					throw new DecompileException(currentScript.getName(), ip, e);
+					throw new DecompileException(currentScript, ip, e);
 				}
 			case EQ:
 				op2 = decompile();
@@ -648,6 +718,17 @@ public class CHLDecompiler {
 							return new Expression(format(instr.floatVal), instr.dataType);
 						case INT:
 							return new Expression(String.valueOf(instr.intVal), instr.dataType);
+						case COORDS:
+							op3 = new Expression(format(instr.floatVal));
+							pInstr = prev();
+							verify(ip, instr, OPCode.PUSH, 1, DataType.COORDS);
+							op2 = new Expression(format(pInstr.floatVal));
+							pInstr = prev();
+							verify(ip, instr, OPCode.PUSH, 1, DataType.COORDS);
+							op1 = new Expression(format(pInstr.floatVal));
+							return new Expression("["+op1+", "+op2+", "+op3+"]", instr.dataType);
+						case OBJECT:
+							return new Expression("0", DataType.OBJECT);
 						case BOOLEAN:
 							return new Expression(instr.boolVal ? "true" : "false", instr.dataType);
 						case VAR:
@@ -655,6 +736,7 @@ public class CHLDecompiler {
 						default:
 					}
 				}
+				break;
 			case REF_PUSH:
 				//IDENTIFIER\[EXPRESSION\]
 				verify(ip, instr, OPCode.REF_PUSH, OPCodeFlag.REF, DataType.VAR);
@@ -706,7 +788,7 @@ public class CHLDecompiler {
 					}
 					return new Expression(assignee + op2);
 				} else {
-					throw new DecompileException("Expected: POPI|REF_AND_OFFSET_PUSH", currentScript.getName(), ip, instr);
+					throw new DecompileException("Expected: POPI|REF_AND_OFFSET_PUSH", currentScript, ip, instr);
 				}
 			case JMP:
 				if (currentBlock.is(BlockType.IF, BlockType.ELSIF, BlockType.ELSE) && ip == currentBlock.farEnd) {
@@ -812,11 +894,10 @@ public class CHLDecompiler {
 				}
 			case EXCEPT:
 				final int exceptionHandlerBegin = instr.intVal;
-				next();	//Skip EXCEPT
-				nInstr = findEndOfStatement();
-				if (nInstr.opcode != OPCode.JZ || !nInstr.isForward()) {
+				final int beginIndex = ip + 1;
+				Instruction jmp = instructions.get(exceptionHandlerBegin - 1);
+				if (jmp.opcode == OPCode.JMP && jmp.intVal == beginIndex) {
 					//begin loop
-					final int beginIndex = ip;
 					gotoAddress(beginIndex);
 					pushBlock(new Block(beginIndex, BlockType.LOOP, -1, exceptionHandlerBegin));
 					return new Expression("begin loop");
@@ -831,13 +912,13 @@ public class CHLDecompiler {
 			case ENDEXCEPT:
 				return null;
 			case ITEREXCEPT:
-				Block block = currentBlock;
+				Block prevBlock = currentBlock;
 				popBlock();
-				if (block.type == BlockType.SCRIPT) {
+				if (prevBlock.type == BlockType.SCRIPT) {
 					return null;
-				} else if (block.type == BlockType.LOOP) {
+				} else if (prevBlock.type == BlockType.LOOP) {
 					return new Expression("end loop");
-				} else if (block.type == BlockType.WHILE) {
+				} else if (prevBlock.type == BlockType.WHILE) {
 					return new Expression("end while");
 				}
 				break;
@@ -898,7 +979,7 @@ public class CHLDecompiler {
 			case END:
 				return END_SCRIPT;
 		}
-		throw new DecompileException("Unsupported instruction in "+currentBlock+" "+currentBlock.begin, currentScript.getName(), ip, instr);
+		throw new DecompileException("Unsupported instruction in "+currentBlock+" "+currentBlock.begin, currentScript, ip, instr);
 	}
 	
 	private void pushBlock(Block block) {
@@ -915,11 +996,12 @@ public class CHLDecompiler {
 	
 	private Expression decompile(NativeFunction func) throws DecompileException {
 		Instruction pInstr, nInstr;
+		String anti;
 		//Special cases (without parameters)
 		switch (func) {
 			case SET_CAMERA_FOCUS:
 				pInstr = peek(-1);		//SYS SET_CAMERA_POSITION ?
-				if (pInstr.opcode == OPCode.SYS) {
+				if (pInstr.opcode == OPCode.SYS && pInstr.intVal == NativeFunction.SET_CAMERA_POSITION.ordinal()) {
 					//set camera to IDENTIFIER CONSTANT
 					verify(ip - 1, pInstr, NativeFunction.SET_CAMERA_POSITION);
 					pInstr = peek(-2);	//SYS CONVERT_CAMERA_POSITION
@@ -937,7 +1019,7 @@ public class CHLDecompiler {
 				break;
 			case MOVE_CAMERA_FOCUS:
 				pInstr = peek(-1);		//SYS MOVE_CAMERA_POSITION ?
-				if (pInstr.opcode == OPCode.SYS) {
+				if (pInstr.opcode == OPCode.SYS && pInstr.intVal == NativeFunction.MOVE_CAMERA_POSITION.ordinal()) {
 					//move camera to IDENTIFIER CONSTANT time EXPRESSION
 					verify(ip - 1, pInstr, NativeFunction.MOVE_CAMERA_POSITION);
 					pInstr = peek(-2);	//SWAPF 4
@@ -965,17 +1047,25 @@ public class CHLDecompiler {
 				accept(NativeFunction.SET_WIDESCREEN);
 				accept(NativeFunction.END_GAME_SPEED);
 				accept(NativeFunction.END_CAMERA_CONTROL);
-				accept(NativeFunction.END_DIALOGUE);
-				nInstr = peek(+1);
-				if (nInstr.is(NativeFunction.GAME_HOLD_WIDESCREEN)) {
-					accept(NativeFunction.GAME_HOLD_WIDESCREEN);
-					this.nextStatementIndex = ip + 1;
-					decTabs();
-					return new Expression("end cinema with widescreen");
+				nInstr = peek(0);
+				if (nInstr.is(NativeFunction.END_DIALOGUE)) {
+					accept(NativeFunction.END_DIALOGUE);
+					nInstr = peek(0);
+					if (nInstr.is(NativeFunction.GAME_HOLD_WIDESCREEN)) {
+						accept(NativeFunction.GAME_HOLD_WIDESCREEN);
+						this.nextStatementIndex = ip + 1;
+						decTabs();
+						return new Expression("end cinema with widescreen");
+					} else {
+						this.nextStatementIndex = ip + 1;
+						decTabs();
+						return new Expression("end cinema");
+					}
 				} else {
 					this.nextStatementIndex = ip + 1;
 					decTabs();
-					return new Expression("end cinema");
+					incTabs = true;
+					return new Expression("end cinema with dialogue");
 				}
 			case END_GAME_SPEED:
 				accept(NativeFunction.END_GAME_SPEED);
@@ -1024,18 +1114,28 @@ public class CHLDecompiler {
 				if ("SCRIPT_OBJECT_TYPE_MARKER".equals(typeStr)) {
 					//marker at COORD_EXPR
 					if (params.get(1).intVal() != 0) {
-						throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript.getName(), ip, instructions.get(ip));
+						throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript, ip, instructions.get(ip));
 					}
 					return new Expression("marker at " + params.get(2));
 				}
 				break;
+			case INFLUENCE_OBJECT:
+				//create [anti] influence on OBJECT [radius EXPRESSION]
+				//SYS INFLUENCE_OBJECT(Object target, float radius, int zero, int anti)
+				anti = params.get(3).boolVal() ? " anti" : "";
+				return new Expression("create"+anti+" influence on "+params.get(0)+" radius "+params.get(1));
+			case INFLUENCE_POSITION:
+				//create [anti] influence at position COORD_EXPR [radius EXPRESSION]
+				//INFLUENCE_POSITION(Coord position, float radius, int zero, int anti)
+				anti = params.get(3).boolVal() ? " anti" : "";
+				return new Expression("create"+anti+" influence at position "+params.get(0)+" radius "+params.get(1));
 			case SNAPSHOT:
-				params.remove(3);	//implicit focus
-				params.remove(2);	//implicit position
+				params.set(2, null);	//implicit focus
+				params.set(3, null);	//implicit position
 				break;
 			case UPDATE_SNAPSHOT_PICTURE:
-				params.remove(2);	//implicit focus
-				params.remove(1);	//implicit position
+				params.set(1, null);	//implicit focus
+				params.set(2, null);	//implicit position
 				break;
 			case START_DUAL_CAMERA:
 				incTabs = true;
@@ -1057,13 +1157,17 @@ public class CHLDecompiler {
 			String statement = decompile(func, symbol, params.listIterator());
 			return new Expression(statement);
 		}
-		throw new DecompileException(func+" is not supported", currentScript.getName(), ip, instructions.get(ip));
+		throw new DecompileException(func+" is not supported", currentScript, ip, instructions.get(ip));
 	}
 	
 	private String decompile(NativeFunction func, Symbol symbol, ListIterator<Expression> params) throws DecompileException {
+		if (symbol.terminal && symbol.terminalType == TerminalType.KEYWORD) {
+			return symbol.keyword;
+		}
 		List<String> statement = new LinkedList<>();
 		String subtype = null;
 		for (Symbol sym : symbol.expression) {
+			skipNulls(params);	//Skip implicit parameters
 			if (sym.terminal) {
 				if (sym.terminalType == TerminalType.KEYWORD) {
 					statement.add(sym.keyword);
@@ -1081,7 +1185,9 @@ public class CHLDecompiler {
 						Expression param = params.next();
 						boolean val = param.boolVal();
 						String opt = val ? words[0] : words[1];
-						statement.add(opt);
+						if (opt != null) {
+							statement.add(opt);
+						}
 					} else {
 						words = enumOptions.get(sym.keyword);
 						if (words != null) {
@@ -1098,66 +1204,98 @@ public class CHLDecompiler {
 					}
 				}
 			} else if (sym.expression != null) {
-				String[] words = enumOptions.get(sym.keyword);
+				String[] words = boolOptions.get(sym.keyword);
 				if (words != null) {
 					Expression param = params.next();
-					int val = param.intVal();
-					String opt = words[val];
+					boolean val = param.boolVal();
+					String opt = val ? words[0] : words[1];
 					if (opt != null) {
 						statement.add(opt);
 					}
 				} else {
-					Argument arg = func.args[params.nextIndex()];
-					if (arg.type == ArgType.SCRIPT) {
+					words = enumOptions.get(sym.keyword);
+					if (words != null) {
 						Expression param = params.next();
-						int strptr = param.intVal();
-						String string = chl.getDataSection().getString(strptr);
-						statement.add(string);
-					} else if (arg.type == ArgType.SCRIPT_OBJECT_TYPE) {
-						Expression param = params.next();
-						subtype = null;
-						if (param.isNumber()) {
-							int val = param.intVal();
-							String typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, val);
-							if (typeName != null) {
-								subtype = subtypes.get(typeName);
-							}
-							String alias = getSymbol(ArgType.SCRIPT_OBJECT_TYPE, val);
-							statement.add(alias);
-						} else {
-							statement.add(param.toString());
+						int val = param.intVal();
+						String opt = words[val];
+						if (opt != null) {
+							statement.add(opt);
 						}
-					} else if (arg.type == ArgType.SCRIPT_OBJECT_SUBTYPE && subtype != null) {
-						Expression param = params.next();
-						if (param.isNumber()) {
-							int val = param.intVal();
-							String alias = getSymbol(subtype, val);
-							statement.add(alias);
-						} else {
-							statement.add(param.toString());
-						}
-						subtype = null;
 					} else {
-						String param = decompile(func, sym, params);
-						statement.add(param);
+						Argument arg = func.args[params.nextIndex()];
+						if (arg.type == ArgType.SCRIPT) {
+							Expression param = params.next();
+							int strptr = param.intVal();
+							String string = chl.getDataSection().getString(strptr);
+							statement.add(string);
+						} else if (arg.type == ArgType.SCRIPT_OBJECT_TYPE) {
+							Expression param = params.next();
+							subtype = null;
+							if (param.isNumber()) {
+								int val = param.intVal();
+								String typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, val);
+								if (typeName != null) {
+									subtype = subtypes.get(typeName);
+								}
+								String alias = getSymbol(ArgType.SCRIPT_OBJECT_TYPE, val);
+								statement.add(alias);
+							} else {
+								statement.add(param.toString());
+							}
+						} else if (arg.type == ArgType.SCRIPT_OBJECT_SUBTYPE && subtype != null) {
+							Expression param = params.next();
+							if (param.isNumber()) {
+								int val = param.intVal();
+								String alias = getSymbol(subtype, val);
+								statement.add(alias);
+							} else {
+								statement.add(param.toString());
+							}
+							subtype = null;
+						} else {
+							String param = decompile(func, sym, params);
+							if (arg.type == ArgType.OBJECT_FLOAT && sym.optional
+									&& sym.keyword.replace("OBJECT", "0").equals("["+param+"]")) {
+								param = null;	//Don't add missing OBJECT
+							} else if (arg.type == ArgType.COORD && sym.optional) {
+								boolean withPosition = params.next().boolVal();
+								if (withPosition) {
+									statement.add(param);
+								} else {
+									param = null;	//Don't add missing COORD_EXPR
+								}
+							} else if (arg.type == ArgType.BOOL && sym.optional) {
+								throw new DecompileException("Undefined boolean option: "+sym.keyword, currentScript, ip, instructions.get(ip));
+							} else {
+								statement.add(param);
+							}
+						}
 					}
 				}
 			} else {
-				throw new DecompileException("Bad symbol: "+sym, currentScript.getName(), ip, instructions.get(ip));
+				throw new DecompileException("Bad symbol: "+sym, currentScript, ip, instructions.get(ip));
 			}
 		}
 		//
+		if (statement.isEmpty()) {
+			return null;
+		}
 		ListIterator<String> tokens = statement.listIterator();
 		StringBuilder res = new StringBuilder();
 		String prevToken = tokens.next();
 		res.append(prevToken);
 		while (tokens.hasNext()) {
 			String token = tokens.next();
-			if (!in(prevToken, "[", "(") && !in(token, "]", ")")) {
-				res.append(" ");
+			if (token != null) {
+				char c0 = token.charAt(0);
+				char c1 = prevToken.charAt(prevToken.length() - 1);
+				if (c0 != ']' && c0 != '(' && c0 != ')' && c0 != ','
+						&& c1 != '[' && c1 != '(') {
+					res.append(" ");
+				}
+				res.append(token);
+				prevToken = token;
 			}
-			res.append(token);
-			prevToken = token;
 		}
 		return res.toString();
 	}
@@ -1178,6 +1316,16 @@ public class CHLDecompiler {
 		}
 	}
 	
+	private static void skipNulls(ListIterator<?> iterator) {
+		if (iterator.hasNext()) {
+			Object item = iterator.next();
+			while (item == null) {
+				item = iterator.next();
+			}
+			iterator.previous();
+		}
+	}
+	
 	private void trace(String string) {
 		if (traceEnabled) {
 			out.println(string);
@@ -1193,7 +1341,7 @@ public class CHLDecompiler {
 	
 	private Instruction next() throws DecompileException {
 		if (!it.hasNext()) {
-			throw new DecompileException("No more instructions", currentScript.getName(), it.previousIndex());
+			throw new DecompileException("No more instructions", currentScript, it.previousIndex());
 		}
 		Instruction instr = it.next();
 		ip = it.previousIndex();
@@ -1236,7 +1384,7 @@ public class CHLDecompiler {
 					}
 				}
 			} catch (InvalidNativeFunctionException e) {
-				throw new DecompileException(currentScript.getName(), it.previousIndex(), e);
+				throw new DecompileException(currentScript, it.previousIndex(), e);
 			}
 		} else if (instr.opcode == OPCode.CALL) {
 			try {
@@ -1245,7 +1393,7 @@ public class CHLDecompiler {
 					pop();
 				}
 			} catch (InvalidScriptIdException e) {
-				throw new DecompileException(currentScript.getName(), it.previousIndex(), e);
+				throw new DecompileException(currentScript, it.previousIndex(), e);
 			}
 		} else if (instr.opcode == OPCode.SWAP && instr.dataType != DataType.INT) {
 			StackVal val = stack.get(stack.size() - 1);
@@ -1321,7 +1469,7 @@ public class CHLDecompiler {
 					}
 				}
 			} catch (InvalidNativeFunctionException e) {
-				throw new DecompileException(currentScript.getName(), it.previousIndex(), e);
+				throw new DecompileException(currentScript, it.previousIndex(), e);
 			}
 		} else if (instr.opcode == OPCode.CALL) {
 			try {
@@ -1330,7 +1478,7 @@ public class CHLDecompiler {
 					push(ArgType.UNKNOWN);
 				}
 			} catch (InvalidScriptIdException e) {
-				throw new DecompileException(currentScript.getName(), it.previousIndex(), e);
+				throw new DecompileException(currentScript, it.previousIndex(), e);
 			}
 		} else if (instr.opcode == OPCode.SWAP && instr.dataType != DataType.INT) {
 			stack.remove(stack.size() - 1 - instr.intVal);
@@ -1374,7 +1522,7 @@ public class CHLDecompiler {
 	private Instruction peek(int offset) throws DecompileException {
 		int index = it.nextIndex() + offset;
 		if (index < currentScript.getInstructionAddress() || index > currentScript.getLastInstructionAddress()) {
-			throw new DecompileException("Instruction address "+index+" is invalid", currentScript.getName(), it.previousIndex());
+			throw new DecompileException("Instruction address "+index+" is invalid", currentScript, it.previousIndex());
 		}
 		return instructions.get(index);
 	}
@@ -1401,7 +1549,7 @@ public class CHLDecompiler {
 		if (instr.opcode != opcode
 				|| instr.flags != flags
 				|| (instr.dataType != type && type != null)) {
-			throw new DecompileException("Expected "+opcode, currentScript.getName(), index, instr);
+			throw new DecompileException("Expected "+opcode, currentScript, index, instr);
 		}
 	}
 	
@@ -1414,7 +1562,7 @@ public class CHLDecompiler {
 				|| instr.flags != flags
 				|| (instr.dataType != type && type != null)
 				|| instr.intVal != arg) {
-			throw new DecompileException("Expected "+opcode, currentScript.getName(), index, instr);
+			throw new DecompileException("Expected "+opcode, currentScript, index, instr);
 		}
 	}
 	
@@ -1423,7 +1571,7 @@ public class CHLDecompiler {
 				|| instr.flags != flags
 				|| (instr.dataType != type && type != null)
 				|| instr.floatVal != arg) {
-			throw new DecompileException("Expected "+opcode, currentScript.getName(), index, instr);
+			throw new DecompileException("Expected "+opcode, currentScript, index, instr);
 		}
 	}
 	
@@ -1477,7 +1625,7 @@ public class CHLDecompiler {
 	
 	private StackVal pop() throws DecompileException {
 		if (stack.isEmpty()) {
-			throw new DecompileException("Cannot pop value from empty stack", currentScript.getName(), ip, instructions.get(ip));
+			throw new DecompileException("Cannot pop value from empty stack", currentScript, ip, instructions.get(ip));
 		}
 		return stack.remove(stack.size() - 1);
 	}
@@ -1535,13 +1683,6 @@ public class CHLDecompiler {
 		string = string.replace("\\", "\\\\");
 		string = string.replace("\"", "\\\"");
 		return "\"" + string + "\"";
-	}
-	
-	private static boolean in(String s, String...vals) {
-		for (String val : vals) {
-			if (s.equals(val)) return true;
-		}
-		return false;
 	}
 	
 	private static String format(float v) {
@@ -1763,17 +1904,6 @@ public class CHLDecompiler {
 			if (intVal == null) throw new DecompileException("Unknown stack value");
 			return intVal;
 		}
-		
-		public float floatVal() throws DecompileException {
-			if (floatVal == null) throw new DecompileException("Unknown stack value");
-			return floatVal;
-		}
-		
-		public boolean boolVal() throws DecompileException {
-			if (boolVal == null) throw new DecompileException("Unknown stack value");
-			return boolVal;
-		}
-		
 		@Override
 		public String toString() {
 			String r = type.toString();

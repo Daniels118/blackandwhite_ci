@@ -59,7 +59,7 @@ public enum NativeFunction {
 	/* 10*/ SPIRIT_POINT_GAME_THING("HELP_SPIRIT_TYPE spirit, Object target, bool inWorld"),
 	/* 11*/ GAME_THING_FIELD_OF_VIEW("Object object", "bool"),
 	/* 12*/ POS_FIELD_OF_VIEW("Coord position", "bool"),
-	/* 13*/ RUN_TEXT("bool singleLine, int textID, int withInteraction, Object speaker"),
+	/* 13*/ RUN_TEXT("bool singleLine, HELP_TEXT textID, int withInteraction, Object speaker"),
 	/* 14*/ TEMP_TEXT("bool singleLine, StrPtr string, int withInteraction, Object speaker"),
 	/* 15*/ TEXT_READ("", "bool"),
 	/* 16*/ GAME_THING_CLICKED("Object object", "bool"),
@@ -271,7 +271,7 @@ public enum NativeFunction {
 	/*222*/ IS_FIGHTING("Object object", "bool"),
 	/*223*/ SET_MAGIC_RADIUS("Object object, float radius"),
 	/*224*/ TEMP_TEXT_WITH_NUMBER("bool singleLine, StrPtr format, float value, int withInteraction, Object speaker"),
-	/*225*/ RUN_TEXT_WITH_NUMBER("bool singleLine, int string, float number, int withInteraction, Object speaker"),
+	/*225*/ RUN_TEXT_WITH_NUMBER("bool singleLine, HELP_TEXT string, float number, int withInteraction, Object speaker"),
 	/*226*/ CREATURE_SPELL_REVERSION(2),
 	/*227*/ GET_DESIRE(2, "float"),
 	/*228*/ GET_EVENTS_PER_SECOND("HELP_EVENT_TYPE type", "float"),
@@ -809,7 +809,8 @@ public enum NativeFunction {
 		HAND_GLOW(),					//see enums.txt
 		FIGHT_MOVE(),					//defined in HitRegions.h
 		ScriptCameraPosition(),			//defined in CameraPosEnum.h
-		SCRIPT_PATH();					//defined in CameraPosEnum.h
+		SCRIPT_PATH(),					//defined in CameraPosEnum.h
+		HELP_TEXT();					//defined in HelpTextEnums.h
 		
 		private static final Map<String, ArgType> map = new HashMap<>();
 		

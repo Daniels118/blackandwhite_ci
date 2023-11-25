@@ -58,16 +58,15 @@ public class CHeaderParser {
 						String[] parts = line.split("\\s+");
 						if (parts.length == 2) {
 							enumName = parts[1];
-							if (dstEnums.containsKey(enumName)) {
-								throw new ParseError("Redefinition of enum "+enumName, file, lineno);
-							}
-							currEnum = new HashMap<>();
-							dstEnums.put(enumName, currEnum);
 						} else {
-							enumName = null;
-							currEnum = null;
+							enumName = "_unknown_" + dstEnums.size();
 							System.out.println("NOTICE: unnamed enum in "+file.getName()+":"+lineno);
 						}
+						if (dstEnums.containsKey(enumName)) {
+							throw new ParseError("Redefinition of enum "+enumName, file, lineno);
+						}
+						currEnum = new HashMap<>();
+						dstEnums.put(enumName, currEnum);
 					}
 					val = 0;
 				} else {

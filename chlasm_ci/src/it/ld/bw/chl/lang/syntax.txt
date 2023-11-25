@@ -319,8 +319,8 @@ STATEMENT: {
 	send HELP_SPIRIT_TYPE spirit home EOL
 	say [single line] STRING [SAY_MODE] [by OBJECT] EOL
 	say [single line] STRING with number EXPRESSION [SAY_MODE] [by OBJECT] EOL
-	say [single line] CONST_EXPR [SAY_MODE] [by OBJECT] EOL
-	say [single line] CONST_EXPR with number EXPRESSION [SAY_MODE] [by OBJECT] EOL
+	say [single line] HELP_TEXT [SAY_MODE] [by OBJECT] EOL
+	say [single line] HELP_TEXT with number EXPRESSION [SAY_MODE] [by OBJECT] EOL
 	clear dialogue EOL
 	close dialogue EOL
 	draw text CONST_EXPR across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds EOL
@@ -781,6 +781,8 @@ HIGHLIGHT_INFO: CONST_EXPR
 HELP_EVENT_TYPE: CONST_EXPR
 
 SCRIPT_PATH: CONST_EXPR
+
+HELP_TEXT: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

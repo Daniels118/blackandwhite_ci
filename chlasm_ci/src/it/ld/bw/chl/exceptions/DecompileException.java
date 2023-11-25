@@ -1,11 +1,12 @@
 package it.ld.bw.chl.exceptions;
 
 import it.ld.bw.chl.model.Instruction;
+import it.ld.bw.chl.model.Script;
 
 public class DecompileException extends Exception {
 	private static final long serialVersionUID = 1L;
 	
-	private final String script;
+	private final Script script;
 	private final int instructionAddress;
 	private final Instruction instruction;
 	
@@ -16,28 +17,39 @@ public class DecompileException extends Exception {
 		this.instruction = null;
 	}
 	
-	public DecompileException(String msg, String script, int instructionAddress) {
-		super(msg+" at instruction "+instructionAddress+" in script "+script);
+	public DecompileException(String msg, Script script, int instructionAddress) {
+		super(msg+" at instruction "+instructionAddress+" in script "+script.getName()
+				+" ("+script.getSourceFilename()+")");
 		this.script = script;
 		this.instructionAddress = instructionAddress;
 		this.instruction = null;
 	}
 	
-	public DecompileException(String msg, String script, int instructionAddress, Instruction instruction) {
-		super(msg+" at instruction "+instructionAddress+" ("+instruction+") in script "+script);
+	public DecompileException(String msg, Script script, int instructionAddress, Instruction instruction) {
+		super(msg+" at instruction "+instructionAddress+" ("+instruction+") in script "+script.getName()
+				+" ("+script.getSourceFilename()+":"+instruction.lineNumber+")");
 		this.script = script;
 		this.instructionAddress = instructionAddress;
 		this.instruction = instruction;
 	}
 	
-	public DecompileException(String script, int instructionAddress, Exception cause) {
-		super(cause.getMessage()+" at instruction "+instructionAddress+" in script "+script, cause);
+	public DecompileException(Script script, int instructionAddress, Exception cause) {
+		super(cause.getMessage()+" at instruction "+instructionAddress+" in script "+script.getName()
+				+" ("+script.getSourceFilename()+")", cause);
 		this.script = script;
 		this.instructionAddress = instructionAddress;
 		this.instruction = null;
 	}
 	
-	public String getScript() {
+	public DecompileException(Script script, int instructionAddress, Instruction instruction, Exception cause) {
+		super(cause.getMessage()+" at instruction "+instructionAddress+" ("+instruction+") in script "+script.getName()
+				+" ("+script.getSourceFilename()+":"+instruction.lineNumber+")", cause);
+		this.script = script;
+		this.instructionAddress = instructionAddress;
+		this.instruction = instruction;
+	}
+	
+	public Script getScript() {
 		return script;
 	}
 	
