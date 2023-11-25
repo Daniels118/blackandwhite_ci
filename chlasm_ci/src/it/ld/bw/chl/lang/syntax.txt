@@ -544,8 +544,8 @@ CONDITION: {
 	EXPRESSION < EXPRESSION
 	OBJECT == OBJECT
 	OBJECT != OBJECT
-	sound CONST_EXPR [CONST_EXPR] playing
-	say sound CONST_EXPR playing
+	sound HELP_TEXT [CONST_EXPR] playing
+	say sound HELP_TEXT playing
 	(CONDITION)
 }
 

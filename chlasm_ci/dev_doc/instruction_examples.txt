@@ -1828,7 +1828,7 @@ Sets the building state for the introduction of the game.
 Never found (SET_INTRO_BUILDING)
 ___________________________________________
 
-3.8.57 start say [extra] sound CONST_EXPR [at COORD_EXPR]
+3.8.57 start say [extra] sound HELP_TEXT [at COORD_EXPR]
 
 This function plays a sound effect, optionally in 3d space. The option extra key word means is, if
 you don't want the say to interrupt the previous say sound effect, which is the normal behavior.
@@ -1843,7 +1843,7 @@ start say sound constant WhichTextFirst		//#HelpSystem.txt:232
 	PUSHC 0							//y
 	PUSHC 0							//z
 	PUSHB false						//withPosition
-	SYS GAME_PLAY_SAY_SOUND_EFFECT	//[6, 0] (bool extra, int sound, Coord position, bool withPosition)
+	SYS GAME_PLAY_SAY_SOUND_EFFECT	//[6, 0] (bool extra, HELP_TEXT sound, Coord position, bool withPosition)
 ___________________________________________
 
 3.8.58 start sound CONST_EXPR [CONST_EXPR] [at COORD_EXPR]
@@ -2819,7 +2819,7 @@ say single line "Actual Height: $d" with number Wert
 	SYS TEMP_TEXT_WITH_NUMBER	//[5, 0] (bool singleLine, StrPtr format, float value, int withInteraction, Object speaker)
 ___________________________________________
 
-3.16.2.3 say [single line] CONST_EXPR [SAY_MODE] [by OBJECT]
+3.16.2.3 say [single line] HELP_TEXT [SAY_MODE] [by OBJECT]
 
 This displays text predefined which may have sound attached to it which will be automatically played.
 
@@ -2832,7 +2832,7 @@ say HELP_TEXT_HAND_DEMO_ROTATING_01		// Move the hand to the side of the screen	
 	SYS RUN_TEXT	//[4, 0] (bool singleLine, HELP_TEXT textID, int withInteraction, Object speaker)
 ___________________________________________
 
-3.16.2.4 say [single line] CONST_EXPR with number EXPRESSION [SAY_MODE] [by OBJECT]
+3.16.2.4 say [single line] HELP_TEXT with number EXPRESSION [SAY_MODE] [by OBJECT]
 
 This displays text predefined which may have sound attached to it which will be automatically played.
 This version places a value at the

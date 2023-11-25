@@ -1152,6 +1152,9 @@ public class CHLDecompiler {
 				params.set(1, null);	//implicit focus
 				params.set(2, null);	//implicit position
 				break;
+			case SAY_SOUND_EFFECT_PLAYING:
+				params.set(0, null);	//always false
+				break;
 			case START_DUAL_CAMERA:
 				incTabs = true;
 				return new Expression("begin dual camera to "+params.get(0)+" "+params.get(1));

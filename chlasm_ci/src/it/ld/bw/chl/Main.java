@@ -46,8 +46,8 @@ public class Main {
 			printJavaStackTrace = cmd.getArgFlag("-jst");
 			verbose = cmd.getArgFlag("-v");
 			if (cmd.getArgFlag("-trace")) {
-				//CHLFile.traceEnabled = true;
-				//Code.traceEnabled = true;
+				CHLFile.traceEnabled = true;
+				Code.traceEnabled = true;
 				CHLDecompiler.traceEnabled = true;
 			}
 			if (cmd.getArgFlag("-chlasm")) {

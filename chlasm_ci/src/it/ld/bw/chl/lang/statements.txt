@@ -264,8 +264,8 @@ HAS_PLAYER_MAGIC					spell CONST_EXPR for player EXPRESSION
 IMMERSION_EXISTS					immersion exists
 SOUND_EXISTS						sound exists
 LAST_MUSIC_LINE						music line EXPRESSION
-GAME_SOUND_PLAYING					sound CONST_EXPR [CONST_EXPR] playing
-SAY_SOUND_EFFECT_PLAYING			say sound CONST_EXPR playing
+GAME_SOUND_PLAYING					sound HELP_TEXT [CONST_EXPR] playing
+SAY_SOUND_EFFECT_PLAYING			say sound HELP_TEXT playing
 CAN_SKIP_TUTORIAL					can skip tutorial
 CAN_SKIP_CREATURE_TRAINING			can skip creature training
 IS_KEEPING_OLD_CREATURE				is keeping old creature
