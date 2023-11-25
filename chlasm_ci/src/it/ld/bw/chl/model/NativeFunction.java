@@ -424,7 +424,7 @@ public enum NativeFunction {
 	/*375*/ SET_PLAYER_ALLY("float player1, float player2, float percentage"),
 	/*376*/ CALL_FLYING("SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype, Coord position, float radius, bool excluding scripted", "Object"),
 	/*377*/ SET_OBJECT_FADE_IN("Object object, float time"),
-	/*378*/ IS_AFFECTED_BY_SPELL("Object object", "bool"),
+	/*378*/ IS_AFFECTED_BY_SPELL("Object object, MAGIC_TYPE spell", "bool"),
 	/*379*/ SET_MAGIC_IN_OBJECT("bool enable, int MAGIC_TYPE, Object object"),
 	/*380*/ ID_ADULT_SIZE("Object container", "float"),
 	/*381*/ OBJECT_CAPACITY("Object container", "float"),

@@ -86,6 +86,11 @@ public class CHLDecompiler {
 		addBoolOption("extra");
 		addBoolOption("from sky");
 		addBoolOption("as leader");
+		addBoolOption("raw");
+		addBoolOption("with fixed height");
+		addBoolOption("destroys when placed");
+		addBoolOption("with sound");
+		addBoolOption("3d");
 		//
 		addEnumOption("HELP_SPIRIT_TYPE", "none", "good", "evil", "last");
 		addEnumOption("SAY_MODE", null, "with interaction", "without interaction");
@@ -501,7 +506,7 @@ public class CHLDecompiler {
 				op2 = decompile();
 				op1 = decompile();
 				if (op1 == SELF_ASSIGN) {
-					if (op2.floatVal() == 1) {
+					if (op2.isNumber() && op2.floatVal() == 1) {
 						return new Expression("++");
 					} else {
 						return new Expression(" += " + op2);
@@ -513,7 +518,7 @@ public class CHLDecompiler {
 				op2 = decompile();
 				op1 = decompile();
 				if (op1 == SELF_ASSIGN) {
-					if (op2.floatVal() == 1) {
+					if (op2.isNumber() && op2.floatVal() == 1) {
 						return new Expression("--");
 					} else {
 						return new Expression(" -= " + op2);
@@ -1100,6 +1105,8 @@ public class CHLDecompiler {
 						argv = decompile() + ", " + argv;
 					}
 					params.add(0, new Expression(argv));
+				} else {
+					params.add(0, new Expression(""));
 				}
 			} else {
 				Expression expr = decompile();
@@ -1110,24 +1117,26 @@ public class CHLDecompiler {
 		switch (func) {
 			case CREATE:
 				//Object CREATE(SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype, Coord position)
-				String typeStr = getSymbol(func.args[0].type, params.get(0).intVal(), false);
-				if ("SCRIPT_OBJECT_TYPE_MARKER".equals(typeStr)) {
-					//marker at COORD_EXPR
-					if (params.get(1).intVal() != 0) {
-						throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript, ip, instructions.get(ip));
+				if (params.get(0).isNumber()) {
+					String typeStr = getSymbol(func.args[0].type, params.get(0).intVal(), false);
+					if ("SCRIPT_OBJECT_TYPE_MARKER".equals(typeStr)) {
+						//marker at COORD_EXPR
+						if (params.get(1).intVal() != 0) {
+							throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript, ip, instructions.get(ip));
+						}
+						return new Expression("marker at " + params.get(2));
 					}
-					return new Expression("marker at " + params.get(2));
 				}
 				break;
 			case INFLUENCE_OBJECT:
 				//create [anti] influence on OBJECT [radius EXPRESSION]
 				//SYS INFLUENCE_OBJECT(Object target, float radius, int zero, int anti)
-				anti = params.get(3).boolVal() ? " anti" : "";
+				anti = params.get(3).intVal() != 0 ? " anti" : "";
 				return new Expression("create"+anti+" influence on "+params.get(0)+" radius "+params.get(1));
 			case INFLUENCE_POSITION:
 				//create [anti] influence at position COORD_EXPR [radius EXPRESSION]
 				//INFLUENCE_POSITION(Coord position, float radius, int zero, int anti)
-				anti = params.get(3).boolVal() ? " anti" : "";
+				anti = params.get(3).intVal() != 0 ? " anti" : "";
 				return new Expression("create"+anti+" influence at position "+params.get(0)+" radius "+params.get(1));
 			case SNAPSHOT:
 				params.set(2, null);	//implicit focus
@@ -1282,11 +1291,10 @@ public class CHLDecompiler {
 		}
 		ListIterator<String> tokens = statement.listIterator();
 		StringBuilder res = new StringBuilder();
-		String prevToken = tokens.next();
-		res.append(prevToken);
+		String prevToken = "(";
 		while (tokens.hasNext()) {
 			String token = tokens.next();
-			if (token != null) {
+			if (token != null && !token.isEmpty()) {
 				char c0 = token.charAt(0);
 				char c1 = prevToken.charAt(prevToken.length() - 1);
 				if (c0 != ']' && c0 != '(' && c0 != ')' && c0 != ','
@@ -1341,7 +1349,10 @@ public class CHLDecompiler {
 	
 	private Instruction next() throws DecompileException {
 		if (!it.hasNext()) {
-			throw new DecompileException("No more instructions", currentScript, it.previousIndex());
+			throw new DecompileException("No more instructions in code section", currentScript, it.previousIndex());
+		}
+		if (it.nextIndex() > currentScript.getLastInstructionAddress()) {
+			throw new DecompileException("End of script found", currentScript, it.previousIndex());
 		}
 		Instruction instr = it.next();
 		ip = it.previousIndex();
@@ -1351,6 +1362,9 @@ public class CHLDecompiler {
 	}
 	
 	private Instruction prev() throws DecompileException {
+		if (it.previousIndex() < currentScript.getInstructionAddress()) {
+			throw new DecompileException("Begin of script found", currentScript, it.previousIndex());
+		}
 		Instruction instr = it.previous();
 		ip = it.nextIndex();
 		stackUndo(instr);
