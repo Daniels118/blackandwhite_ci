@@ -86,10 +86,10 @@ public enum NativeFunction {
 	/* 37*/ ID_SIZE("Object container", "float"),
 	/* 38*/ FLOCK_MEMBER("Object obj, Object flock", "bool"),
 	/* 39*/ GET_HAND_POSITION("", "Coord"),
-	/* 40*/ PLAY_SOUND_EFFECT("int sound, AUDIO_SFX_BANK_TYPE soundbank, Coord position, bool withPosition"),
-	/* 41*/ START_MUSIC("int music, float zero"),
+	/* 40*/ PLAY_SOUND_EFFECT("AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE soundbank, Coord position, bool withPosition"),
+	/* 41*/ START_MUSIC("MUSIC_TYPE music, float zero"),
 	/* 42*/ STOP_MUSIC(),
-	/* 43*/ ATTACH_MUSIC("int music, Object target"),
+	/* 43*/ ATTACH_MUSIC("MUSIC_TYPE music, Object target"),
 	/* 44*/ DETACH_MUSIC("Object object"),
 	/* 45*/ OBJECT_DELETE("Object obj, int withFade"),
 	/* 46*/ FOCUS_FOLLOW("Object target"),
@@ -114,7 +114,7 @@ public enum NativeFunction {
 	/* 65*/ OVERRIDE_STATE_ANIMATION("Object obj, DETAIL_ANIM_TYPES animType"),
 	/* 66*/ CREATURE_CREATE_RELATIVE_TO_CREATURE("Object model, float player, Coord pos, int type, bool dumb", "Object"),
 	/* 67*/ CREATURE_LEARN_EVERYTHING("Object creature"),
-	/* 68*/ CREATURE_SET_KNOWS_ACTION("Object creature, CREATURE_ACTION_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float alwaysOne"),
+	/* 68*/ CREATURE_SET_KNOWS_ACTION("Object creature, CREATURE_ACTION_LEARNING_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float alwaysOne"),
 	/* 69*/ CREATURE_SET_AGENDA_PRIORITY("Object creature, float priority"),
 	/* 70*/ CREATURE_TURN_OFF_ALL_DESIRES(1),
 	/* 71*/ CREATURE_LEARN_DISTINCTION_ABOUT_ACTIVITY_OBJECT(4),
@@ -222,7 +222,7 @@ public enum NativeFunction {
 	/*173*/ CAMERA_PROPERTIES("float distance, float speed, float angle, bool enableBehind"),
 	/*174*/ ENABLE_DISABLE_MUSIC(2),
 	/*175*/ GET_MUSIC_OBJ_DISTANCE("Object source", "float"),
-	/*176*/ GET_MUSIC_ENUM_DISTANCE("int type", "float"),
+	/*176*/ GET_MUSIC_ENUM_DISTANCE("MUSIC_TYPE music", "float"),
 	/*177*/ SET_MUSIC_PLAY_POSITION(4),
 	/*178*/ ATTACH_OBJECT_LEASH_TO_OBJECT("Object creature, Object target"),
 	/*179*/ ATTACH_OBJECT_LEASH_TO_HAND(1),
@@ -244,7 +244,7 @@ public enum NativeFunction {
 	/*195*/ SET_ANIMATION_MODIFY("bool enable, Object creature"),
 	/*196*/ SET_AVI_SEQUENCE("bool enable, int aviSequence"),
 	/*197*/ PLAY_GESTURE(5),
-	/*198*/ DEV_FUNCTION("int func"),
+	/*198*/ DEV_FUNCTION("SCRIPT_DEV_FUNCTION func"),
 	/*199*/ HAS_MOUSE_WHEEL("", "bool"),
 	/*200*/ NUM_MOUSE_BUTTONS("", "float"),
 	/*201*/ SET_CREATURE_DEV_STAGE("Object creature, DEVELOPMENT_PHASE stage"),
@@ -373,7 +373,7 @@ public enum NativeFunction {
 	/*324*/ IS_THAT_SPELL_CHARGING(2, "bool"),
 	/*325*/ OPPOSING_CREATURE("int god", "int"),
 	/*326*/ FLOCK_WITHIN_LIMITS("Object object", "bool"),
-	/*327*/ HIGHLIGHT_PROPERTIES("Object object, int text, int category"),
+	/*327*/ HIGHLIGHT_PROPERTIES("Object object, HELP_TEXT text, DYK_CATEGORY category"),
 	/*328*/ LAST_MUSIC_LINE("float line", "bool"),
 	/*329*/ HAND_DEMO_TRIGGER("", "bool"),
 	/*330*/ GET_BELLY_POSITION("Object object", "Coord"),
@@ -389,7 +389,7 @@ public enum NativeFunction {
 	/*340*/ ENTER_EXIT_CITADEL(1),
 	/*341*/ START_ANGLE_SOUND2("bool enable"),
 	/*342*/ THING_JC_SPECIAL("bool enable, int feature, Object target, float zero"),
-	/*343*/ MUSIC_PLAYED2("int music", "bool"),
+	/*343*/ MUSIC_PLAYED2("MUSIC_TYPE music", "bool"),
 	/*344*/ UPDATE_SNAPSHOT_PICTURE("ScriptChallengeEnums challengeID, Coord position, Coord focus, float success, float alignment, HELP_TEXT titleStrID, bool takingPicture"),
 	/*345*/ STOP_SCRIPTS_IN_FILES_EXCLUDING("StrPtr sourceFilename, StrPtr scriptName"),
 	/*346*/ CREATE_RANDOM_VILLAGER_OF_TRIBE("TRIBE_TYPE tribe, Coord position", "Object"),
@@ -462,7 +462,7 @@ public enum NativeFunction {
 	/*413*/ GET_OBJECT_CLICKED("", "Object"),
 	/*414*/ GET_MANA("Object worshipSite", "float"),
 	/*415*/ CLEAR_PLAYER_SPELL_CHARGING("float player"),
-	/*416*/ STOP_SOUND_EFFECT("bool alwaysFalse, int sound, AUDIO_SFX_BANK_TYPE soundbank"),
+	/*416*/ STOP_SOUND_EFFECT("bool alwaysFalse, AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE soundbank"),
 	/*417*/ GET_TOTEM_STATUE("Object town", "Object"),
 	/*418*/ SET_SET_ON_FIRE("bool enable, Object object"),
 	/*419*/ SET_LAND_BALANCE("float resourceID, float factor"),
@@ -471,7 +471,7 @@ public enum NativeFunction {
 	/*422*/ STOP_IMMERSION("IMMERSION_EFFECT_TYPE effect"),
 	/*423*/ STOP_ALL_IMMERSION(),
 	/*424*/ SET_CREATURE_IN_TEMPLE("bool enable"),
-	/*425*/ GAME_DRAW_TEXT("int textID, float across, float down, float width, float height, float size, float fade"),
+	/*425*/ GAME_DRAW_TEXT("HELP_TEXT textID, float across, float down, float width, float height, float size, float fade"),
 	/*426*/ GAME_DRAW_TEMP_TEXT("StrPtr string, float across, float down, float width, float height, float size, float fade"),
 	/*427*/ FADE_ALL_DRAW_TEXT("float time"),
 	/*428*/ SET_DRAW_TEXT_COLOUR("float red, float green, float blue"),
@@ -485,10 +485,10 @@ public enum NativeFunction {
 	/*436*/ GAME_ADD_FOR_BUILDING(2),
 	/*437*/ ENABLE_DISABLE_ALIGNMENT_MUSIC("bool enable"),
 	/*438*/ GET_DEAD_LIVING("Coord position, float radius", "Object"),
-	/*439*/ ATTACH_SOUND_TAG("bool threeD, int sound, AUDIO_SFX_BANK_TYPE soundbank, Object target"),
-	/*440*/ DETACH_SOUND_TAG("int sound, AUDIO_SFX_BANK_TYPE soundbank, Object target"),
+	/*439*/ ATTACH_SOUND_TAG("bool threeD, AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE soundbank, Object target"),
+	/*440*/ DETACH_SOUND_TAG("AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE soundbank, Object target"),
 	/*441*/ GET_SACRIFICE_TOTAL("Object worshipSite", "float"),
-	/*442*/ GAME_SOUND_PLAYING("int sound, AUDIO_SFX_BANK_TYPE soundbank", "bool"),
+	/*442*/ GAME_SOUND_PLAYING("AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE soundbank", "bool"),
 	/*443*/ GET_TEMPLE_POSITION("float player", "Coord"),
 	/*444*/ CREATURE_AUTOSCALE("bool enable, Object creature, float size"),
 	/*445*/ GET_SPELL_ICON_IN_TEMPLE("MAGIC_TYPE spell, Object temple", "Object"),
@@ -783,38 +783,52 @@ public enum NativeFunction {
 		SCRIPT("Script"),				//int (byte offset in data section)
 		
 		/* The following are enums. */
-		SCRIPT_OBJECT_TYPE(),			//defined in ScriptEnums.h
-		SCRIPT_OBJECT_SUBTYPE(),		//various enums defined in info2.txt
-		SCRIPT_OBJECT_PROPERTY_TYPE(),	//defined in ScriptEnums.h - TODO: assign a type to each property
-		SCRIPT_BOOL(),					//defined in ScriptEnums.h
-		SCRIPT_INTERFACE_LEVEL(),		//defined in ScriptEnums.h
-		MAGIC_TYPE(),					//defined in Enum.h
-		TOWN_DESIRE_INFO(),				//defined in Enum.h
-		IMMERSION_EFFECT_TYPE(),		//defined in Enum.h
-		CARRIED_OBJECT(),				//defined in Enum.h
-		REACTION(),						//defined in Enum.h
-		ABODE_NUMBER(),					//defined in Enum.h
-		TRIBE_TYPE(),					//defined in Enum.h
-		DANCE_INFO(),					//defined in Enum.h
-		REWARD_OBJECT_INFO(),			//defined in Enum.h
-		HIGHLIGHT_INFO(),				//defined in Enum.h
-		RESOURCE_TYPE(),				//defined in Enum.h
-		HELP_SPIRIT_TYPE(),				//defined in Enum.h
-		VILLAGER_DISCIPLE(),			//defined in Enum.h
-		CREATURE_DESIRES(),				//defined in Enum.h
-		CREATURE_TYPE(),				//defined in CreatureEnum.h
-		CREATURE_ACTION(),				//defined in CreatureEnum.h
-		DEVELOPMENT_PHASE(),			//defined in CreatureEnum.h
-		CREATURE_ACTION_TYPE(),			//see enums.txt
-		CREATURE_ACTION_SUBTYPE(),		//various enums defined in Enum.h
+		
+		//From ScriptEnums.h
+		SCRIPT_OBJECT_TYPE(),
+		SCRIPT_OBJECT_SUBTYPE(),		//various enums
+		SCRIPT_OBJECT_PROPERTY_TYPE(),
+		SCRIPT_BOOL(),
+		SCRIPT_INTERFACE_LEVEL(),
+		SCRIPT_DEV_FUNCTION(),
+		
+		//From Enum.h
+		MAGIC_TYPE(),
+		TOWN_DESIRE_INFO(),
+		IMMERSION_EFFECT_TYPE(),
+		CARRIED_OBJECT(),
+		REACTION(),
+		ABODE_NUMBER(),
+		TRIBE_TYPE(),
+		DANCE_INFO(),
+		REWARD_OBJECT_INFO(),
+		HIGHLIGHT_INFO(),
+		RESOURCE_TYPE(),
+		HELP_SPIRIT_TYPE(),
+		VILLAGER_DISCIPLE(),
+		DYK_CATEGORY(),
+		CREATURE_DESIRES(),
+		CREATURE_ACTION_LEARNING_TYPE(),
+		CREATURE_ACTION_SUBTYPE(),		//various enums
+		
+		//From CreatureEnum.h
+		CREATURE_TYPE(),
+		CREATURE_ACTION(),
+		DEVELOPMENT_PHASE(),
+		
+		//From CameraPosEnum.h
+		ScriptCameraPosition(),
+		SCRIPT_PATH(),
+		
+		//Misc
+		MUSIC_TYPE(),					//defined in AudioMusic.h
+		AUDIO_SFX_ID(),					//LH_SAMPLE in LHSample.h plus custom enums
 		AUDIO_SFX_BANK_TYPE(),			//defined in AudioSFX.h
 		VILLAGER_STATES(),				//defined in GStates.h
 		DETAIL_ANIM_TYPES(),			//defined in info1.txt (alias of ANIM_LIST in AllMeshes.h)
 		HELP_EVENT_TYPE(),				//see enums.txt
 		HAND_GLOW(),					//see enums.txt
 		FIGHT_MOVE(),					//defined in HitRegions.h
-		ScriptCameraPosition(),			//defined in CameraPosEnum.h
-		SCRIPT_PATH(),					//defined in CameraPosEnum.h
 		HELP_TEXT(),					//defined in HelpTextEnums.h
 		ScriptChallengeEnums(),			//defined in ScriptChallengeEnums.h
 		CREATURE_TATTOO_TYPE();			//defined in ScriptEnumsTwo.h

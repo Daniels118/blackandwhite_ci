@@ -76,6 +76,7 @@ public class CHLDecompiler {
 	private static final Map<String, String> dummyOptions = new HashMap<>();
 	
 	private static final int DEFAULT_SUBTYPE = 5000;
+	private static final int AUDIO_SFX_BANK_TYPE_IN_GAME = 1;
 	
 	static {
 		loadStatements();
@@ -346,16 +347,28 @@ public class CHLDecompiler {
 				writeScripts(sourceFilename);
 			}
 			if (!requiredScripts.isEmpty()) {
+				trace("Inserting define script statements in "+sourceFilename);
 				File tmpFile = path.resolve("_tmp.txt").toFile();
 				sourceFile.renameTo(tmpFile);
 				try (BufferedReader reader = new BufferedReader(new FileReader(tmpFile));
 						Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
 					writer = str;
+					List<String> header = new LinkedList<>();
 					//Copy everything before first script
 					String line = reader.readLine();
 					while (!line.startsWith("begin ")) {
-						writer.write(line + "\r\n");
+						header.add(line);
 						line = reader.readLine();
+					}
+					//Try to make room for new statements
+					for (int i = 0; i <= requiredScripts.size(); i++) {
+						if (header.isEmpty()) break;
+						if (!header.get(header.size() - 1).isBlank()) break;
+						header.remove(header.size() - 1);
+					}
+					//Write header
+					for (String h : header) {
+						writer.write(h + "\r\n");
 					}
 					//Insert required scripts
 					for (String name : requiredScripts) {
@@ -374,6 +387,7 @@ public class CHLDecompiler {
 					}
 				}
 				tmpFile.delete();
+				requiredScripts.clear();
 			}
 		}
 	}
@@ -409,9 +423,11 @@ public class CHLDecompiler {
 	}
 	
 	private void writeHeader() throws IOException {
-		writeln("//LHVM Challenge source version "+chl.getHeader().getVersion());
-		writeln("//Decompiled with CHLASM tool by Daniels118");
-		writeln("");
+		if (!respectLinenoEnabled) {
+			writeln("//LHVM Challenge source version "+chl.getHeader().getVersion());
+			writeln("//Decompiled with CHLASM tool by Daniels118");
+			writeln("");
+		}
 	}
 	
 	private void writeAliases() throws IOException, DecompileException {
@@ -498,7 +514,6 @@ public class CHLDecompiler {
 	private void writeScript(Script script) throws IOException, DecompileException {
 		try {
 			currentScript = script;
-			requiredScripts.clear();
 			//Load parameters on the stack
 			for (int i = 0; i < script.getParameterCount(); i++) {
 				push(ArgType.UNKNOWN);
@@ -1169,7 +1184,7 @@ public class CHLDecompiler {
 	private Expression decompile(NativeFunction func) throws DecompileException {
 		Instruction pInstr, nInstr;
 		boolean anti;
-		int scriptId;
+		int strptr;
 		String scriptName;
 		//Special cases (without parameters)
 		switch (func) {
@@ -1294,12 +1309,8 @@ public class CHLDecompiler {
 			case SNAPSHOT:
 				params.set(2, null);	//implicit focus
 				params.set(3, null);	//implicit position
-				scriptId = params.get(7).intVal();
-				try {
-					scriptName = chl.getScriptsSection().getScript(scriptId).getName();
-				} catch (InvalidScriptIdException e) {
-					throw new DecompileException(currentScript, ip, e);
-				}
+				strptr = params.get(7).intVal();
+				scriptName = chl.getDataSection().getString(strptr);
 				if (!definedScripts.contains(scriptName)) {
 					requiredScripts.add(scriptName);
 				}
@@ -1309,12 +1320,8 @@ public class CHLDecompiler {
 				params.set(2, null);	//implicit position
 				break;
 			case UPDATE_SNAPSHOT:
-				scriptId = params.get(4).intVal();
-				try {
-					scriptName = chl.getScriptsSection().getScript(scriptId).getName();
-				} catch (InvalidScriptIdException e) {
-					throw new DecompileException(currentScript, ip, e);
-				}
+				strptr = params.get(4).intVal();
+				scriptName = chl.getDataSection().getString(strptr);
 				if (!definedScripts.contains(scriptName)) {
 					requiredScripts.add(scriptName);
 				}
@@ -1342,8 +1349,8 @@ public class CHLDecompiler {
 		//Format the function call
 		Symbol symbol = statements[func.ordinal()];
 		if (symbol != null) {
-			String statement = decompile(func, symbol, params.listIterator());
-			return new Expression(statement);
+			Expression statement = decompile(func, symbol, params.listIterator());
+			return statement;
 		}
 		throw new DecompileException(func+" is not supported", currentScript, ip, instructions.get(ip));
 	}
@@ -1374,26 +1381,27 @@ public class CHLDecompiler {
 		return params;
 	}
 	
-	private String decompile(NativeFunction func, Symbol symbol, ListIterator<Expression> params) throws DecompileException {
+	private Expression decompile(NativeFunction func, Symbol symbol, ListIterator<Expression> params) throws DecompileException {
 		if (symbol.terminal && symbol.terminalType == TerminalType.KEYWORD) {
-			return symbol.keyword;
+			return new Expression(symbol.keyword);
 		}
-		List<String> statement = new LinkedList<>();
+		List<Expression> statement = new LinkedList<>();
 		String typeName = null;
 		String subtype = null;
+		int audioSfxIdIndex = -1;
 		for (Symbol sym : symbol.expression) {
 			skipNulls(params);	//Skip implicit parameters
 			if (sym.terminal) {
 				if (sym.terminalType == TerminalType.KEYWORD) {
-					statement.add(sym.keyword);
+					statement.add(new Expression(sym.keyword));
 				} else if (sym.terminalType != TerminalType.EOL) {
-					String param = decompile(func, params);
+					Expression param = decompile(func, params);
 					statement.add(param);
 				}
 			} else if (sym.alternatives != null) {
 				String dummy = dummyOptions.get(sym.keyword);
 				if (dummy != null) {
-					statement.add(dummy);
+					statement.add(new Expression(dummy));
 				} else {
 					String[] words = boolOptions.get(sym.keyword);
 					if (words != null) {
@@ -1401,7 +1409,7 @@ public class CHLDecompiler {
 						boolean val = param.boolVal();
 						String opt = val ? words[0] : words[1];
 						if (opt != null) {
-							statement.add(opt);
+							statement.add(new Expression(opt));
 						}
 					} else {
 						words = enumOptions.get(sym.keyword);
@@ -1410,10 +1418,10 @@ public class CHLDecompiler {
 							int val = param.intVal();
 							String opt = words[val];
 							if (opt != null) {
-								statement.add(opt);
+								statement.add(new Expression(opt));
 							}
 						} else {
-							String param = decompile(func, params);
+							Expression param = decompile(func, params);
 							statement.add(param);
 						}
 					}
@@ -1425,7 +1433,7 @@ public class CHLDecompiler {
 					boolean val = param.boolVal();
 					String opt = val ? words[0] : words[1];
 					if (opt != null) {
-						statement.add(opt);
+						statement.add(new Expression(opt));
 					}
 				} else {
 					words = enumOptions.get(sym.keyword);
@@ -1434,7 +1442,7 @@ public class CHLDecompiler {
 						int val = param.intVal();
 						String opt = words[val];
 						if (opt != null) {
-							statement.add(opt);
+							statement.add(new Expression(opt));
 						}
 					} else {
 						Argument arg = func.args[params.nextIndex()];
@@ -1442,7 +1450,7 @@ public class CHLDecompiler {
 							Expression param = params.next();
 							int strptr = param.intVal();
 							String string = chl.getDataSection().getString(strptr);
-							statement.add(string);
+							statement.add(new Expression(string));
 						} else if (arg.type == ArgType.SCRIPT_OBJECT_TYPE) {
 							Expression param = params.next();
 							subtype = null;
@@ -1453,9 +1461,9 @@ public class CHLDecompiler {
 									subtype = subtypes.get(typeName);
 								}
 								String alias = getSymbol(ArgType.SCRIPT_OBJECT_TYPE, val);
-								statement.add(alias);
+								statement.add(new Expression(alias));
 							} else {
-								statement.add(param.toString());
+								statement.add(param);
 							}
 						} else if (arg.type == ArgType.SCRIPT_OBJECT_SUBTYPE) {
 							Expression param = params.next();
@@ -1465,7 +1473,7 @@ public class CHLDecompiler {
 									statement.add(null);
 								} else {
 									if (subtype == null) {
-										statement.add(param.toString());
+										statement.add(param);
 										//
 										Instruction instr = instructions.get(ip);
 										out.println("WARNING: subtype not defined for type "+typeName
@@ -1474,21 +1482,90 @@ public class CHLDecompiler {
 												+" ("+currentScript.getSourceFilename()+":"+instr.lineNumber+")");
 									} else {
 										String alias = getSymbol(subtype, val);
-										statement.add(alias);
+										statement.add(new Expression(alias));
 									}
 								}
 							} else {
-								statement.add(param.toString());
+								statement.add(param);
 							}
 							subtype = null;
+						} else if (arg.type == ArgType.CREATURE_ACTION_LEARNING_TYPE) {
+							Expression param = params.next();
+							subtype = null;
+							if (param.isNumber()) {
+								int val = param.intVal();
+								typeName = getEnumEntry(ArgType.CREATURE_ACTION_LEARNING_TYPE, val);
+								if (typeName != null) {
+									subtype = subtypes.get(typeName);
+								}
+								String alias = getSymbol(ArgType.CREATURE_ACTION_LEARNING_TYPE, val);
+								statement.add(new Expression(alias));
+							} else {
+								statement.add(param);
+							}
+						} else if (arg.type == ArgType.CREATURE_ACTION_SUBTYPE) {
+							Expression param = params.next();
+							if (param.isNumber()) {
+								int val = param.intVal();
+								if (val == DEFAULT_SUBTYPE) {
+									statement.add(null);
+								} else {
+									if (subtype == null) {
+										statement.add(param);
+										//
+										Instruction instr = instructions.get(ip);
+										out.println("WARNING: subtype not defined for type "+typeName
+												+" at instruction "+ip+" ("+instr+")"
+												+" in script "+currentScript.getName()
+												+" ("+currentScript.getSourceFilename()+":"+instr.lineNumber+")");
+									} else {
+										String alias = getSymbol(subtype, val);
+										statement.add(new Expression(alias));
+									}
+								}
+							} else {
+								statement.add(param);
+							}
+							subtype = null;
+						} else if (arg.type == ArgType.AUDIO_SFX_BANK_TYPE) {
+							Expression param = params.next();
+							if (param.isNumber()) {
+								int val = param.intVal();
+								Expression audioSfxId = statement.get(audioSfxIdIndex);
+								if (audioSfxId.isNumber()) {
+									typeName = getEnumEntry(ArgType.AUDIO_SFX_BANK_TYPE, val);
+									subtype = subtypes.get(typeName);
+									if (subtype != null) {
+										String alias = getSymbol(subtype, audioSfxId.intVal());
+										statement.set(audioSfxIdIndex, new Expression(alias));
+									} else {
+										statement.set(audioSfxIdIndex, new Expression("constant "+audioSfxId));
+									}
+								}
+								if (val == AUDIO_SFX_BANK_TYPE_IN_GAME) {
+									statement.add(null);
+								} else {
+									String alias = getSymbol(arg.type, val);
+									statement.add(new Expression(alias));
+								}
+							} else {
+								statement.add(param);
+							}
+							audioSfxIdIndex = -1;
+						} else if (arg.type == ArgType.AUDIO_SFX_ID) {
+							Expression param = params.next();
+							audioSfxIdIndex = statement.size();	//Delayed replacement
+							statement.add(param);
 						} else if ("[( PARAMETERS )]".equals(sym.keyword)) {
 							Expression param = params.next();
 							if (param != null) {
-								statement.add("("+param+")");
+								statement.add(new Expression("("+param+")"));
 							}
 						} else {
-							String param = decompile(func, sym, params);
-							if (arg.type == ArgType.OBJECT_FLOAT && sym.optional
+							Expression param = decompile(func, sym, params);
+							if (param == null) {
+								//Don't add implicit parameters
+							} else if (arg.type == ArgType.OBJECT_FLOAT && sym.optional
 									&& sym.keyword.replace("OBJECT", "0").equals("["+param+"]")) {
 								param = null;	//Don't add missing OBJECT
 							} else if (arg.type == ArgType.COORD && sym.optional) {
@@ -1514,38 +1591,43 @@ public class CHLDecompiler {
 		if (statement.isEmpty()) {
 			return null;
 		}
-		ListIterator<String> tokens = statement.listIterator();
+		ListIterator<Expression> tokens = statement.listIterator();
 		StringBuilder res = new StringBuilder();
 		String prevToken = "(";
 		while (tokens.hasNext()) {
-			String token = tokens.next();
-			if (token != null && !token.isEmpty()) {
-				char c0 = token.charAt(0);
-				char c1 = prevToken.charAt(prevToken.length() - 1);
-				if (c0 != ']' && c0 != '(' && c0 != ')' && c0 != ','
-						&& c1 != '[' && c1 != '(') {
-					res.append(" ");
+			Expression part = tokens.next();
+			if (part != null) {
+				String token = part.toString();
+				if (!token.isEmpty()) {
+					char c0 = token.charAt(0);
+					char c1 = prevToken.charAt(prevToken.length() - 1);
+					if (c0 != ']' && c0 != '(' && c0 != ')' && c0 != ','
+							&& c1 != '[' && c1 != '(') {
+						res.append(" ");
+					}
+					res.append(token);
+					prevToken = token;
 				}
-				res.append(token);
-				prevToken = token;
 			}
 		}
-		return res.toString();
+		return new Expression(res.toString());
 	}
 	
-	private String decompile(NativeFunction func, ListIterator<Expression> params) {
+	private Expression decompile(NativeFunction func, ListIterator<Expression> params) {
 		Argument arg = func.args[params.nextIndex()];
 		Expression param = params.next();
 		if (arg.type == ArgType.STRPTR && param.isNumber()) {
 			int strptr = param.intVal();
 			String string = chl.getDataSection().getString(strptr);
-			return escape(string);
+			return new Expression(escape(string));
 		} else if (arg.type.isEnum && param.isNumber()) {
 			int val = param.intVal();
 			String alias = getSymbol(arg.type, val);
-			return alias;
+			return new Expression(alias);
+		} else if (arg.type == ArgType.INT && param.isNumber()) {
+			return new Expression("constant "+param);
 		} else {
-			return param.toString();
+			return param;
 		}
 	}
 	

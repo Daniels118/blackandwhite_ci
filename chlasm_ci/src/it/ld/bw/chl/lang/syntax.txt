@@ -102,7 +102,7 @@ STATEMENT: {
 	set OBJECT anim CONST_EXPR EOL
 	delete OBJECT [DELETE_MODE] EOL
 	set OBJECT properties inner EXPRESSION outer EXPRESSION [calm EXPRESSION] EOL
-	set OBJECT text property text CONST_EXPR category CONST_EXPR EOL
+	set OBJECT text property text HELP_TEXT category DYK_CATEGORY EOL
 	set OBJECT velocity heading COORD_EXPR speed EXPRESSION EOL
 	set OBJECT target COORD_EXPR time EXPRESSION EOL
 	set OBJECT time to EXPRESSION second|seconds EOL
@@ -130,7 +130,7 @@ STATEMENT: {
 	set OBJECT desire maximum CONST_EXPR to EXPRESSION EOL
 	set OBJECT priority EXPRESSION EOL
 	set player EXPRESSION creature to OBJECT EOL
-	teach OBJECT CONST_EXPR CONST_EXPR CONST_EXPR EOL
+	teach OBJECT CREATURE_ACTION_LEARNING_TYPE CREATURE_ACTION_SUBTYPE SCRIPT_BOOL EOL
 	teach OBJECT everything EOL
 	teach OBJECT all EOL
 	teach OBJECT all excluding CONST_EXPR EOL
@@ -224,7 +224,7 @@ STATEMENT: {
 	clear hit object EOL
 	clear hit land object EOL
 	enable|disable CONST_EXPR avi sequence EOL
-	run CONST_EXPR developer function EOL
+	run SCRIPT_DEV_FUNCTION developer function EOL
 	run map script line STRING EOL
 	set fade red EXPRESSION green EXPRESSION blue EXPRESSION time EXPRESSION EOL
 	set fade in time EXPRESSION EOL
@@ -249,10 +249,10 @@ STATEMENT: {
 	add OBJECT target on OBJECT EOL
 	enable|disable intro building EOL
 	start say [extra] sound CONST_EXPR [at COORD_EXPR] EOL
-	start sound CONST_EXPR [AUDIO_SFX_BANK_TYPE] [at COORD_EXPR] EOL
-	stop sound CONST_EXPR [AUDIO_SFX_BANK_TYPE] EOL
-	attach [3d] sound tag CONST_EXPR [AUDIO_SFX_BANK_TYPE] to OBJECT EOL
-	detach sound tag CONST_EXPR [AUDIO_SFX_BANK_TYPE] from OBJECT EOL
+	start sound AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] [at COORD_EXPR] EOL
+	stop sound AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] EOL
+	attach [3d] sound tag AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] to OBJECT EOL
+	detach sound tag AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] from OBJECT EOL
 	enter|exit temple EOL
 	enable|disable temple EOL
 	enable|disable creature in temple EOL
@@ -274,9 +274,9 @@ STATEMENT: {
 	run background script IDENTIFIER[(PARAMETERS)] EOL
 	wait until CONDITION EOL
 	wait CONDITION EOL
-	start music CONST_EXPR EOL
+	start music MUSIC_TYPE EOL
 	stop music EOL
-	attach music CONST_EXPR to OBJECT EOL
+	attach music MUSIC_TYPE to OBJECT EOL
 	detach music from OBJECT EOL
 	move music from OBJECT to OBJECT EOL
 	enable|disable music on OBJECT EOL
@@ -323,7 +323,7 @@ STATEMENT: {
 	say [single line] HELP_TEXT with number EXPRESSION [SAY_MODE] [by OBJECT] EOL
 	clear dialogue EOL
 	close dialogue EOL
-	draw text CONST_EXPR across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds EOL
+	draw text HELP_TEXT across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds EOL
 	draw text STRING across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds EOL
 	set draw text colour red EXPRESSION green EXPRESSION blue EXPRESSION EOL
 	fade all draw text time EXPRESSION second|seconds EOL
@@ -475,7 +475,7 @@ CONDITION: {
 	jc special CONST_EXPR played
 	OBJECT played
 	OBJECT music played
-	music CONST_EXPR played
+	music MUSIC_TYPE played
 	OBJECT cast by OBJECT
 	HELP_SPIRIT_TYPE spirit played
 	HELP_SPIRIT_TYPE spirit speaks CONST_EXPR
@@ -544,7 +544,7 @@ CONDITION: {
 	EXPRESSION < EXPRESSION
 	OBJECT == OBJECT
 	OBJECT != OBJECT
-	sound HELP_TEXT [CONST_EXPR] playing
+	sound AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] playing
 	say sound HELP_TEXT playing
 	(CONDITION)
 }
@@ -677,7 +677,7 @@ EXPRESSION: {
 	get time since player EXPRESSION attacked OBJECT
 	get OBJECT music distance
 	get OBJECT interaction magnitude
-	get CONST_EXPR music distance
+	get MUSIC_TYPE music distance
 	land height at COORD_EXPR
 	time
 	number from EXPRESSION to EXPRESSION
@@ -785,11 +785,25 @@ SCRIPT_PATH: CONST_EXPR
 
 HELP_TEXT: CONST_EXPR
 
+DYK_CATEGORY: CONST_EXPR
+
 ScriptChallengeEnums: CONST_EXPR
+
+MUSIC_TYPE: CONST_EXPR
+
+AUDIO_SFX_ID: CONST_EXPR
 
 AUDIO_SFX_BANK_TYPE: CONST_EXPR
 
 CREATURE_TATTOO_TYPE: CONST_EXPR
+
+CREATURE_ACTION_LEARNING_TYPE: CONST_EXPR
+
+CREATURE_ACTION_SUBTYPE: CONST_EXPR
+
+SCRIPT_BOOL: CONST_EXPR
+
+SCRIPT_DEV_FUNCTION: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

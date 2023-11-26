@@ -209,7 +209,7 @@ ___________________________________________
 3.1.10 is identical to 3.1.9
 ___________________________________________
 
-3.1.11 set OBJECT text property text CONST_EXPR category CONST_EXPR
+3.1.11 set OBJECT text property text HELP_TEXT category DYK_CATEGORY
 
 Changes the text propert of a object (script highlight at present).
 
@@ -220,7 +220,7 @@ set Highlight text property text constant HelpTextEnum category constant HelpTex
 	CASTI
 	PUSHF [HelpTextCategory]	//categoryConst
 	CASTI
-	SYS HIGHLIGHT_PROPERTIES	//[3, 0] (Object object, int text, int category)
+	SYS HIGHLIGHT_PROPERTIES	//[3, 0] (Object object, HELP_TEXT text, DYK_CATEGORY category)
 ___________________________________________
 
 3.1.12 set OBJECT velocity heading COORD_EXPR speed EXPRESSION
@@ -547,7 +547,7 @@ set player 1 creature to MyCreature		//#SetupCreatureIsle1.txt:278
 	SYS CREATURE_SET_PLAYER	//[2, 0] (float player, Object creature)
 ___________________________________________
 
-3.2.16 teach OBJECT CONST_EXPR CONST_EXPR CONST_EXPR
+3.2.16 teach OBJECT CREATURE_ACTION_LEARNING_TYPE CREATURE_ACTION_SUBTYPE SCRIPT_BOOL
 
 Teach creature a specific lesson. First argument is type of action: INTELLECTUAL, PHYSICAL or MAGIC.
 Second argument is which action, eg: CREATURE_INTELLECTUAL_ACTION_KNOWN_ABOUT_FISH (in Enum.h).
@@ -560,7 +560,7 @@ teach MyCreature INTELLECTUAL CREATURE_ACTION_KNOWN_ABOUT_USE_FIELD SCRIPT_TRUE	
 	PUSHI 1							//action
 	PUSHI 1							//knows
 	PUSHF 1.0						//fixed
-	SYS CREATURE_SET_KNOWS_ACTION	//[5, 0] (Object creature, CREATURE_ACTION_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float alwaysOne)
+	SYS CREATURE_SET_KNOWS_ACTION	//[5, 0] (Object creature, CREATURE_ACTION_LEARNING_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float alwaysOne)
 ___________________________________________
 
 3.2.17.1 teach OBJECT everything
@@ -1573,14 +1573,14 @@ ___________________________________________
 Identical to 3.8.31
 ___________________________________________
 
-3.8.33 run CONST_EXPR developer function
+3.8.33 run SCRIPT_DEV_FUNCTION developer function
 
 Runs an in dev function.
 
 run SCRIPT_DEV_FUNCTION_MY_CREATURE_POINT_OUT_HIGHLIGHT developer function		//#CreatureDevelopment.txt:89
 
 	PUSHI 6				//func
-	SYS DEV_FUNCTION	//[1, 0] (int func)
+	SYS DEV_FUNCTION	//[1, 0] (SCRIPT_DEV_FUNCTION func)
 ___________________________________________
 
 3.8.34 run map script line STRING
@@ -1846,7 +1846,7 @@ start say sound constant WhichTextFirst		//#HelpSystem.txt:232
 	SYS GAME_PLAY_SAY_SOUND_EFFECT	//[6, 0] (bool extra, HELP_TEXT sound, Coord position, bool withPosition)
 ___________________________________________
 
-3.8.58 start sound CONST_EXPR [CONST_EXPR] [at COORD_EXPR]
+3.8.58 start sound AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] [at COORD_EXPR]
 
 This function plays a sound effect, with an optional bank, optionally in 3d space. If you don't define a bank
 it defaults to AUDIO_SFX_BANK_TYPE_IN_GAME.
@@ -1860,10 +1860,10 @@ start sound constant from LH_SCRIPT_SAMPLE_CHILD_LAUGH_01 to LH_SCRIPT_SAMPLE_CH
 	PUSHF [SwimPos]
 	SYS GET_POSITION		//position
 	PUSHB true				//withPosition
-	SYS PLAY_SOUND_EFFECT	//[6, 0] (int sound, AUDIO_SFX_BANK_TYPE_SCRIPT_SFX soundbank, Coord position, bool withPosition)
+	SYS PLAY_SOUND_EFFECT	//[6, 0] (AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE_SCRIPT_SFX soundbank, Coord position, bool withPosition)
 ___________________________________________
 
-3.8.59 stop sound CONST_EXPR [CONST_EXPR]
+3.8.59 stop sound AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE]
 
 Stops a sound effect, with an optional bank. If you don't define a bank it defaults to AUDIO_SFX_BANK_TYPE_IN_GAME.
 
@@ -1872,10 +1872,10 @@ stop sound LH_SCRIPT_SAMPLE_MUSHROOM_SUSPENSE AUDIO_SFX_BANK_TYPE_SCRIPT_SFX		//
 	PUSHB false				//always false
 	PUSHI 91				//sound
 	PUSHI 5					//soundbank (default=1)
-	SYS STOP_SOUND_EFFECT	//[3, 0] (bool alwaysFalse, int sound, AUDIO_SFX_BANK_TYPE soundbank)
+	SYS STOP_SOUND_EFFECT	//[3, 0] (bool alwaysFalse, AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE soundbank)
 ___________________________________________
 
-3.8.60 attach [3d] sound tag CONST_EXPR [CONST_EXPR] to OBJECT
+3.8.60 attach [3d] sound tag AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] to OBJECT
 
 ?
 
@@ -1886,10 +1886,10 @@ attach [3d] sound tag constant BlokeSample AUDIO_SFX_BANK_TYPE_SCRIPT_SFX to Blo
 	CASTI
 	PUSHI 5					//soundbank
 	PUSHF [Bloke]			//target
-	SYS ATTACH_SOUND_TAG	//[4, 0] (bool threeD, int sound, AUDIO_SFX_BANK_TYPE soundbank, Object target)
+	SYS ATTACH_SOUND_TAG	//[4, 0] (bool threeD, AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE soundbank, Object target)
 ___________________________________________
 
-3.8.61 detach sound tag CONST_EXPR [CONST_EXPR] from OBJECT
+3.8.61 detach sound tag AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] from OBJECT
 
 ?
 
@@ -1898,7 +1898,7 @@ detach sound tag LH_SCRIPT_SAMPLE_G_PHONEBOXRING AUDIO_SFX_BANK_TYPE_SCRIPT_SFX 
 	PUSHI 126				//sound
 	PUSHI 5					//soundbank
 	PUSHF [PhoneBoxLand1]	//target
-	SYS DETACH_SOUND_TAG	//[3, 0] (int sound, AUDIO_SFX_BANK_TYPE soundbank, Object target)
+	SYS DETACH_SOUND_TAG	//[3, 0] (AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE soundbank, Object target)
 ___________________________________________
 
 3.8.62 enter|exit temple
@@ -2259,7 +2259,7 @@ lbl7C:
 	JZ lbl7C
 ___________________________________________
 
-3.12.1 start music CONST_EXPR
+3.12.1 start music MUSIC_TYPE
 
 Only one script tune can play at once, this function starts a script tune which has no 3d position in the world.
 
@@ -2267,7 +2267,7 @@ start music MUSIC_TYPE_SCRIPT_FAILURE		//#GameOver.txt:17
 
 	PUSHI 78		//music
 	PUSHF 0.0		//fixed
-	SYS START_MUSIC	//[2, 0] (int music, float zero)
+	SYS START_MUSIC	//[2, 0] (MUSIC_TYPE music, float zero)
 ___________________________________________
 
 3.12.2 stop music
@@ -2279,7 +2279,7 @@ stop music		//#CreatureDevelopment.txt:506
 	SYS STOP_MUSIC	//[0, 0] ()
 ___________________________________________
 
-3.12.3 attach music CONST_EXPR to OBJECT
+3.12.3 attach music MUSIC_TYPE to OBJECT
 
 Attaches a tune to a game object, such that when the object is near the camera the tune is played and can
 be heard in the 3d direction of the object.
@@ -2288,7 +2288,7 @@ attach music MUSIC_TYPE_CELTIC_CHANT_VOX to Leader		//#followus.txt:963
 
 	PUSHI 29			//music
 	PUSHF [Leader]		//object
-	SYS ATTACH_MUSIC	//[2, 0] (int music, Object target)
+	SYS ATTACH_MUSIC	//[2, 0] (MUSIC_TYPE music, Object target)
 ___________________________________________
 
 3.12.4 detach music from OBJECT
@@ -2867,7 +2867,7 @@ close dialogue
 	SYS GAME_CLOSE_DIALOGUE
 ___________________________________________
 
-3.17.1 draw text CONST_EXPR across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second[s]
+3.17.1 draw text HELP_TEXT across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second[s]
 
 This function draws text on screen with a time it fades into. The chosen colour is set by the set next draw
 text colour function.
@@ -2881,7 +2881,7 @@ draw text HELP_TEXT_GAME_OVER across 0.25 down 0.45 width 0.5 height 0.1 size 0.
 	PUSHF 0.1			//height
 	PUSHF 0.075			//size
 	PUSHF 3.0			//fade
-	SYS GAME_DRAW_TEXT	//[7, 0] (int textID, float across, float down, float width, float height, float size, float fade)
+	SYS GAME_DRAW_TEXT	//[7, 0] (HELP_TEXT textID, float across, float down, float width, float height, float size, float fade)
 ___________________________________________
 
 3.17.2 draw text STRING across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second[s]
@@ -3654,14 +3654,14 @@ A check on if an object has finished playing it's music.
 Never found (MUSIC_PLAYED1 or MUSIC_PLAYED2, the one which expects a float)
 ___________________________________________
 
-6.20 music CONST_EXPR played
+6.20 music MUSIC_TYPE played
 
 Returns if the script music passed is no longer playing
 
 music MUSIC_TYPE_MISSIONARIES_SAD played
 
 	PUSHI 107
-	SYS MUSIC_PLAYED2	//[1, 1] (int music) returns (bool)
+	SYS MUSIC_PLAYED2	//[1, 1] (MUSIC_TYPE music) returns (bool)
 ___________________________________________
 
 6.21 OBJECT cast by OBJECT
@@ -4337,7 +4337,7 @@ No doc.
 	NEQ
 ___________________________________________
 
-6.72 sound CONST_EXPR [CONST_EXPR] playing
+6.72 sound AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] playing
 
 ?
 
@@ -4345,7 +4345,7 @@ sound LH_SCRIPT_SAMPLE_G_PHONEPICKUP AUDIO_SFX_BANK_TYPE_SCRIPT_SFX playing		//#
 
 	PUSHI 127				//sound
 	PUSHI 5					//soundbank
-	SYS GAME_SOUND_PLAYING	//[2, 1] (int sound, AUDIO_SFX_BANK_TYPE soundbank) returns (bool)
+	SYS GAME_SOUND_PLAYING	//[2, 1] (AUDIO_SFX_ID sound, AUDIO_SFX_BANK_TYPE soundbank) returns (bool)
 ___________________________________________
 
 6.73 say sound CONST_EXPR playing
@@ -5782,14 +5782,14 @@ CurrentMagnitude = get MyCreature interaction magnitude		//#CreatureDevelopment.
 	POPF CurrentMagnitude
 ___________________________________________
 
-12.11 get CONST_EXPR music distance
+12.11 get MUSIC_TYPE music distance
 
 Gets the distance some music can be heard from a music type.
 
 Never found
 	
 	PUSHI	1					//music type
-	SYS GET_MUSIC_ENUM_DISTANCE	//[1, 1] (int type) returns (float)
+	SYS GET_MUSIC_ENUM_DISTANCE	//[1, 1] (MUSIC_TYPE music) returns (float)
 ___________________________________________
 
 12.12 land height at COORD_EXPR
