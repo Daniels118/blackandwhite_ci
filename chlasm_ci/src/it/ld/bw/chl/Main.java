@@ -181,10 +181,9 @@ public class Main {
 	
 	private static void decompile(CmdLine cmd) throws Exception {
 		CHLDecompiler decompiler = new CHLDecompiler();
-		File inp = mandatory(cmd.getArgFile("-i"), "-i");
-		File out = mandatory(cmd.getArgFile("-o"), "-o");
-		if (!out.isDirectory()) throw new Exception("-o must be a directory");
-		List<File> headers = cmd.getArgFiles("-h");
+		File subtypes = mandatory(cmd.getArgFile("-st"), "-st");
+		decompiler.loadSubtypes(subtypes);
+		List<File> headers = mandatory(cmd.getArgFiles("-h"), "-h");
 		for (File file : headers) {
 			if (file.isDirectory()) {
 				for (File f : file.listFiles()) {
@@ -196,6 +195,9 @@ public class Main {
 				decompiler.addHeader(file);
 			}
 		}
+		File inp = mandatory(cmd.getArgFile("-i"), "-i");
+		File out = mandatory(cmd.getArgFile("-o"), "-o");
+		if (!out.isDirectory()) throw new Exception("-o must be a directory");
 		List<File> aliases = cmd.getArgFiles("-a");
 		for (File file : aliases) {
 			decompiler.addAlias(file);

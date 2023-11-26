@@ -17,6 +17,13 @@ public class DecompileException extends Exception {
 		this.instruction = null;
 	}
 	
+	public DecompileException(String msg, Script script) {
+		super(msg+" in script "+script.getName()+" ("+script.getSourceFilename()+")");
+		this.script = script;
+		this.instructionAddress = -1;
+		this.instruction = null;
+	}
+	
 	public DecompileException(String msg, Script script, int instructionAddress) {
 		super(msg+" at instruction "+instructionAddress+" in script "+script.getName()
 				+" ("+script.getSourceFilename()+")");

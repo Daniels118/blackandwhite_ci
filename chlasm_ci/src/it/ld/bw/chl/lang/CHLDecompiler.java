@@ -5,19 +5,25 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.Writer;
 import java.nio.file.Path;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,6 +32,7 @@ import it.ld.bw.chl.exceptions.InvalidNativeFunctionException;
 import it.ld.bw.chl.exceptions.InvalidScriptIdException;
 import it.ld.bw.chl.exceptions.InvalidVariableIdException;
 import it.ld.bw.chl.exceptions.ParseException;
+import it.ld.bw.chl.exceptions.ScriptNotFoundException;
 import it.ld.bw.chl.lang.Symbol.TerminalType;
 import it.ld.bw.chl.model.CHLFile;
 import it.ld.bw.chl.model.DataType;
@@ -34,6 +41,7 @@ import it.ld.bw.chl.model.Instruction;
 import it.ld.bw.chl.model.NativeFunction;
 import it.ld.bw.chl.model.NativeFunction.ArgType;
 import it.ld.bw.chl.model.NativeFunction.Argument;
+import it.ld.bw.chl.model.NativeFunction.Context;
 import it.ld.bw.chl.model.OPCode;
 import it.ld.bw.chl.model.OPCodeFlag;
 import it.ld.bw.chl.model.Script;
@@ -42,9 +50,11 @@ public class CHLDecompiler {
 	public static boolean traceEnabled = false;
 	
 	private static final String STATEMENTS_FILE = "statements.txt";
-	private static final String SUBTYPES_FILE = "subtypes.txt";
 	
 	private static final char[] ILLEGAL_CHARACTERS = {'/', '\n', '\r', '\t', '\0', '\f', '`', '?', '*', '\\', '<', '>', '|', '\"', ':'};
+	
+	private static final int SIGNIFICANT_DIGITS = 8;
+	private static final DecimalFormat decimalFormat = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
 	
 	private static final Expression END_SCRIPT = new Expression("end script");
 	private static final Expression SELF_ASSIGN = new Expression("?");
@@ -61,14 +71,14 @@ public class CHLDecompiler {
 		};
 	
 	private static final Symbol[] statements = new Symbol[NativeFunction.values().length];
-	private static final Map<String, String> subtypes = new HashMap<>();
 	private static final Map<String, String[]> boolOptions = new HashMap<>();
 	private static final Map<String, String[]> enumOptions = new HashMap<>();
 	private static final Map<String, String> dummyOptions = new HashMap<>();
 	
+	private static final int DEFAULT_SUBTYPE = 5000;
+	
 	static {
 		loadStatements();
-		loadSubtypes();
 		//
 		addBoolOption("enable", "disable");
 		addBoolOption("forward", "reverse");
@@ -114,9 +124,12 @@ public class CHLDecompiler {
 		enumOptions.put(keyword, options);
 	}
 	
+	private final Map<String, String> subtypes = new HashMap<>();
 	private final Map<String, Map<Integer, String>> enums = new HashMap<>();
 	private final Map<String, String> aliases = new HashMap<>();
 	
+	private final Set<String> requiredScripts = new HashSet<>();
+	private final Set<String> definedScripts = new HashSet<>();
 	private final Map<String, Var> globalMap = new HashMap<>();
 	private final Map<String, Var> localMap = new HashMap<>();
 	private final ArrayList<StackVal> stack = new ArrayList<>();
@@ -157,7 +170,28 @@ public class CHLDecompiler {
 	public void setRespectLinenoEnabled(boolean respectLinenoEnabled) {
 		this.respectLinenoEnabled = respectLinenoEnabled;
 	}
-
+	
+	public void loadSubtypes(File file) {
+		int lineno = 0;
+		try (BufferedReader reader = new BufferedReader(new FileReader(file));) {
+			String line = "";
+			while ((line = reader.readLine()) != null) {
+				lineno++;
+				line = line.trim();
+				if (line.isEmpty() || line.startsWith("#")) continue;
+				String[] parts = line.split("\\s+");
+				if (parts.length != 2) {
+					throw new RuntimeException("Wrong number of columns");
+				}
+				String typeName = parts[0];
+				String subtypeName = parts[1];
+				subtypes.put(typeName, subtypeName);
+			}
+		} catch (Exception e) {
+			throw new RuntimeException(e.getMessage() + " at line " + lineno, e);
+		}
+	}
+	
 	public void addHeader(File file) throws FileNotFoundException, IOException, ParseException {
 		CHeaderParser parser = new CHeaderParser();
 		Map<String, Map<String, Integer>> lEnums = new HashMap<>();
@@ -248,6 +282,7 @@ public class CHLDecompiler {
 	public void decompile(CHLFile chl, File outdir) throws IOException, DecompileException {
 		this.chl = chl;
 		this.path = outdir.toPath();
+		definedScripts.clear();
 		globalMap.clear();
 		stack.clear();
 		instructions = chl.getCode().getItems();
@@ -262,22 +297,40 @@ public class CHLDecompiler {
 			writer = str;
 			lineno = 1;
 			writeln("//Source files list");
+			if (!aliases.isEmpty()) {
+				writeln("_aliases.txt");
+			}
 			for (String sourceFilename : sources) {
 				if (!isValidFilename(sourceFilename)) {
 					throw new RuntimeException("Invalid source filename: " + sourceFilename);
 				}
 				writeln(sourceFilename);
 			}
-			writeln("_autorun.txt");
+			if (!chl.getAutoStartScripts().getScripts().isEmpty()) {
+				writeln("_autorun.txt");
+			}
 		}
 		//
-		out.println("Writing _autorun.txt");
-		File autostartFile = path.resolve("_autorun.txt").toFile();
-		try (FileWriter str = new FileWriter(autostartFile);) {
-			writer = str;
-			lineno = 1;
-			writeHeader(chl);
-			writeAutoStartScripts(chl);
+		if (!aliases.isEmpty()) {
+			out.println("Writing _aliases.txt");
+			File autostartFile = path.resolve("_aliases.txt").toFile();
+			try (FileWriter str = new FileWriter(autostartFile);) {
+				writer = str;
+				lineno = 1;
+				writeHeader();
+				writeAliases();
+			}
+		}
+		//
+		if (!chl.getAutoStartScripts().getScripts().isEmpty()) {
+			out.println("Writing _autorun.txt");
+			File autostartFile = path.resolve("_autorun.txt").toFile();
+			try (FileWriter str = new FileWriter(autostartFile);) {
+				writer = str;
+				lineno = 1;
+				writeHeader();
+				writeAutoStartScripts();
+			}
 		}
 		//
 		for (String sourceFilename : sources) {
@@ -289,8 +342,38 @@ public class CHLDecompiler {
 			try (Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
 				writer = str;
 				lineno = 1;
-				writeHeader(chl);
-				writeScripts(chl, sourceFilename);
+				writeHeader();
+				writeScripts(sourceFilename);
+			}
+			if (!requiredScripts.isEmpty()) {
+				File tmpFile = path.resolve("_tmp.txt").toFile();
+				sourceFile.renameTo(tmpFile);
+				try (BufferedReader reader = new BufferedReader(new FileReader(tmpFile));
+						Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
+					writer = str;
+					//Copy everything before first script
+					String line = reader.readLine();
+					while (!line.startsWith("begin ")) {
+						writer.write(line + "\r\n");
+						line = reader.readLine();
+					}
+					//Insert required scripts
+					for (String name : requiredScripts) {
+						try {
+							Script script = chl.getScriptsSection().getScript(name);
+							writer.write("define "+script.getSignature()+"\r\n");
+						} catch (ScriptNotFoundException e) {
+							throw new DecompileException(e.getMessage()+" at "+sourceFilename);
+						}
+					}
+					writer.write("\r\n");
+					//Copy code
+					while (line != null) {
+						writer.write(line + "\r\n");
+						line = reader.readLine();
+					}
+				}
+				tmpFile.delete();
 			}
 		}
 	}
@@ -325,13 +408,21 @@ public class CHLDecompiler {
 		lineno++;
 	}
 	
-	private void writeHeader(CHLFile chl) throws IOException {
+	private void writeHeader() throws IOException {
 		writeln("//LHVM Challenge source version "+chl.getHeader().getVersion());
 		writeln("//Decompiled with CHLASM tool by Daniels118");
 		writeln("");
 	}
 	
-	private void writeAutoStartScripts(CHLFile chl) throws IOException, DecompileException {
+	private void writeAliases() throws IOException, DecompileException {
+		for (Entry<String, String> entry : aliases.entrySet()) {
+			String constant = entry.getKey();
+			String alias = entry.getValue();
+			writeln("global constant "+alias+" = "+constant);
+		}
+	}
+	
+	private void writeAutoStartScripts() throws IOException, DecompileException {
 		for (int scriptID : chl.getAutoStartScripts().getScripts()) {
 			try {
 				Script script = chl.getScriptsSection().getScript(scriptID);
@@ -342,10 +433,9 @@ public class CHLDecompiler {
 				throw new DecompileException(msg);
 			}
 		}
-		writeln("");
 	}
 	
-	private void writeScripts(CHLFile chl, String sourceFilename) throws IOException, DecompileException {
+	private void writeScripts(String sourceFilename) throws IOException, DecompileException {
 		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
 		int firstGlobal = 0;
 		Script script = null;
@@ -358,7 +448,7 @@ public class CHLDecompiler {
 			}
 			firstGlobal = script.getGlobalCount();
 		}
-		writeGlobals(chl, firstGlobal, script.getGlobalCount());
+		writeGlobals(firstGlobal, script.getGlobalCount());
 		firstGlobal = script.getGlobalCount();
 		writeln("");
 		while (it.hasNext()) {
@@ -366,12 +456,13 @@ public class CHLDecompiler {
 			if (!script.getSourceFilename().equals(sourceFilename)) {
 				break;
 			}
-			writeScript(chl, script);
+			writeScript(script);
 			writeln("");
+			definedScripts.add(script.getName());
 		}
 	}
 	
-	private void writeGlobals(CHLFile chl, int start, int end) throws IOException {
+	private void writeGlobals(int start, int end) throws IOException {
 		List<String> names = chl.getGlobalVariables().getNames().subList(start, end);
 		for (String name : names) {
 			if (!"LHVMA".equals(name)) {
@@ -404,14 +495,24 @@ public class CHLDecompiler {
 		return res;
 	}
 	
-	private void writeScript(CHLFile chl, Script script) throws IOException, DecompileException {
+	private void writeScript(Script script) throws IOException, DecompileException {
 		try {
 			currentScript = script;
-			trace("begin " + script.getSignature());
+			requiredScripts.clear();
 			//Load parameters on the stack
 			for (int i = 0; i < script.getParameterCount(); i++) {
 				push(ArgType.UNKNOWN);
 			}
+			//Begin script
+			if (respectLinenoEnabled) {
+				int i = script.getInstructionAddress() + 1;
+				Instruction instr = instructions.get(i);
+				while (instr.lineNumber <= 0) {
+					instr = instructions.get(++i);
+				}
+				alignToLineno(instr.lineNumber - 1);
+			}
+			trace("begin " + script.getSignature());
 			writeln("begin " + script.getSignature());
 			it = instructions.listIterator(script.getInstructionAddress());
 			//EXCEPT
@@ -428,6 +529,7 @@ public class CHLDecompiler {
 					writeln("\t"+var.name+"["+var.size+"]");
 				} else {															//atomic var
 					Expression statement = decompileLocalVarAssignment(var);
+					if (respectLinenoEnabled) alignToLineno();
 					writeln("\t"+statement);
 				}
 			}
@@ -437,12 +539,19 @@ public class CHLDecompiler {
 			//
 			tabs = "\t";
 			incTabs = false;
+			Context knownContext = getKnownContext(script);
+			if (knownContext == Context.CINEMA) {
+				writeln(tabs + "begin known cinema");
+				tabs += "\t";
+			} else if (knownContext == Context.DIALOGUE) {
+				writeln(tabs + "begin known dialogue");
+				tabs += "\t";
+			}
+			//
 			Expression statement = decompileNextStatement();
 			while (statement != END_SCRIPT) {
 				if (statement != null) {
-					if (respectLinenoEnabled) {
-						alignToLineno();
-					}
+					if (respectLinenoEnabled) alignToLineno();
 					writeln(tabs + statement);
 				}
 				if (incTabs) {
@@ -452,6 +561,11 @@ public class CHLDecompiler {
 				statement = decompileNextStatement();
 			}
 			//
+			if (knownContext == Context.CINEMA) {
+				writeln(tabs + "end known cinema");
+			} else if (knownContext == Context.DIALOGUE) {
+				writeln(tabs + "end known dialogue");
+			}
 			writeln("end script " + script.getName());
 			trace("end script " + script.getName());
 			if (!stack.isEmpty()) {
@@ -468,12 +582,56 @@ public class CHLDecompiler {
 		}
 	}
 	
+	private Context getKnownContext(Script script) throws DecompileException {
+		boolean requiresCamera = false;
+		boolean requiresDialogue = false;
+		boolean usesDialogue = false;
+		final int lastInstr = Math.min(script.getLastInstructionAddress(), instructions.size() - 1);
+		for (int i = script.getInstructionAddress(); i <= lastInstr; i++) {
+			Instruction instr = instructions.get(i);
+			if (instr.opcode == OPCode.SYS) {
+				try {
+					NativeFunction func = NativeFunction.fromCode(instr.intVal);
+					switch (func) {
+						case START_CAMERA_CONTROL:
+							return null;
+						case START_DIALOGUE:
+							usesDialogue = true;
+							break;
+						default:
+							if (func.context == Context.CAMERA) {
+								requiresCamera = true;
+								if (requiresDialogue) break;
+							} else if (func.context == Context.DIALOGUE) {
+								requiresDialogue = true;
+								if (requiresCamera) break;
+							}
+					}
+				} catch (InvalidNativeFunctionException e) {
+					throw new DecompileException(script, i, instr, e);
+				}
+			} else if (instr.opcode == OPCode.END) {
+				break;
+			}
+		}
+		if (requiresCamera) {
+			return Context.CINEMA;
+		} else if (requiresDialogue && !usesDialogue) {
+			return Context.DIALOGUE;
+		}
+		return null;
+	}
+	
 	private void alignToLineno() throws IOException {
 		Instruction instr = instructions.get(ip);
 		if (instr.opcode != OPCode.JZ) {
-			while (lineno < instr.lineNumber) {
-				writeln("");
-			}
+			alignToLineno(instr.lineNumber);
+		}
+	}
+	
+	private void alignToLineno(int target) throws IOException {
+		while (lineno < target) {
+			writeln("");
 		}
 	}
 	
@@ -565,7 +723,12 @@ public class CHLDecompiler {
 						return new Expression("constant " + op1.safe());
 					case FLOAT:
 						op1 = decompile();
-						return new Expression("variable " + op1.safe());
+						if (op1.isNumber()) {
+							//Workaround for missing constants
+							return new Expression(op1.safe());
+						} else {
+							return new Expression("variable " + op1.safe());
+						}
 					case COORDS:
 						op3 = decompile();
 						pInstr = prev();	//CASTC
@@ -660,6 +823,9 @@ public class CHLDecompiler {
 				//run [background] script IDENTIFIER[(parameters)]
 				try {
 					Script script = chl.getScriptsSection().getScript(instr.intVal);
+					if (!definedScripts.contains(script.getName())) {
+						requiredScripts.add(script.getName());
+					}
 					String line = "run";
 					if (instr.isStart()) {
 						line += " background";
@@ -1003,6 +1169,8 @@ public class CHLDecompiler {
 	private Expression decompile(NativeFunction func) throws DecompileException {
 		Instruction pInstr, nInstr;
 		boolean anti;
+		int scriptId;
+		String scriptName;
 		//Special cases (without parameters)
 		switch (func) {
 			case SET_CAMERA_FOCUS:
@@ -1092,28 +1260,7 @@ public class CHLDecompiler {
 			default:
 		}
 		//Read parameters
-		int argc = 0;
-		List<Expression> params = new LinkedList<>();
-		for (int i = func.args.length - 1; i >= 0; i--) {
-			if (i > 0 && func.args[i - 1].varargs) {
-				Expression expr = decompile();
-				params.add(0, expr);
-				argc = expr.intVal();
-			} else if (func.args[i].varargs) {
-				if (argc > 0) {
-					String argv = decompile().toString();
-					for (int j = 1; j < argc; j++) {
-						argv = decompile() + ", " + argv;
-					}
-					params.add(0, new Expression(argv));
-				} else {
-					params.add(0, null);
-				}
-			} else {
-				Expression expr = decompile();
-				params.add(0, expr);
-			}
-		}
+		List<Expression> params = readParameters(func);
 		//Special cases (with parameters)
 		switch (func) {
 			case CREATE:
@@ -1147,12 +1294,35 @@ public class CHLDecompiler {
 			case SNAPSHOT:
 				params.set(2, null);	//implicit focus
 				params.set(3, null);	//implicit position
+				scriptId = params.get(7).intVal();
+				try {
+					scriptName = chl.getScriptsSection().getScript(scriptId).getName();
+				} catch (InvalidScriptIdException e) {
+					throw new DecompileException(currentScript, ip, e);
+				}
+				if (!definedScripts.contains(scriptName)) {
+					requiredScripts.add(scriptName);
+				}
 				break;
 			case UPDATE_SNAPSHOT_PICTURE:
 				params.set(1, null);	//implicit focus
 				params.set(2, null);	//implicit position
 				break;
+			case UPDATE_SNAPSHOT:
+				scriptId = params.get(4).intVal();
+				try {
+					scriptName = chl.getScriptsSection().getScript(scriptId).getName();
+				} catch (InvalidScriptIdException e) {
+					throw new DecompileException(currentScript, ip, e);
+				}
+				if (!definedScripts.contains(scriptName)) {
+					requiredScripts.add(scriptName);
+				}
+				break;
 			case SAY_SOUND_EFFECT_PLAYING:
+				params.set(0, null);	//always false
+				break;
+			case STOP_SOUND_EFFECT:
 				params.set(0, null);	//always false
 				break;
 			case START_DUAL_CAMERA:
@@ -1178,11 +1348,38 @@ public class CHLDecompiler {
 		throw new DecompileException(func+" is not supported", currentScript, ip, instructions.get(ip));
 	}
 	
+	private List<Expression> readParameters(NativeFunction func) throws DecompileException {
+		int argc = 0;
+		List<Expression> params = new LinkedList<>();
+		for (int i = func.args.length - 1; i >= 0; i--) {
+			if (i > 0 && func.args[i - 1].varargs) {
+				Expression expr = decompile();
+				params.add(0, expr);
+				argc = expr.intVal();
+			} else if (func.args[i].varargs) {
+				if (argc > 0) {
+					String argv = decompile().toString();
+					for (int j = 1; j < argc; j++) {
+						argv = decompile() + ", " + argv;
+					}
+					params.add(0, new Expression(argv));
+				} else {
+					params.add(0, null);
+				}
+			} else {
+				Expression expr = decompile();
+				params.add(0, expr);
+			}
+		}
+		return params;
+	}
+	
 	private String decompile(NativeFunction func, Symbol symbol, ListIterator<Expression> params) throws DecompileException {
 		if (symbol.terminal && symbol.terminalType == TerminalType.KEYWORD) {
 			return symbol.keyword;
 		}
 		List<String> statement = new LinkedList<>();
+		String typeName = null;
 		String subtype = null;
 		for (Symbol sym : symbol.expression) {
 			skipNulls(params);	//Skip implicit parameters
@@ -1251,7 +1448,7 @@ public class CHLDecompiler {
 							subtype = null;
 							if (param.isNumber()) {
 								int val = param.intVal();
-								String typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, val);
+								typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, val);
 								if (typeName != null) {
 									subtype = subtypes.get(typeName);
 								}
@@ -1260,12 +1457,26 @@ public class CHLDecompiler {
 							} else {
 								statement.add(param.toString());
 							}
-						} else if (arg.type == ArgType.SCRIPT_OBJECT_SUBTYPE && subtype != null) {
+						} else if (arg.type == ArgType.SCRIPT_OBJECT_SUBTYPE) {
 							Expression param = params.next();
 							if (param.isNumber()) {
 								int val = param.intVal();
-								String alias = getSymbol(subtype, val);
-								statement.add(alias);
+								if (val == DEFAULT_SUBTYPE) {
+									statement.add(null);
+								} else {
+									if (subtype == null) {
+										statement.add(param.toString());
+										//
+										Instruction instr = instructions.get(ip);
+										out.println("WARNING: subtype not defined for type "+typeName
+												+" at instruction "+ip+" ("+instr+")"
+												+" in script "+currentScript.getName()
+												+" ("+currentScript.getSourceFilename()+":"+instr.lineNumber+")");
+									} else {
+										String alias = getSymbol(subtype, val);
+										statement.add(alias);
+									}
+								}
 							} else {
 								statement.add(param.toString());
 							}
@@ -1714,10 +1925,19 @@ public class CHLDecompiler {
 	}
 	
 	private static String format(float v) {
-		if (Math.abs(v) <= 16777216 && (int)v == v) {
+		//return Integer.toHexString(Float.floatToRawIntBits(v));
+		/*if (Math.abs(v) <= 16777216 && (int)v == v) {
 			return String.valueOf((int)v);
+		}*/
+		decimalFormat.setMaximumFractionDigits(SIGNIFICANT_DIGITS - 1);
+		String r = decimalFormat.format(v);
+		int nInt = r.indexOf('.');	//Compute the number of int digits
+		if (nInt > 1) {
+			int nDec = Math.max(1, Math.min(SIGNIFICANT_DIGITS - nInt, SIGNIFICANT_DIGITS - 1));
+			decimalFormat.setMaximumFractionDigits(nDec);
+			r = decimalFormat.format(v);
 		}
-		return String.valueOf(v);
+		return r;
 	}
 	
 	private static boolean isValidFilename(String s) {
@@ -1750,27 +1970,6 @@ public class CHLDecompiler {
 					throw new RuntimeException("Symbol not found for statement \""+statement+"\"");
 				}
 				statements[func.ordinal()] = symbol;
-			}
-		} catch (Exception e) {
-			throw new RuntimeException(e.getMessage() + " at line " + lineno, e);
-		}
-	}
-	
-	private static void loadSubtypes() {
-		int lineno = 0;
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(Syntax.class.getResourceAsStream(SUBTYPES_FILE)));) {
-			String line = "";
-			while ((line = reader.readLine()) != null) {
-				lineno++;
-				line = line.trim();
-				if (line.isEmpty() || line.startsWith("#")) continue;
-				String[] parts = line.split("\\s+");
-				if (parts.length != 2) {
-					throw new RuntimeException("Wrong number of columns");
-				}
-				String typeName = parts[0];
-				String subtypeName = parts[1];
-				subtypes.put(typeName, subtypeName);
 			}
 		} catch (Exception e) {
 			throw new RuntimeException(e.getMessage() + " at line " + lineno, e);

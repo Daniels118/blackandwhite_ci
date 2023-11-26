@@ -719,18 +719,6 @@ public class CHLCompiler implements Compiler {
 		}
 	}
 	
-	private void checkInCameraBlock(String statement) {
-		if (!inCameraBlock) {
-			throw new ParseError("Statement \""+statement+"\" must be called within a camera block", file, line, col);
-		}
-	}
-	
-	private void checkInDialogueBlock(String statement) {
-		if (!inCameraBlock) {
-			throw new ParseError("Statement \""+statement+"\" must be called within a camera block", file, line, col);
-		}
-	}
-	
 	private SymbolInstance parseStatements() throws ParseException {
 		final int start = it.nextIndex();
 		SymbolInstance symbol = parseStatement();
@@ -1062,7 +1050,6 @@ public class CHLCompiler implements Compiler {
 				}
 			} else if (symbol.is("speed")) {
 				//set game speed to EXPRESSION
-				checkInCameraBlock("set game speed");
 				parse("speed to EXPRESSION EOL");
 				sys2(SET_GAMESPEED);
 				return replace(start, "STATEMENT");
@@ -1181,7 +1168,6 @@ public class CHLCompiler implements Compiler {
 					return replace(start, "STATEMENT");
 				} else {
 					//set camera to IDENTIFIER CONSTANT
-					checkInCameraBlock("set camera to IDENTIFIER CONSTANT");
 					symbol = parse("IDENTIFIER IDENTIFIER EOL")[1];
 					String camEnum = symbol.token.value;
 					int constVal = getConstant(camEnum);
@@ -6008,7 +5994,23 @@ public class CHLCompiler implements Compiler {
 		instructions.add(instruction);
 	}
 	
+	private void checkContext(NativeFunction func) {
+		switch (func.context) {
+			case CAMERA:
+				if (!inCameraBlock) {
+					throw new ParseError("Statement must be called within a camera block", file, line, col);
+				}
+				break;
+			case DIALOGUE:
+				if (!inDialogueBlock) {
+					throw new ParseError("Statement must be called within a camera block", file, line, col);
+				}
+				break;
+		}
+	}
+	
 	private void sys(NativeFunction func) {
+		checkContext(func);
 		Instruction instruction = Instruction.fromKeyword("SYS");
 		instruction.intVal = func.ordinal();
 		instruction.lineNumber = line;
@@ -6016,6 +6018,7 @@ public class CHLCompiler implements Compiler {
 	}
 	
 	private void sys2(NativeFunction func) {
+		checkContext(func);
 		Instruction instruction = Instruction.fromKeyword("SYS2");
 		instruction.intVal = func.ordinal();
 		instruction.lineNumber = line;

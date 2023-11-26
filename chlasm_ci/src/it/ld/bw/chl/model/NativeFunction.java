@@ -47,10 +47,10 @@ import it.ld.bw.chl.exceptions.InvalidNativeFunctionException;
 
 public enum NativeFunction {
 	/*  0*/ NONE(),
-	/*  1*/ SET_CAMERA_POSITION("Coord position"),
-	/*  2*/ SET_CAMERA_FOCUS("Coord position"),
-	/*  3*/ MOVE_CAMERA_POSITION("Coord position, float time"),
-	/*  4*/ MOVE_CAMERA_FOCUS("Coord position, float time"),
+	/*  1*/ SET_CAMERA_POSITION("Coord position", Context.CAMERA),
+	/*  2*/ SET_CAMERA_FOCUS("Coord position", Context.CAMERA),
+	/*  3*/ MOVE_CAMERA_POSITION("Coord position, float time", Context.CAMERA),
+	/*  4*/ MOVE_CAMERA_FOCUS("Coord position, float time", Context.CAMERA),
 	/*  5*/ GET_CAMERA_POSITION("", "Coord"),
 	/*  6*/ GET_CAMERA_FOCUS("", "Coord"),
 	/*  7*/ SPIRIT_EJECT("HELP_SPIRIT_TYPE spirit"),
@@ -59,13 +59,13 @@ public enum NativeFunction {
 	/* 10*/ SPIRIT_POINT_GAME_THING("HELP_SPIRIT_TYPE spirit, Object target, bool inWorld"),
 	/* 11*/ GAME_THING_FIELD_OF_VIEW("Object object", "bool"),
 	/* 12*/ POS_FIELD_OF_VIEW("Coord position", "bool"),
-	/* 13*/ RUN_TEXT("bool singleLine, HELP_TEXT textID, int withInteraction, Object speaker"),
-	/* 14*/ TEMP_TEXT("bool singleLine, StrPtr string, int withInteraction, Object speaker"),
+	/* 13*/ RUN_TEXT("bool singleLine, HELP_TEXT textID, int withInteraction, Object speaker", Context.DIALOGUE),
+	/* 14*/ TEMP_TEXT("bool singleLine, StrPtr string, int withInteraction, Object speaker", Context.DIALOGUE),
 	/* 15*/ TEXT_READ("", "bool"),
 	/* 16*/ GAME_THING_CLICKED("Object object", "bool"),
 	/* 17*/ SET_SCRIPT_STATE("Object object, VILLAGER_STATES state"),
 	/* 18*/ GET_PROPERTY("SCRIPT_OBJECT_PROPERTY_TYPE prop, Object object", "int|float"),
-	/* 19*/ SET_PROPERTY("SCRIPT_OBJECT_PROPERTY_TYPE prop, Object object, float val", true),
+	/* 19*/ SET_PROPERTY("SCRIPT_OBJECT_PROPERTY_TYPE prop, Object object, float val"),
 	/* 20*/ GET_POSITION("Object object", "Coord"),
 	/* 21*/ SET_POSITION("Object object, Coord position"),
 	/* 22*/ GET_DISTANCE("Coord p0, Coord p1", "float"),
@@ -101,15 +101,15 @@ public enum NativeFunction {
 	/* 52*/ CALL_IN("SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype, Object container, bool excludingScripted", "Object"),
 	/* 53*/ CHANGE_INNER_OUTER_PROPERTIES("Object obj, float inner, float outer, float calm"),
 	/* 54*/ SNAPSHOT("ScriptChallengeEnums challengeID, bool quest, Coord position, Coord focus, float success, float alignment, HELP_TEXT titleStrID, Script reminderScript, float... args, int argc"),
-	/* 55*/ GET_ALIGNMENT("int zero", "float", true),
+	/* 55*/ GET_ALIGNMENT("int zero", "float"),
 	/* 56*/ SET_ALIGNMENT(2),
 	/* 57*/ INFLUENCE_OBJECT("Object target, float radius, int zero, int anti", "Object"),
 	/* 58*/ INFLUENCE_POSITION("Coord position, float radius, int zero, int anti", "Object"),
 	/* 59*/ GET_INFLUENCE("float player, bool raw, Coord position", "float"),
-	/* 60*/ SET_INTERFACE_INTERACTION("SCRIPT_INTERFACE_LEVEL level", true),
+	/* 60*/ SET_INTERFACE_INTERACTION("SCRIPT_INTERFACE_LEVEL level"),
 	/* 61*/ PLAYED("Object obj", "bool"),
-	/* 62*/ RANDOM_ULONG("int min, int max", "int", true),
-	/* 63*/ SET_GAMESPEED("float speed", true),
+	/* 62*/ RANDOM_ULONG("int min, int max", "int"),
+	/* 63*/ SET_GAMESPEED("float speed", Context.CAMERA),
 	/* 64*/ CALL_IN_NEAR("SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype, Object container, Coord pos, float radius, bool excludingScripted", "Object"),
 	/* 65*/ OVERRIDE_STATE_ANIMATION("Object obj, DETAIL_ANIM_TYPES animType"),
 	/* 66*/ CREATURE_CREATE_RELATIVE_TO_CREATURE("Object model, float player, Coord pos, int type, bool dumb", "Object"),
@@ -231,7 +231,7 @@ public enum NativeFunction {
 	/*182*/ SET_CREATURE_ONLY_DESIRE_OFF("Object creature"),
 	/*183*/ RESTART_MUSIC(2, 0),
 	/*184*/ MUSIC_PLAYED1(1, 1),
-	/*185*/ IS_OF_TYPE("Object object, SCRIPT_OBJECT_TYPE type, int subtype", "bool"),
+	/*185*/ IS_OF_TYPE("Object object, SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype", "bool"),
 	/*186*/ CLEAR_HIT_OBJECT(),
 	/*187*/ GAME_THING_HIT("Object object", "bool"),
 	/*188*/ SPELL_AT_THING("MAGIC_TYPE spell, Object target, Coord from, float radius, float duration, float curl, bool alwaysTrue", "Object"),
@@ -305,13 +305,13 @@ public enum NativeFunction {
 	/*256*/ CREATE_MIST("Coord pos, float scale, float r, float g, float b, float transparency, float heightRatio", "Object"),
 	/*257*/ SET_MIST_FADE("Object mist, float startScale, float endScale, float startTransparency, float endTransparency, float duration"),
 	/*258*/ GET_OBJECT_FADE("Object object", "float"),
-	/*259*/ PLAY_HAND_DEMO("StrPtr string, bool withPause, bool withoutHandModify"),
+	/*259*/ PLAY_HAND_DEMO("StrPtr string, bool withPause, bool withoutHandModify", Context.CAMERA),
 	/*260*/ IS_PLAYING_HAND_DEMO("", "bool"),
 	/*261*/ GET_ARSE_POSITION("Object object", "Coord"),
 	/*262*/ IS_LEASHED_TO_OBJECT("Object object, Object target", "bool"),
 	/*263*/ GET_INTERACTION_MAGNITUDE("Object creature", "float"),
 	/*264*/ IS_CREATURE_AVAILABLE("CREATURE_TYPE type", "bool"),
-	/*265*/ CREATE_HIGHLIGHT("int challengeID, HIGHLIGHT_INFO type, Coord position", "Object"),
+	/*265*/ CREATE_HIGHLIGHT("ScriptChallengeEnums challengeID, HIGHLIGHT_INFO type, Coord position", "Object"),
 	/*266*/ GET_OBJECT_HELD2("Object holder", "Object"),
 	/*267*/ GET_ACTION_COUNT("CREATURE_ACTION action, Object creature", "float"),
 	/*268*/ GET_OBJECT_LEASH_TYPE("Object object", "int"),
@@ -542,7 +542,7 @@ public enum NativeFunction {
 	/*493*/ SET_DOLPHIN_WAIT(1, 0),
 	/*494*/ FIRE_GUN("Object gun"),
 	/*495*/ GUN_ANGLE_PITCH("Object gun, float angle, float pitch"),
-	/*496*/ SET_OBJECT_TATTOO("bool enable, Object creature, int tattoo"),
+	/*496*/ SET_OBJECT_TATTOO("bool enable, Object creature, CREATURE_TATTOO_TYPE tattoo"),
 	/*497*/ CREATURE_CLEAR_FIGHT_QUEUE(1, 0),
 	/*498*/ CAN_BE_LEASHED("bool enable, Object creature"),
 	/*499*/ SET_BOOKMARK_ON_OBJECT(2, 0),
@@ -590,8 +590,8 @@ public enum NativeFunction {
 	public final ArgType returnType;
 	/**Tells whether the number of values popped from the stack is variable or not.*/
 	public final boolean varargs;
-	/**Tells whether the function must be called with SYS2 or not.*/
-	public final boolean sys2;
+	/**Tells whether the function must be called within a camera/dialogue block.*/
+	public final Context context;
 	
 	NativeFunction() {
 		this(0, 0);
@@ -603,18 +603,18 @@ public enum NativeFunction {
 	}
 	
 	NativeFunction(String sArgs) {
-		this(sArgs, null);
+		this(sArgs, null, null);
 	}
 	
 	NativeFunction(String sArgs, String sRet) {
-		this(sArgs, sRet, false);
+		this(sArgs, sRet, null);
 	}
 	
-	NativeFunction(String sArgs, boolean sys2) {
-		this(sArgs, null, false);
+	NativeFunction(String sArgs, Context context) {
+		this(sArgs, null, context);
 	}
 	
-	NativeFunction(String sArgs, String sRet, boolean sys2) {
+	NativeFunction(String sArgs, String sRet, Context context) {
 		boolean varargs = false;
 		if (sArgs == null || sArgs.isEmpty()) {
 			this.pop = 0;
@@ -644,7 +644,7 @@ public enum NativeFunction {
 			this.push = returnType.stackCount;
 		}
 		//
-		this.sys2 = sys2;
+		this.context = context;
 	}
 	
 	//TODO comment out when finished
@@ -665,7 +665,7 @@ public enum NativeFunction {
 		} else {
 			throw new IllegalArgumentException("Invalid number of return values: " + push);
 		}
-		this.sys2 = false;
+		this.context = null;
 	}
 	
 	//TODO comment out when finished
@@ -683,7 +683,7 @@ public enum NativeFunction {
 			returnType = ArgType.fromKeyword(sRet);
 			this.push = returnType.stackCount;
 		}
-		this.sys2 = false;
+		this.context = null;
 	}
 	
 	public String getArgsString() {
@@ -720,6 +720,11 @@ public enum NativeFunction {
 			throw new InvalidNativeFunctionException(code);
 		}
 		return functions[code];
+	}
+	
+	
+	public enum Context {
+		CINEMA, CAMERA, DIALOGUE
 	}
 	
 	
@@ -811,7 +816,8 @@ public enum NativeFunction {
 		ScriptCameraPosition(),			//defined in CameraPosEnum.h
 		SCRIPT_PATH(),					//defined in CameraPosEnum.h
 		HELP_TEXT(),					//defined in HelpTextEnums.h
-		ScriptChallengeEnums();			//define din ScriptChallengeEnums.h
+		ScriptChallengeEnums(),			//defined in ScriptChallengeEnums.h
+		CREATURE_TATTOO_TYPE();			//defined in ScriptEnumsTwo.h
 		
 		private static final Map<String, ArgType> map = new HashMap<>();
 		

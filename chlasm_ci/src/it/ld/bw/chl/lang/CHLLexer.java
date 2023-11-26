@@ -255,7 +255,9 @@ public class CHLLexer {
 							str.unread(c);
 							col--;
 							add(tokens, token.setValue(buffer.toString()));
-							if (Syntax.isKeyword(token.value)) token.type = TokenType.KEYWORD;
+							if (Syntax.isKeyword(token.value)) {
+								token.type = TokenType.KEYWORD;
+							}
 							buffer.setLength(0);
 							status = Status.DEFAULT;
 						}
@@ -270,6 +272,7 @@ public class CHLLexer {
 						} else if (Character.isJavaIdentifierPart(c)) {	//This is required to handle keywords starting with numbers such as "3d"
 							token.type = TokenType.IDENTIFIER;
 							buffer.append(c);
+							status = Status.IDENTIFIER;
 						} else {
 							str.unread(c);
 							col--;

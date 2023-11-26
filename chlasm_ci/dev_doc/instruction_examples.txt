@@ -861,7 +861,7 @@ disable TheCreature can be leashed to		//#CreatureActions.txt:8
 	SYS CAN_BE_LEASHED	//[2, 0] (bool enable, Object creature)
 ___________________________________________
 
-3.2.46 enable|disable OBJECT tattoo CONST_EXPR
+3.2.46 enable|disable OBJECT tattoo CREATURE_TATTOO_TYPE
 
 ?
 
@@ -870,7 +870,7 @@ enable TheCreature tattoo CREATURE_TATTOO_TYPE_THE_BROTHERHOOD		//#CreatureActio
 	PUSHB true
 	PUSHV [TheCreature]
 	PUSHI 1
-	SYS SET_OBJECT_TATTOO	//[3, 0] (bool enable, Object creature, int tattoo)
+	SYS SET_OBJECT_TATTOO	//[3, 0] (bool enable, Object creature, CREATURE_TATTOO_TYPE tattoo)
 ___________________________________________
 
 3.2.47 clear spells on OBJECT
