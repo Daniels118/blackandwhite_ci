@@ -639,7 +639,10 @@ public class CHLDecompiler {
 	
 	private void alignToLineno() throws IOException {
 		Instruction instr = instructions.get(ip);
-		if (instr.opcode != OPCode.JZ) {
+		if (instr.opcode != OPCode.JZ && instr.opcode != OPCode.JMP
+				&& instr.opcode != OPCode.EXCEPT && instr.opcode != OPCode.ITEREXCEPT
+				&& instr.opcode != OPCode.BRKEXCEPT
+				&& instr.opcode != OPCode.END) {
 			alignToLineno(instr.lineNumber);
 		}
 	}
@@ -1371,7 +1374,7 @@ public class CHLDecompiler {
 					}
 					params.add(0, new Expression(argv));
 				} else {
-					params.add(0, null);
+					params.add(0, new Expression(""));
 				}
 			} else {
 				Expression expr = decompile();
@@ -1558,7 +1561,7 @@ public class CHLDecompiler {
 							statement.add(param);
 						} else if ("[( PARAMETERS )]".equals(sym.keyword)) {
 							Expression param = params.next();
-							if (param != null) {
+							if (!param.value.isEmpty()) {
 								statement.add(new Expression("("+param+")"));
 							}
 						} else {

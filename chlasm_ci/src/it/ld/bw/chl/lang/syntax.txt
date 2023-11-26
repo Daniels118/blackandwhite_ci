@@ -99,7 +99,7 @@ STATEMENT: {
 	set OBJECT focus to COORD_EXPR EOL
 	set OBJECT focus on OBJECT EOL
 	OBJECT play CONST_EXPR [loop EXPRESSION] EOL
-	set OBJECT anim CONST_EXPR EOL
+	set OBJECT anim ANIM_LIST EOL
 	delete OBJECT [DELETE_MODE] EOL
 	set OBJECT properties inner EXPRESSION outer EXPRESSION [calm EXPRESSION] EOL
 	set OBJECT text property text HELP_TEXT category DYK_CATEGORY EOL
@@ -126,7 +126,7 @@ STATEMENT: {
 	enable|disable OBJECT development script EOL
 	enable|disable OBJECT spell reversion EOL
 	enable|disable OBJECT anim time modify EOL
-	set OBJECT all desires CONST_EXPR EOL
+	set OBJECT all desires SCRIPT_BOOL EOL
 	set OBJECT desire maximum CONST_EXPR to EXPRESSION EOL
 	set OBJECT priority EXPRESSION EOL
 	set player EXPRESSION creature to OBJECT EOL
@@ -804,6 +804,8 @@ CREATURE_ACTION_SUBTYPE: CONST_EXPR
 SCRIPT_BOOL: CONST_EXPR
 
 SCRIPT_DEV_FUNCTION: CONST_EXPR
+
+ANIM_LIST: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

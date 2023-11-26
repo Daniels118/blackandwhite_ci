@@ -1,7 +1,7 @@
 #ifndef __HITREGIONS_H__
 #define __HITREGIONS_H__
 
-enum
+enum FIGHT_MOVE		//Custom name
 {
 	CTR_HIT_HIGH,
 	CTR_HIT_MIDDLE,

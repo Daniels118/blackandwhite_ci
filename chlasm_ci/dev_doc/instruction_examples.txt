@@ -157,7 +157,7 @@ a play ANM_P_SWIM2 loop -1
 	SYS THING_PLAY_ANIM	//[3, 0] (Object object, int animation, float loop)
 ___________________________________________
 
-3.1.7 set OBJECT anim CONST_EXPR
+3.1.7 set OBJECT anim ANIM_LIST
 
 Very useful if you wish to change the walk animation of a character eg. Pied piper walks with a dance.
 
@@ -165,7 +165,7 @@ set Brother anim ANM_P_WALK_INJURED
 
 	PUSHF [Brother]					//object
 	PUSHI 426						//426=ANM_P_WALK_INJURED
-	SYS OVERRIDE_STATE_ANIMATION	//[2, 0] (Object obj, DETAIL_ANIM_TYPES animType)
+	SYS OVERRIDE_STATE_ANIMATION	//[2, 0] (Object obj, ANIM_LIST animType)
 ___________________________________________
 
 3.1.8 delete OBJECT [with fade|with explosion|with temple explosion]
@@ -497,7 +497,7 @@ disable MyCreature anim time modify
 	SYS SET_ANIMATION_MODIFY	//[2, 0] (bool enable, Object creature)
 ___________________________________________
 
-3.2.12 set OBJECT all desires CONST_EXPR
+3.2.12 set OBJECT all desires SCRIPT_BOOL
 
 Enable/Disable all the desires.
 
@@ -2451,7 +2451,7 @@ state a ANM_P_SWIM2 position [e] float 1 ulong 2, 3
 	PUSHF 1.0							//float
 	PUSHF 2.0							//ulong0
 	PUSHF 3.0							//ulong1
-	SYS SET_SCRIPT_STATE_WITH_PARAMS	//[8, 0] (Object obj, int state, Coord pos, float fVal, int ulong0, int ulong1)
+	SYS SET_SCRIPT_STATE_WITH_PARAMS	//[8, 0] (Object obj, int state, Coord pos, float fVal, float ulong0, float ulong1)
 ___________________________________________
 
 3.15.1 if CONDITION STATEMENTS (elsif CONDITION STATEMENTS)* [else STATEMENTS] end if

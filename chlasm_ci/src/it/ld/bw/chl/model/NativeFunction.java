@@ -111,7 +111,7 @@ public enum NativeFunction {
 	/* 62*/ RANDOM_ULONG("int min, int max", "int"),
 	/* 63*/ SET_GAMESPEED("float speed", Context.CAMERA),
 	/* 64*/ CALL_IN_NEAR("SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype, Object container, Coord pos, float radius, bool excludingScripted", "Object"),
-	/* 65*/ OVERRIDE_STATE_ANIMATION("Object obj, DETAIL_ANIM_TYPES animType"),
+	/* 65*/ OVERRIDE_STATE_ANIMATION("Object obj, ANIM_LIST animType"),
 	/* 66*/ CREATURE_CREATE_RELATIVE_TO_CREATURE("Object model, float player, Coord pos, int type, bool dumb", "Object"),
 	/* 67*/ CREATURE_LEARN_EVERYTHING("Object creature"),
 	/* 68*/ CREATURE_SET_KNOWS_ACTION("Object creature, CREATURE_ACTION_LEARNING_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float alwaysOne"),
@@ -122,9 +122,9 @@ public enum NativeFunction {
 	/* 73*/ IN_CREATURE_HAND("Object obj, Object creature", "bool"),
 	/* 74*/ CREATURE_SET_DESIRE_VALUE("Object creature, CREATURE_DESIRES desire, float value"),
 	/* 75*/ CREATURE_SET_DESIRE_ACTIVATED3("Object creature, CREATURE_DESIRES desire, SCRIPT_BOOL active"),
-	/* 76*/ CREATURE_SET_DESIRE_ACTIVATED(2, 0),
+	/* 76*/ CREATURE_SET_DESIRE_ACTIVATED("Object creature, SCRIPT_BOOL active"),
 	/* 77*/ CREATURE_SET_DESIRE_MAXIMUM("Object creature, CREATURE_DESIRES desire, float value"),
-	/* 78*/ CONVERT_CAMERA_POSITION("int", "Coord"),
+	/* 78*/ CONVERT_CAMERA_POSITION("ScriptCameraPosition camera_enum", "Coord"),
 	/* 79*/ CONVERT_CAMERA_FOCUS("ScriptCameraPosition camera_enum", "Coord"),
 	/* 80*/ CREATURE_SET_PLAYER("float player, Object creature"),
 	/* 81*/ CREATURE_INITIALISE_NUM_TIMES_PERFORMED_ACTION(2),
@@ -503,7 +503,7 @@ public enum NativeFunction {
 	/*454*/ IS_KEEPING_OLD_CREATURE("", "bool"),
 	/*455*/ CURRENT_PROFILE_HAS_CREATURE("", "bool"),
 	/*456*/ THING_PLAY_ANIM("Object object, int animation, float loop"),
-	/*457*/ SET_SCRIPT_STATE_WITH_PARAMS("Object obj, int state, Coord pos, float fVal, int ulong0, int ulong1"),
+	/*457*/ SET_SCRIPT_STATE_WITH_PARAMS("Object obj, int state, Coord pos, float fVal, float ulong0, float ulong1"),
 	/*458*/ START_COUNTDOWN_TIMER("bool alwaysFalse, float wait"),
 	/*459*/ END_COUNTDOWN_TIMER(0, 0),
 	/*460*/ SET_COUNTDOWN_TIMER_DRAW("int drawPos"),
@@ -825,7 +825,7 @@ public enum NativeFunction {
 		AUDIO_SFX_ID(),					//LH_SAMPLE in LHSample.h plus custom enums
 		AUDIO_SFX_BANK_TYPE(),			//defined in AudioSFX.h
 		VILLAGER_STATES(),				//defined in GStates.h
-		DETAIL_ANIM_TYPES(),			//defined in info1.txt (alias of ANIM_LIST in AllMeshes.h)
+		ANIM_LIST(),					//defined in AllMeshes.h
 		HELP_EVENT_TYPE(),				//see enums.txt
 		HAND_GLOW(),					//see enums.txt
 		FIGHT_MOVE(),					//defined in HitRegions.h
