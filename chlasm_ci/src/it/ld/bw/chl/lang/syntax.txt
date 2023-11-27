@@ -150,7 +150,7 @@ STATEMENT: {
 	detach OBJECT leash EOL
 	swap creature from OBJECT to OBJECT EOL
 	set OBJECT home position COORD_EXPR EOL
-	set OBJECT creed properties hand HAND_GLOW scale EXPRESSION power EXPRESSION time EXPRESSION EOL
+	set OBJECT creed properties hand CREATURE_CREED scale EXPRESSION power EXPRESSION time EXPRESSION EOL
 	enable|disable OBJECT auto fighting EOL
 	enable|disable fight exit EOL
 	queue OBJECT fight move FIGHT_MOVE EOL
@@ -759,7 +759,7 @@ SAY_MODE: {
 
 MAGIC_TYPE: CONST_EXPR
 
-HAND_GLOW: CONST_EXPR
+CREATURE_CREED: CONST_EXPR
 
 FIGHT_MOVE: CONST_EXPR
 

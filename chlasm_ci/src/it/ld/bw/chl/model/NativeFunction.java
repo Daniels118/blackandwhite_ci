@@ -377,7 +377,7 @@ public enum NativeFunction {
 	/*328*/ LAST_MUSIC_LINE("float line", "bool"),
 	/*329*/ HAND_DEMO_TRIGGER("", "bool"),
 	/*330*/ GET_BELLY_POSITION("Object object", "Coord"),
-	/*331*/ SET_CREATURE_CREED_PROPERTIES("Object creature, HAND_GLOW handGlow, float scale, float power, float time"),
+	/*331*/ SET_CREATURE_CREED_PROPERTIES("Object creature, CREATURE_CREED handGlow, float scale, float power, float time"),
 	/*332*/ GAME_THING_CAN_VIEW_CAMERA("Object object, float degrees", "bool"),
 	/*333*/ GAME_PLAY_SAY_SOUND_EFFECT("bool extra, HELP_TEXT sound, Coord position, bool withPosition"),
 	/*334*/ SET_TOWN_DESIRE_BOOST("Object object, TOWN_DESIRE_INFO desire, float boost"),
@@ -393,7 +393,7 @@ public enum NativeFunction {
 	/*344*/ UPDATE_SNAPSHOT_PICTURE("ScriptChallengeEnums challengeID, Coord position, Coord focus, float success, float alignment, HELP_TEXT titleStrID, bool takingPicture"),
 	/*345*/ STOP_SCRIPTS_IN_FILES_EXCLUDING("StrPtr sourceFilename, StrPtr scriptName"),
 	/*346*/ CREATE_RANDOM_VILLAGER_OF_TRIBE("TRIBE_TYPE tribe, Coord position", "Object"),
-	/*347*/ TOGGLE_LEASH("int player"),
+	/*347*/ TOGGLE_LEASH("float player"),
 	/*348*/ GAME_SET_MANA("Object object, float mana"),
 	/*349*/ SET_MAGIC_PROPERTIES("Object object, MAGIC_TYPE magicType, float duration"),
 	/*350*/ SET_GAME_SOUND("bool enable"),
@@ -815,6 +815,7 @@ public enum NativeFunction {
 		CREATURE_TYPE(),
 		CREATURE_ACTION(),
 		DEVELOPMENT_PHASE(),
+		CREATURE_CREED(),				//custom
 		
 		//From CameraPosEnum.h
 		ScriptCameraPosition(),
@@ -822,12 +823,11 @@ public enum NativeFunction {
 		
 		//Misc
 		MUSIC_TYPE(),					//defined in AudioMusic.h
-		AUDIO_SFX_ID(),					//LH_SAMPLE in LHSample.h plus custom enums
+		AUDIO_SFX_ID(),					//various enums in LHSample.h
 		AUDIO_SFX_BANK_TYPE(),			//defined in AudioSFX.h
 		VILLAGER_STATES(),				//defined in GStates.h
 		ANIM_LIST(),					//defined in AllMeshes.h
 		HELP_EVENT_TYPE(),				//see enums.txt
-		HAND_GLOW(),					//see enums.txt
 		FIGHT_MOVE(),					//defined in HitRegions.h
 		HELP_TEXT(),					//defined in HelpTextEnums.h
 		ScriptChallengeEnums(),			//defined in ScriptChallengeEnums.h

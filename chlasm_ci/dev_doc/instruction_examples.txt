@@ -698,7 +698,7 @@ Toggles the players leash on/off.
 toggle player 1 leash
 
 	PUSHF 1.0			//player
-	SYS TOGGLE_LEASH	//[1, 0] (int player)
+	SYS TOGGLE_LEASH	//[1, 0] (float player)
 ___________________________________________
 
 3.2.31 set player EXPRESSION ally with player EXPRESSION percentage EXPRESSION
@@ -753,7 +753,7 @@ set CreatureCow home position [HomePos]
 	SYS SET_CREATURE_HOME	//[4, 0] (Object creature, Coord position)
 ___________________________________________
 
-3.2.36 set OBJECT creed properties hand HAND_GLOW scale EXPRESSION power EXPRESSION time EXPRESSION
+3.2.36 set OBJECT creed properties hand CREATURE_CREED scale EXPRESSION power EXPRESSION time EXPRESSION
 
 Sets the creatures creed details.
 
@@ -764,7 +764,7 @@ set MyCreature creed properties hand HAND_GLOW_ABOVE scale 5.0 power 0.1 time 0.
 	PUSHF 5.0							//scale
 	PUSHF 0.1							//power
 	PUSHF 0.0							//time
-	SYS SET_CREATURE_CREED_PROPERTIES	//[5, 0] (Object creature, HAND_GLOW handGlow, float scale, float power, float time)
+	SYS SET_CREATURE_CREED_PROPERTIES	//[5, 0] (Object creature, CREATURE_CREED handGlow, float scale, float power, float time)
 ___________________________________________
 
 3.2.37 enable|disable OBJECT auto fighting

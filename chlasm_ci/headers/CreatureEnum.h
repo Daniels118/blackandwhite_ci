@@ -28,7 +28,25 @@ enum     CREATURE_TYPE
     CREATURE_TYPE_GORILLA                           =  16 ,
     CREATURE_TYPE_CHICKEN                           =  17 ,
     CREATURE_TYPE_CROCODILE                         =  18 ,
-    CREATURE_TYPE_LAST                              =  19 ,
+    CREATURE_TYPE_FOX		                    =  19 ,
+    CREATURE_TYPE_WHITE_TIGER                       =  20 ,
+    CREATURE_TYPE_GERMAN_SHEPHERD                   =  21 ,
+    CREATURE_TYPE_AUSTRALIAN_SHEPHERD               =  22 ,
+    CREATURE_TYPE_PANDA_BEAR                        =  23 ,
+    CREATURE_TYPE_LAST                              =  24 ,
+};
+
+//*****************************************************************************
+// ENUM Values: CREATURE_CREED
+//*****************************************************************************
+enum     CREATURE_CREED
+{
+    CREATURE_CREED_NONE                               =  0 ,
+    CREATURE_CREED_BODY                               =  1 ,
+    CREATURE_CREED_RHAND                              =  2 ,
+    CREATURE_CREED_HEAD                               =  3 ,
+    CREATURE_CREED_LHAND                              =  4 ,
+    CREATURE_CREED_LAST         		      =  4 ,
 };
 
 //*****************************************************************************
