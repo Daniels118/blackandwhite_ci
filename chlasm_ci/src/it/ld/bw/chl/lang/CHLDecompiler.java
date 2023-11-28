@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -135,6 +136,7 @@ public class CHLDecompiler {
 	private final Map<String, Type[]> scriptsParamTypes = new HashMap<>();
 	private final Map<String, Var> globalMap = new HashMap<>();
 	private final Map<String, Var> localMap = new HashMap<>();
+	private final List<Var> localVars = new ArrayList<>();
 	private final ArrayList<StackVal> stack = new ArrayList<>();
 	private final ArrayList<Integer> argcStack = new ArrayList<>();
 	private final ArrayList<Type> typeContextStack = new ArrayList<>();
@@ -396,6 +398,23 @@ public class CHLDecompiler {
 				requiredScripts.clear();
 			}
 		}
+		//Additional enums
+		if (!requiredConstants.isEmpty()) {
+			File file = path.resolve("_additional_headers.h").toFile();
+			info("Writing "+file.getName());
+			try (Writer str = new BufferedWriter(new FileWriter(file));) {
+				writer = str;
+				writeln("enum");
+				writeln("{");
+				List<Integer> sortedConstants = new ArrayList<>(requiredConstants);
+				Collections.sort(sortedConstants);
+				for (Integer val : sortedConstants) {
+					writeln("\t_UNK"+val+" = "+val+",");
+				}
+				writeln("};");
+			}
+			out.println("IMPORTANT: please copy content of "+file.getName()+" into Enum.h");
+		}
 	}
 	
 	private void insertRequiredDefinitions(File sourceFile) throws DecompileException, IOException {
@@ -525,6 +544,15 @@ public class CHLDecompiler {
 			if (!script.getSourceFilename().equals(sourceFilename)) {
 				break;
 			}
+			initLocalVars(script);
+			if (true) {
+				Writer realWriter = writer;
+				int realLineno = lineno;
+				writer = Writer.nullWriter();
+				decompile(script);
+				writer = realWriter;
+				lineno = realLineno;
+			}
 			decompile(script);
 			writeln("");
 			definedScripts.add(script.getName());
@@ -547,8 +575,8 @@ public class CHLDecompiler {
 		}
 	}
 	
-	private static List<Var> getLocalVars(Script script) {
-		List<Var> res = new ArrayList<>();
+	private void initLocalVars(Script script) {
+		localVars.clear();
 		List<String> vars = script.getVariables();
 		Var var = null;
 		int index = script.getGlobalCount();
@@ -558,10 +586,13 @@ public class CHLDecompiler {
 				var.size++;
 			} else {
 				var = new Var(Scope.local, name, index, 1, 0);
-				res.add(var);
+				localVars.add(var);
 			}
 		}
-		return res;
+		localMap.clear();
+		for (Var v : localVars) {
+			localMap.put(v.name, v);
+		}
 	}
 	
 	private void decompile(Script script) throws IOException, DecompileException {
@@ -588,10 +619,8 @@ public class CHLDecompiler {
 			Instruction except = accept(OPCode.EXCEPT, 1, DataType.INT);
 			pushBlock(new Block(ip, BlockType.SCRIPT, except.intVal - 1, except.intVal));
 			//Local vars (including parameters)
-			List<Var> localVars = getLocalVars(script);
 			for (int i = 0; i < localVars.size(); i++) {
 				Var var = localVars.get(i);
-				localMap.put(var.name, var);
 				if (i < script.getParameterCount()) {								//parameter
 					accept(OPCode.POP, OPCodeFlag.REF, DataType.FLOAT, var.index);
 				} else if (var.isArray()) {											//array
@@ -921,15 +950,29 @@ public class CHLDecompiler {
 					}
 					line += " script " + script.getName();
 					if (script.getParameterCount() > 0) {
+						boolean guessed = false;
 						typeContextStack.add(paramTypes[paramTypes.length - 1]);
-						String params = decompile().toString();
+						Expression param = decompile();
+						if (paramTypes[paramTypes.length - 1] == null && param.type != null) {
+							paramTypes[paramTypes.length - 1] = param.type;
+							guessed = true;
+						}
+						String params = param.toString();
 						pop(typeContextStack);
 						for (int i = script.getParameterCount() - 2; i >= 0; i--) {
 							typeContextStack.add(paramTypes[i]);
-							params = decompile() + ", " + params;
+							param = decompile();
+							if (paramTypes[i] == null && param != null) {
+								paramTypes[i] = param.type;
+								guessed = true;
+							}
+							params = param + ", " + params;
 							pop(typeContextStack);
 						}
 						line += "(" + params + ")";
+						if (guessed) {
+							info("INFO: guessed parameter types: "+script.getName()+"("+join(", ", paramTypes)+")");
+						}
 					}
 					return new Expression(line);
 				} catch (InvalidScriptIdException e) {
@@ -939,7 +982,6 @@ public class CHLDecompiler {
 				final int start = ip;
 				op2 = decompile();
 				op1 = decompile();
-				//TODO
 				if (op1.type == Type.INT && op2.isVar()) {
 					gotoAddress(start);
 					op2 = decompile();
@@ -982,7 +1024,13 @@ public class CHLDecompiler {
 					//IDENTIFIER = EXPRESSION
 					varName = getVarName(instr.intVal);
 					Var var = getVar(varName);
+					if (var.type != null) {
+						typeContextStack.add(var.type);
+					}
 					op2 = decompile();
+					if (var.type != null) {
+						pop(typeContextStack);
+					}
 					setVarType(var, op2);
 					return new Expression(varName + " = " + op2);
 				} else {
@@ -1125,7 +1173,7 @@ public class CHLDecompiler {
 						op1 = decompile();
 						final int beginIndex = ip;
 						if (currentBlock.is(BlockType.IF, BlockType.ELSIF) && beginIndex == currentBlock.end + 1) {
-							if (op1.isBool() && op1.boolVal()) {
+							if (op1.isBool() && op1.boolVal() == Boolean.TRUE) {
 								//else
 								final int endIfIp = currentBlock.farEnd;
 								popBlock();
@@ -1308,13 +1356,13 @@ public class CHLDecompiler {
 					info("INFO: guessed type for "+var+": "+newType);
 				}
 			} else if (!newType.equals(oldType)) {
-				if (oldType == Type.FLOAT) {
+				if (oldType.type == ArgType.FLOAT) {
 					//Always overwrite float with other types
 					var.type = newType;
 					if (!newType.isObject()) {
 						info("INFO: guessed type for "+var+": "+newType);
 					}
-				} else if (newType == Type.FLOAT) {
+				} else if (newType.type == ArgType.FLOAT) {
 					//Ignore float values set by hand on non-float variables
 				} else if (oldType.type == ArgType.INT && newType.isEnum()) {
 					//Enums are better than int, overwrite
@@ -1324,6 +1372,10 @@ public class CHLDecompiler {
 					//Specific classes are better than generic Object, overwrite
 					var.type = newType;
 					info("INFO: new guessed type for "+var+": "+newType);
+				} else if (oldType.isEnum() && newType.type == ArgType.INT) {
+					//Ignore generic int
+				} else if (oldType.isSpecificEnum() && newType.isGenericEnum()) {
+					//Ignore generic enums
 				} else if (oldType.isSpecificObject() && newType.isGenericObject()) {
 					//Ignore generic Object types
 				} else if (oldType != Type.UNKNOWN) {
@@ -1358,20 +1410,25 @@ public class CHLDecompiler {
 					params.add(0, new Expression(""));
 				}
 			} else {
-				if (arg.type.isEnum) {
-					typeContextStack.add(new Type(arg.type, subtype));
-					subtype = null;
+				Type context;
+				if (func == NativeFunction.RANDOM_ULONG && !typeContextStack.isEmpty()) {
+					context = getLast(typeContextStack);
+				} else {
+					context = new Type(arg.type, subtype);
 				}
+				typeContextStack.add(context);
+				subtype = null;
+				//
 				Expression expr = decompile();
 				params.add(0, expr);
-				if (arg.type.isEnum) {
-					if (arg.type == ArgType.AUDIO_SFX_BANK_TYPE && expr.isNumber()) {
-						int val = expr.intVal();
-						String entry = getEnumEntry(ArgType.AUDIO_SFX_BANK_TYPE, val);
-						subtype = subtypes.get(entry);
-					}
-					pop(typeContextStack);
+				//
+				if (arg.type == ArgType.AUDIO_SFX_BANK_TYPE && expr.isNumber()) {
+					int val = expr.intVal();
+					String entry = getEnumEntry(ArgType.AUDIO_SFX_BANK_TYPE, val);
+					subtype = subtypes.get(entry);
 				}
+				pop(typeContextStack);
+				//
 				if (expr.isVar()) {
 					//Guess variable type
 					Var var = expr.getVar();
@@ -1386,11 +1443,11 @@ public class CHLDecompiler {
 							scriptParamTypes[localIndex] = newType;
 							guessed = true;
 						} else if (!newType.equals(oldType)) {
-							if (oldType == Type.FLOAT) {
+							if (oldType.type == ArgType.FLOAT) {
 								//Always overwrite float with other types
 								scriptParamTypes[localIndex] = newType;
 								guessed = true;
-							} else if (newType == Type.FLOAT) {
+							} else if (newType.type == ArgType.FLOAT) {
 								//Ignore float values set by hand on non-float variables
 							} else if (oldType.type == ArgType.INT && newType.isEnum()) {
 								//Enums are better than int, overwrite
@@ -1400,6 +1457,10 @@ public class CHLDecompiler {
 								//Specific classes are better than generic Object, overwrite
 								scriptParamTypes[localIndex] = newType;
 								guessed = true;
+							} else if (oldType.isEnum() && newType.type == ArgType.INT) {
+								//Ignore generic int
+							} else if (oldType.isSpecificEnum() && newType.isGenericEnum()) {
+								//Ignore generic enums
 							} else if (oldType.isSpecificObject() && newType.isGenericObject()) {
 								//Ignore generic Object types
 							} else if (oldType != Type.UNKNOWN) {
@@ -1766,7 +1827,7 @@ public class CHLDecompiler {
 							if (param.isNumber()) {
 								int val = param.intVal();
 								Expression audioSfxId = statement.get(audioSfxIdIndex);
-								if (audioSfxId.isNumber()) {
+								if (audioSfxId.isNumber() && audioSfxId.intVal() != null) {
 									String entry = getEnumEntry(ArgType.AUDIO_SFX_BANK_TYPE, val);
 									subtype = subtypes.get(entry);
 									if (subtype != null) {
@@ -1892,12 +1953,12 @@ public class CHLDecompiler {
 			int strptr = param.intVal();
 			String string = chl.getDataSection().getString(strptr);
 			return new Expression(escape(string));
-		} else if (arg.type.isEnum && param.isNumber()) {
+		} else if (arg.type.isEnum && param.isNumber() && param.intVal() != null) {
 			int val = param.intVal();
 			String alias = getSymbol(arg.type, val);
 			return new Expression(alias, val);
 		} else if (arg.type == ArgType.INT && param.isNumber()) {
-			if (func == NativeFunction.RANDOM_ULONG && !typeContextStack.isEmpty()) {
+			if (func == NativeFunction.RANDOM_ULONG && !typeContextStack.isEmpty() && param.intVal() != null) {
 				Type contextType = getLast(typeContextStack);
 				int val = param.intVal();
 				String alias = getSymbol(contextType.toString(), val);
@@ -2390,6 +2451,14 @@ public class CHLDecompiler {
 			return type.isEnum;
 		}
 		
+		public boolean isGenericEnum() {
+			return type.isEnum && specificType == null;
+		}
+		
+		public boolean isSpecificEnum() {
+			return type.isEnum && specificType != null;
+		}
+		
 		public boolean isObject() {
 			return type == ArgType.OBJECT;
 		}
@@ -2470,9 +2539,9 @@ public class CHLDecompiler {
 		private final String value;
 		public final boolean lowPriority;
 		public Type type;
-		private final int intVal;
-		private final float floatVal;
-		private final boolean boolVal;
+		private final Integer intVal;
+		private final Float floatVal;
+		private final Boolean boolVal;
 		private final Var var;
 		public final boolean isExpression;
 		
@@ -2507,46 +2576,46 @@ public class CHLDecompiler {
 		public Expression(String value, ArgType type, String specificType) {
 			this(value, false,
 					type == null ? null : new Type(type, specificType),
-					0);
+					(Integer)null);
 		}
 		
 		public Expression(String value, Type type) {
-			this(value, false, type, 0);
+			this(value, false, type, (Integer)null);
 		}
 		
 		public Expression(String value, int intVal) {
 			this(value, false, Type.INT, intVal);
 		}
 		
-		public Expression(String value, boolean lowPriority, Type type, int intVal) {
+		public Expression(String value, boolean lowPriority, Type type, Integer intVal) {
 			this.isExpression = value != null;
 			this.value = isExpression ? value : String.valueOf(intVal);
 			this.lowPriority = lowPriority;
 			this.type = type;
 			this.intVal = intVal;
-			this.floatVal = 0f;
-			this.boolVal = false;
+			this.floatVal = null;
+			this.boolVal = null;
 			this.var = null;
 		}
 		
-		public Expression(String value, boolean lowPriority, Type type, float floatVal) {
+		public Expression(String value, boolean lowPriority, Type type, Float floatVal) {
 			this.isExpression = value != null;
 			this.value = isExpression ? value : format(floatVal);
 			this.lowPriority = lowPriority;
 			this.type = type;
-			this.intVal = 0;
+			this.intVal = null;
 			this.floatVal = floatVal;
-			this.boolVal = false;
+			this.boolVal = null;
 			this.var = null;
 		}
 		
-		public Expression(String value, boolean lowPriority, Type type, boolean boolVal) {
+		public Expression(String value, boolean lowPriority, Type type, Boolean boolVal) {
 			this.isExpression = value != null;
 			this.value = isExpression ? value : String.valueOf(boolVal);
 			this.lowPriority = lowPriority;
 			this.type = type;
-			this.intVal = 0;
-			this.floatVal = 0f;
+			this.intVal = null;
+			this.floatVal = null;
 			this.boolVal = boolVal;
 			this.var = null;
 		}
@@ -2576,21 +2645,21 @@ public class CHLDecompiler {
 			return var != null;
 		}
 		
-		public int intVal() {
+		public Integer intVal() {
 			if (!isNumber()) {
 				throw new RuntimeException("Not a number");
 			}
 			return intVal;
 		}
 		
-		public float floatVal() {
+		public Float floatVal() {
 			if (!isNumber()) {
 				throw new RuntimeException("Not a number");
 			}
 			return floatVal;
 		}
 		
-		public boolean boolVal() {
+		public Boolean boolVal() {
 			if (!isBool()) {
 				throw new RuntimeException("Not a bool");
 			}

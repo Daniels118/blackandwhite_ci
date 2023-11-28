@@ -144,7 +144,7 @@ public enum NativeFunction {
 	/* 95*/ LOOK_GAME_THING("HELP_SPIRIT_TYPE spirit, Object target"),
 	/* 96*/ GET_OBJECT_DESTINATION("Object obj", "Coord"),
 	/* 97*/ CREATURE_FORCE_FINISH("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature"),
-	/* 98*/ GET_ACTION_TEXT_FOR_OBJECT("Object obj", "int"),
+	/* 98*/ GET_ACTION_TEXT_FOR_OBJECT("Object obj", "HELP_TEXT"),
 	/* 99*/ CREATE_DUAL_CAMERA_WITH_POINT("Object obj, Coord position"),
 	/*100*/ SET_CAMERA_TO_FACE_OBJECT("Object target, float distance"),
 	/*101*/ MOVE_CAMERA_TO_FACE_OBJECT("Object target, float distance, float time"),
