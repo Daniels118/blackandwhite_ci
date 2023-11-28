@@ -181,6 +181,7 @@ public class Main {
 	
 	private static void decompile(CmdLine cmd) throws Exception {
 		CHLDecompiler decompiler = new CHLDecompiler();
+		decompiler.setVerboseEnabled(verbose);
 		File subtypes = mandatory(cmd.getArgFile("-st"), "-st");
 		decompiler.loadSubtypes(subtypes);
 		List<File> headers = mandatory(cmd.getArgFiles("-h"), "-h");
@@ -202,6 +203,7 @@ public class Main {
 		for (File file : aliases) {
 			decompiler.addAlias(file);
 		}
+		decompiler.setDefineUnknownConstantsEnabled(cmd.getArgFlag("-dc"));
 		decompiler.setRespectLinenoEnabled(cmd.getArgFlag("-rln"));
 		//
 		System.out.println("Loading compiled CHL...");

@@ -10,7 +10,7 @@ enum FIGHT_MOVE		//Custom name
 	CTR_HIT_SPECIAL
 };
 
-enum
+enum FIGHT_ACTION	//Custom name
 {
 	CTR_FIGHT_NOTHING,
 	CTR_FIGHT_BLOCKING,

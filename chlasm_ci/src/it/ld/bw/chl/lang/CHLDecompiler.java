@@ -64,7 +64,7 @@ public class CHLDecompiler {
 			ArgType.INT,
 			ArgType.FLOAT,
 			ArgType.COORD,
-			ArgType.OBJECT_OBJ,
+			ArgType.OBJECT,
 			ArgType.UNKNOWN,
 			ArgType.BOOL,
 			ArgType.UNKNOWN
@@ -129,14 +129,15 @@ public class CHLDecompiler {
 	private final Map<String, Map<Integer, String>> enums = new HashMap<>();
 	private final Map<String, String> aliases = new HashMap<>();
 	
+	private final Set<Integer> requiredConstants = new HashSet<>();
 	private final Set<String> requiredScripts = new HashSet<>();
 	private final Set<String> definedScripts = new HashSet<>();
-	private final Map<String, String[]> scriptsParamTypes = new HashMap<>();
+	private final Map<String, Type[]> scriptsParamTypes = new HashMap<>();
 	private final Map<String, Var> globalMap = new HashMap<>();
 	private final Map<String, Var> localMap = new HashMap<>();
 	private final ArrayList<StackVal> stack = new ArrayList<>();
 	private final ArrayList<Integer> argcStack = new ArrayList<>();
-	private final ArrayList<String> typeContextStack = new ArrayList<>();
+	private final ArrayList<Type> typeContextStack = new ArrayList<>();
 	private List<Instruction> instructions;
 	private ListIterator<Instruction> it;
 	private int ip;
@@ -155,8 +156,10 @@ public class CHLDecompiler {
 	private Path path;
 	
 	private PrintStream out;
+	private boolean verboseEnabled;
 	
 	private boolean respectLinenoEnabled = false;
+	private boolean defineUnknownConstantsEnabled = false;
 	
 	public CHLDecompiler() {
 		this(System.out);
@@ -164,6 +167,30 @@ public class CHLDecompiler {
 	
 	public CHLDecompiler(PrintStream out) {
 		this.out = out;
+	}
+	
+	public boolean isVerboseEnabled() {
+		return verboseEnabled;
+	}
+	
+	public void setVerboseEnabled(boolean verboseEnabled) {
+		this.verboseEnabled = verboseEnabled;
+	}
+	
+	private void warning(String s) {
+		out.println(s);
+	}
+	
+	private void notice(String s) {
+		if (verboseEnabled) {
+			out.println(s);
+		}
+	}
+	
+	private void info(String s) {
+		if (verboseEnabled) {
+			out.println(s);
+		}
 	}
 	
 	public boolean isRespectLinenoEnabled() {
@@ -174,6 +201,14 @@ public class CHLDecompiler {
 		this.respectLinenoEnabled = respectLinenoEnabled;
 	}
 	
+	public boolean isDefineUnknownConstantsEnabled() {
+		return defineUnknownConstantsEnabled;
+	}
+
+	public void setDefineUnknownConstantsEnabled(boolean enabled) {
+		this.defineUnknownConstantsEnabled = enabled;
+	}
+
 	public void loadSubtypes(File file) {
 		int lineno = 0;
 		try (BufferedReader reader = new BufferedReader(new FileReader(file));) {
@@ -215,8 +250,8 @@ public class CHLDecompiler {
 				Integer entryVal = entry.getValue();
 				String oldName = revEntries.put(entryVal, entryName);
 				if (oldName != null) {
-					out.println("NOTICE: entries "+oldName+" and "+entryName+" in "+enumName
-								+" share the same value ("+entryVal+")");
+					notice("NOTICE: entries "+oldName+" and "+entryName+" in "+enumName
+							+" share the same value ("+entryVal+")");
 				}
 			}
 		}
@@ -239,7 +274,7 @@ public class CHLDecompiler {
 					if (oldAlias == null) {
 						aliases.put(symbol, alias);
 					} else if (!alias.equals(oldAlias)) {
-						out.println("NOTICE: definition of muliple aliases for symbol "+symbol+" at "+file.getName()+":"+lineno);
+						notice("NOTICE: definition of muliple aliases for symbol "+symbol+" at "+file.getName()+":"+lineno);
 					}
 				} else {
 					throw new ParseException("Expected: global constant ALIAS = CONSTANT", file, lineno);
@@ -300,9 +335,9 @@ public class CHLDecompiler {
 		lastTracedIp = -1;
 		currentScript = null;
 		mapGlobalVars();
-		//
+		//Write the list of source files
 		List<String> sources = chl.getSourceFilenames();
-		out.println("Writing _challenges.txt");
+		info("Writing _challenges.txt");
 		File listFile = path.resolve("_challenges.txt").toFile();
 		try (FileWriter str = new FileWriter(listFile);) {
 			writer = str;
@@ -321,9 +356,9 @@ public class CHLDecompiler {
 				writeln("_autorun.txt");
 			}
 		}
-		//
+		//Write user defined constants (aliases)
 		if (!aliases.isEmpty()) {
-			out.println("Writing _aliases.txt");
+			info("Writing _aliases.txt");
 			File autostartFile = path.resolve("_aliases.txt").toFile();
 			try (FileWriter str = new FileWriter(autostartFile);) {
 				writer = str;
@@ -332,9 +367,9 @@ public class CHLDecompiler {
 				writeAliases();
 			}
 		}
-		//
+		//Write autorun scripts
 		if (!chl.getAutoStartScripts().getScripts().isEmpty()) {
-			out.println("Writing _autorun.txt");
+			info("Writing _autorun.txt");
 			File autostartFile = path.resolve("_autorun.txt").toFile();
 			try (FileWriter str = new FileWriter(autostartFile);) {
 				writer = str;
@@ -343,13 +378,13 @@ public class CHLDecompiler {
 				writeAutoStartScripts();
 			}
 		}
-		//
+		//Write source files
 		for (String sourceFilename : sources) {
 			if (!isValidFilename(sourceFilename)) {
 				throw new RuntimeException("Invalid source filename: " + sourceFilename);
 			}
 			File sourceFile = path.resolve(sourceFilename).toFile();
-			out.println("Writing "+sourceFilename);
+			info("Writing "+sourceFilename);
 			try (Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
 				writer = str;
 				lineno = 1;
@@ -357,49 +392,57 @@ public class CHLDecompiler {
 				writeScripts(sourceFilename);
 			}
 			if (!requiredScripts.isEmpty()) {
-				trace("Inserting define script statements in "+sourceFilename);
-				File tmpFile = path.resolve("_tmp.txt").toFile();
-				sourceFile.renameTo(tmpFile);
-				try (BufferedReader reader = new BufferedReader(new FileReader(tmpFile));
-						Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
-					writer = str;
-					List<String> header = new LinkedList<>();
-					//Copy everything before first script
-					String line = reader.readLine();
-					while (!line.startsWith("begin ")) {
-						header.add(line);
-						line = reader.readLine();
-					}
-					//Try to make room for new statements
-					for (int i = 0; i <= requiredScripts.size(); i++) {
-						if (header.isEmpty()) break;
-						if (!getLast(header).isBlank()) break;
-						pop(header);
-					}
-					//Write header
-					for (String h : header) {
-						writer.write(h + "\r\n");
-					}
-					//Insert required scripts
-					for (String name : requiredScripts) {
-						try {
-							Script script = chl.getScriptsSection().getScript(name);
-							writer.write("define "+script.getSignature()+"\r\n");
-						} catch (ScriptNotFoundException e) {
-							throw new DecompileException(e.getMessage()+" at "+sourceFilename);
-						}
-					}
-					writer.write("\r\n");
-					//Copy code
-					while (line != null) {
-						writer.write(line + "\r\n");
-						line = reader.readLine();
-					}
-				}
-				tmpFile.delete();
+				insertRequiredDefinitions(sourceFile);
 				requiredScripts.clear();
 			}
 		}
+	}
+	
+	private void insertRequiredDefinitions(File sourceFile) throws DecompileException, IOException {
+		trace("Inserting required definitions in "+sourceFile.getName());
+		File tmpFile = path.resolve("_tmp.txt").toFile();
+		sourceFile.renameTo(tmpFile);
+		try (BufferedReader reader = new BufferedReader(new FileReader(tmpFile));
+				Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
+			writer = str;
+			List<String> header = new LinkedList<>();
+			//Copy everything before first script
+			String line = reader.readLine();
+			while (!line.startsWith("begin ")) {
+				header.add(line);
+				line = reader.readLine();
+			}
+			//Try to make room for new statements
+			int requiredSpace = 0;
+			if (!requiredConstants.isEmpty()) requiredSpace += requiredConstants.size() + 1;
+			for (int i = 0; i < requiredSpace; i++) {
+				if (header.isEmpty()) break;
+				if (!getLast(header).isBlank()) break;
+				pop(header);
+			}
+			//Write header
+			for (String h : header) {
+				writeln(h);
+			}
+			//Insert required scripts
+			if (!requiredScripts.isEmpty()) {
+				for (String name : requiredScripts) {
+					try {
+						Script script = chl.getScriptsSection().getScript(name);
+						writeln("define "+script.getSignature());
+					} catch (ScriptNotFoundException e) {
+						throw new DecompileException(e.getMessage());
+					}
+				}
+				writeln("");
+			}
+			//Copy code
+			while (line != null) {
+				writeln(line);
+				line = reader.readLine();
+			}
+		}
+		tmpFile.delete();
 	}
 	
 	private void mapGlobalVars() {
@@ -421,7 +464,7 @@ public class CHLDecompiler {
 				var.size++;
 			} else {
 				float val = initMap.getOrDefault(name, 0f);
-				var = new Var(name, index, 1, val);
+				var = new Var(Scope.global, name, index, 1, val);
 				globalMap.put(name, var);
 			}
 		}
@@ -514,7 +557,7 @@ public class CHLDecompiler {
 			if ("LHVMA".equals(name)) {
 				var.size++;
 			} else {
-				var = new Var(name, index, 1, 0);
+				var = new Var(Scope.local, name, index, 1, 0);
 				res.add(var);
 			}
 		}
@@ -524,7 +567,7 @@ public class CHLDecompiler {
 	private void decompile(Script script) throws IOException, DecompileException {
 		try {
 			currentScript = script;
-			scriptsParamTypes.put(script.getName(), new String[script.getParameterCount()]);
+			scriptsParamTypes.put(script.getName(), new Type[script.getParameterCount()]);
 			//Load parameters on the stack
 			for (int i = 0; i < script.getParameterCount(); i++) {
 				push(ArgType.UNKNOWN);
@@ -595,13 +638,13 @@ public class CHLDecompiler {
 			writeln("end script " + script.getName());
 			trace("end script " + script.getName());
 			if (!stack.isEmpty()) {
-				out.println("Stack is not empty at end of script "+script.getName()+":");
-				out.println(stack);
-				out.println();
+				warning("Stack is not empty at end of script "+script.getName()+":");
+				warning(stack.toString());
+				warning("");
 			}
 			if (!blocks.isEmpty()) {
-				out.println("Blocks stack is not empty at end of script "+script.getName()+":");
-				out.println();
+				warning("Blocks stack is not empty at end of script "+script.getName()+":");
+				warning("");
 			}
 		} catch (RuntimeException e) {
 			throw new DecompileException(script, ip, instructions.get(ip), e);
@@ -668,7 +711,7 @@ public class CHLDecompiler {
 		int start = ip;
 		Instruction popf = find(OPCode.POP, OPCodeFlag.REF, DataType.FLOAT, var.index);
 		if (popf == null) {
-			throw new DecompileException("Cannot find initialization statement for variable "+var, currentScript, start);
+			throw new DecompileException("Cannot find initialization statement for "+var, currentScript, start);
 		}
 		nextStatementIndex = ip + 1;
 		Expression statement = decompile();
@@ -752,15 +795,20 @@ public class CHLDecompiler {
 						if (op1.isVar()) {
 							return new Expression("constant " + op1.safe(), op1.getVar());
 						} else {
-							return new Expression("constant " + op1.safe());
+							return new Expression("constant " + op1.safe(), op1.type);
 						}
 					case FLOAT:
 						op1 = decompile();
 						if (op1.isNumber() && !op1.isExpression) {
-							//Workaround for missing constants
-							return new Expression(op1.safe());
+							if (defineUnknownConstantsEnabled) {
+								requiredConstants.add(op1.intVal());
+								return new Expression("variable _UNK" + op1.intVal(), op1.type);
+							} else {
+								//Workaround for missing constants
+								return new Expression(op1.floatVal());
+							}
 						} else {
-							return new Expression("variable " + op1.safe());
+							return new Expression("variable " + op1.safe(), op1.type);
 						}
 					case COORDS:
 						op3 = decompile();
@@ -770,7 +818,7 @@ public class CHLDecompiler {
 						pInstr = prev();	//CASTC
 						verify(ip, pInstr, OPCode.CAST, 1, DataType.COORDS);
 						op1 = decompile();
-						return new Expression("[" + op1 + ", " + op2 + ", " + op3 + "]");
+						return new Expression("[" + op1 + ", " + op2 + ", " + op3 + "]", Type.COORD);
 					case OBJECT:
 						//CASTO
 						return decompile();
@@ -861,9 +909,9 @@ public class CHLDecompiler {
 						requiredScripts.add(script.getName());
 					}
 					//Retrieve script parameter types
-					String[] paramTypes = scriptsParamTypes.get(script.getName());
+					Type[] paramTypes = scriptsParamTypes.get(script.getName());
 					if (paramTypes == null) {
-						paramTypes = new String[script.getParameterCount()];
+						paramTypes = new Type[script.getParameterCount()];
 						scriptsParamTypes.put(script.getName(), paramTypes);
 					}
 					//
@@ -888,8 +936,23 @@ public class CHLDecompiler {
 					throw new DecompileException(currentScript, ip, e);
 				}
 			case EQ:
+				final int start = ip;
 				op2 = decompile();
 				op1 = decompile();
+				//TODO
+				if (op1.type == Type.INT && op2.isVar()) {
+					gotoAddress(start);
+					op2 = decompile();
+					typeContextStack.add(op2.getVar().type);
+					op1 = decompile();
+					pop(typeContextStack);
+				} else if (op1.isVar() && op2.type == Type.INT) {
+					gotoAddress(start);
+					typeContextStack.add(op1.getVar().type);
+					op2 = decompile();
+					pop(typeContextStack);
+					op1 = decompile();
+				}
 				return new Expression(op1 + " == " + op2);
 			case GEQ:
 				op2 = decompile();
@@ -917,8 +980,11 @@ public class CHLDecompiler {
 			case POP:
 				if (instr.isReference()) {
 					//IDENTIFIER = EXPRESSION
-					String var = getVarName(instr.intVal);
-					return new Expression(var + " = " + decompile());
+					varName = getVarName(instr.intVal);
+					Var var = getVar(varName);
+					op2 = decompile();
+					setVarType(var, op2);
+					return new Expression(varName + " = " + op2);
 				} else {
 					//statement
 					return decompile();
@@ -929,6 +995,10 @@ public class CHLDecompiler {
 					if (varName.indexOf('[') < 0) {
 						//IDENTIFIER\[NUMBER\]
 						Var var = getVar(varName);
+						if (!typeContextStack.isEmpty()) {
+							Type type = getLast(typeContextStack);
+							setVarType(var, type);
+						}
 						return new Expression(var);
 					} else {
 						//IDENTIFIER
@@ -941,9 +1011,9 @@ public class CHLDecompiler {
 							return new Expression(instr.floatVal);
 						case INT:
 							if (!typeContextStack.isEmpty()) {
-								String type = getLast(typeContextStack);
+								Type type = getLast(typeContextStack);
 								if (type != null) {
-									String entry = getEnumEntry(type, instr.intVal);
+									String entry = getEnumEntry(type.toString(), instr.intVal);
 									if (entry != null) {
 										String alias = aliases.getOrDefault(entry, entry);
 										return new Expression(alias, instr.intVal);
@@ -959,13 +1029,15 @@ public class CHLDecompiler {
 							pInstr = prev();
 							verify(ip, instr, OPCode.PUSH, 1, DataType.COORDS);
 							op1 = new Expression(format(pInstr.floatVal));
-							return new Expression("["+op1+", "+op2+", "+op3+"]", instr.dataType);
+							return new Expression("["+op1+", "+op2+", "+op3+"]", Type.COORD);
 						case OBJECT:
-							return new Expression("0", DataType.OBJECT);
+							return new Expression("0", Type.OBJECT);
 						case BOOLEAN:
 							return new Expression(instr.boolVal);
 						case VAR:
-							return new Expression(getVarName(instr.intVal, false));
+							varName = getVarName(instr.intVal, false);
+							Var var = getVar(varName);
+							return new Expression(var);
 						default:
 					}
 				}
@@ -1000,6 +1072,7 @@ public class CHLDecompiler {
 					varName = getVarName(pInstr.intVal, false);
 					varIndex = decompile().toString();
 					Var var = getVar(varName);
+					setVarType(var, op2);
 					String assignee = varName;
 					if (var.isArray()) {
 						assignee += "[" + varIndex + "]";
@@ -1215,6 +1288,136 @@ public class CHLDecompiler {
 		throw new DecompileException("Unsupported instruction in "+currentBlock+" "+currentBlock.begin, currentScript, ip, instr);
 	}
 	
+	private void setVarType(Var var, ArgType type, String specificType) {
+		setVarType(var, new Type(type, specificType));
+	}
+	
+	private void setVarType(Var var, Expression expr) {
+		setVarType(var, expr.type);
+	}
+	
+	private void setVarType(Var var, Type newType) {
+		if (newType != null && newType.type != ArgType.UNKNOWN) {
+			Type oldType = var.type;
+			if (oldType == null) {
+				//First time the type is assigned, everything smooth
+				var.type = newType;
+				if (traceEnabled) {
+					info("TRACE: guessed type for "+var+": "+newType);
+				} else if (newType != Type.FLOAT && newType.type != ArgType.OBJECT) {
+					info("INFO: guessed type for "+var+": "+newType);
+				}
+			} else if (!newType.equals(oldType)) {
+				if (oldType == Type.FLOAT) {
+					//Always overwrite float with other types
+					var.type = newType;
+					if (!newType.isObject()) {
+						info("INFO: guessed type for "+var+": "+newType);
+					}
+				} else if (newType == Type.FLOAT) {
+					//Ignore float values set by hand on non-float variables
+				} else if (oldType.type == ArgType.INT && newType.isEnum()) {
+					//Enums are better than int, overwrite
+					var.type = newType;
+					info("INFO: new guessed type for "+var+": "+newType);
+				} else if (oldType.isGenericObject() && newType.isSpecificObject()) {
+					//Specific classes are better than generic Object, overwrite
+					var.type = newType;
+					info("INFO: new guessed type for "+var+": "+newType);
+				} else if (oldType.isSpecificObject() && newType.isGenericObject()) {
+					//Ignore generic Object types
+				} else if (oldType != Type.UNKNOWN) {
+					warning("WARNING: type of "+var+" in "+currentScript.getName()
+						+" is ambiguous (found both "+oldType+" and "+newType+")");
+					var.type = Type.UNKNOWN;
+				}
+			}
+		}
+	}
+	
+	private List<Expression> readParameters(NativeFunction func) throws DecompileException {
+		String subtype = null;
+		int argc = 0;
+		boolean guessed = false;
+		Type[] scriptParamTypes = scriptsParamTypes.get(currentScript.getName());
+		List<Expression> params = new LinkedList<>();
+		for (int i = func.args.length - 1; i >= 0; i--) {
+			Argument arg = func.args[i];
+			if (i > 0 && func.args[i - 1].varargs) {
+				Expression expr = decompile();
+				params.add(0, expr);
+				argc = expr.intVal();
+			} else if (arg.varargs) {
+				if (argc > 0) {
+					String argv = decompile().toString();
+					for (int j = 1; j < argc; j++) {
+						argv = decompile() + ", " + argv;
+					}
+					params.add(0, new Expression(argv));
+				} else {
+					params.add(0, new Expression(""));
+				}
+			} else {
+				if (arg.type.isEnum) {
+					typeContextStack.add(new Type(arg.type, subtype));
+					subtype = null;
+				}
+				Expression expr = decompile();
+				params.add(0, expr);
+				if (arg.type.isEnum) {
+					if (arg.type == ArgType.AUDIO_SFX_BANK_TYPE && expr.isNumber()) {
+						int val = expr.intVal();
+						String entry = getEnumEntry(ArgType.AUDIO_SFX_BANK_TYPE, val);
+						subtype = subtypes.get(entry);
+					}
+					pop(typeContextStack);
+				}
+				if (expr.isVar()) {
+					//Guess variable type
+					Var var = expr.getVar();
+					setVarType(var, arg.type, arg.objectClass);
+					//Guess current script parameter types
+					int localIndex = var.index - currentScript.getGlobalCount() - 1;
+					if (localIndex >= 0 && localIndex < currentScript.getParameterCount()) {
+						Type oldType = scriptParamTypes[localIndex];
+						Type newType = var.type;
+						if (oldType == null) {
+							//First time the type is assigned, everything smooth
+							scriptParamTypes[localIndex] = newType;
+							guessed = true;
+						} else if (!newType.equals(oldType)) {
+							if (oldType == Type.FLOAT) {
+								//Always overwrite float with other types
+								scriptParamTypes[localIndex] = newType;
+								guessed = true;
+							} else if (newType == Type.FLOAT) {
+								//Ignore float values set by hand on non-float variables
+							} else if (oldType.type == ArgType.INT && newType.isEnum()) {
+								//Enums are better than int, overwrite
+								scriptParamTypes[localIndex] = newType;
+								guessed = true;
+							} else if (oldType.isGenericObject() && newType.isSpecificObject()) {
+								//Specific classes are better than generic Object, overwrite
+								scriptParamTypes[localIndex] = newType;
+								guessed = true;
+							} else if (oldType.isSpecificObject() && newType.isGenericObject()) {
+								//Ignore generic Object types
+							} else if (oldType != Type.UNKNOWN) {
+								warning("WARNING: type of parameter "+localIndex+" in "+currentScript.getName()
+									+" is ambiguous (found both "+oldType+" and "+newType+")");
+								scriptParamTypes[localIndex] = Type.UNKNOWN;
+							}
+						}
+					}
+				}
+			}
+		}
+		if (guessed) {
+			info("INFO: guessed parameter types: "+currentScript.getName()+"("+join(", ", scriptParamTypes)+")");
+		}
+		return params;
+	}
+	
 	private void pushBlock(Block block) {
 		blocks.add(block);
 		currentBlock = block;
@@ -1231,7 +1434,7 @@ public class CHLDecompiler {
 		Instruction pInstr, nInstr;
 		boolean anti;
 		int strptr;
-		String scriptName;
+		String scriptName, line;
 		//Special cases (without parameters)
 		switch (func) {
 			case SET_CAMERA_FOCUS:
@@ -1333,7 +1536,7 @@ public class CHLDecompiler {
 						if (params.get(1).intVal() != 0) {
 							throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript, ip, instructions.get(ip));
 						}
-						return new Expression("marker at " + params.get(2));
+						return new Expression("marker at " + params.get(2), ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
 					}
 				}
 				break;
@@ -1341,16 +1544,24 @@ public class CHLDecompiler {
 				//SYS INFLUENCE_OBJECT(Object target, float radius, int zero, int anti)
 				//create [anti] influence on OBJECT [radius EXPRESSION]
 				anti = params.get(3).intVal() != 0;
-				return new Expression("create"+(anti?" anti":"")+" influence on "+params.get(0)+" radius "+params.get(1));
+				if (anti) {
+					line = "create anti influence on "+params.get(0)+" radius "+params.get(1);
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+				} else {
+					line = "create influence on "+params.get(0)+" radius "+params.get(1);
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+				}
 			case INFLUENCE_POSITION:
 				//INFLUENCE_POSITION(Coord position, float radius, int zero, int anti)
 				anti = params.get(3).intVal() != 0;
 				if (anti) {
 					//create anti influence at position COORD_EXPR [radius EXPRESSION]
-					return new Expression("create anti influence at position "+params.get(0)+" radius "+params.get(1));
+					line = "create anti influence at position "+params.get(0)+" radius "+params.get(1);
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
 					//create influence at position COORD_EXPR [radius EXPRESSION]
-					return new Expression("create influence at "+params.get(0)+" radius "+params.get(1));
+					line = "create influence at "+params.get(0)+" radius "+params.get(1);
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case SNAPSHOT:
 				params.set(2, null);	//implicit focus
@@ -1395,88 +1606,30 @@ public class CHLDecompiler {
 		//Format the function call
 		Symbol symbol = statements[func.ordinal()];
 		if (symbol != null) {
-			Expression statement = decompile(func, symbol, params.listIterator());
+			Expression statement = decompile(func, symbol, params, null);
 			return statement;
 		}
 		throw new DecompileException(func+" is not supported", currentScript, ip, instructions.get(ip));
 	}
 	
-	private List<Expression> readParameters(NativeFunction func) throws DecompileException {
-		String subtype = null;
-		int argc = 0;
-		String[] scriptParamTypes = scriptsParamTypes.get(currentScript.getName());
-		boolean guessed = false;
-		List<Expression> params = new LinkedList<>();
-		for (int i = func.args.length - 1; i >= 0; i--) {
-			Argument arg = func.args[i];
-			if (i > 0 && func.args[i - 1].varargs) {
-				Expression expr = decompile();
-				params.add(0, expr);
-				argc = expr.intVal();
-			} else if (arg.varargs) {
-				if (argc > 0) {
-					String argv = decompile().toString();
-					for (int j = 1; j < argc; j++) {
-						argv = decompile() + ", " + argv;
-					}
-					params.add(0, new Expression(argv));
-				} else {
-					params.add(0, new Expression(""));
-				}
-			} else {
-				if (arg.type.isEnum) {
-					typeContextStack.add(subtype != null ? subtype : arg.type.name());
-					subtype = null;
-				}
-				Expression expr = decompile();
-				params.add(0, expr);
-				if (arg.type.isEnum) {
-					if (arg.type == ArgType.AUDIO_SFX_BANK_TYPE && expr.isNumber()) {
-						int val = expr.intVal();
-						String entry = getEnumEntry(ArgType.AUDIO_SFX_BANK_TYPE, val);
-						subtype = subtypes.get(entry);
-					}
-					pop(typeContextStack);
-					//Try to guess the parameter type for the user script
-					if (expr.isVar()) {
-						Var var = expr.getVar();
-						int localIndex = var.index - currentScript.getGlobalCount() - 1;
-						if (localIndex >= 0 && localIndex < currentScript.getParameterCount()) {
-							if (scriptParamTypes[localIndex] == null) {
-								scriptParamTypes[localIndex] = arg.type.name();
-								guessed = true;
-							} else if (!arg.type.name().equals(scriptParamTypes[localIndex])
-										&& !"?".equals(scriptParamTypes[localIndex])) {
-								out.println("WARNING: parameter "+localIndex+" in "+currentScript.getName()+" is ambiguous");
-								scriptParamTypes[localIndex] = "?";
-							}
-						}
-					}
-				}
-			}
-		}
-		if (guessed) {
-			out.println("INFO: guessed parameter types: "
-						+currentScript.getName()+"("+String.join(", ", scriptParamTypes)+")");
-		}
-		return params;
-	}
-	
-	private Expression decompile(NativeFunction func, Symbol symbol, ListIterator<Expression> params) throws DecompileException {
+	private Expression decompile(NativeFunction func, Symbol symbol, List<Expression> params, ListIterator<Expression> paramIt) throws DecompileException {
 		if (symbol.terminal && symbol.terminalType == TerminalType.KEYWORD) {
-			return new Expression(symbol.keyword);
+			return new Expression(symbol.keyword, func.returnType, func.returnClass);
+		}
+		if (paramIt == null) {
+			paramIt = params.listIterator();
 		}
 		List<Expression> statement = new LinkedList<>();
 		String typeName = null;
 		String subtype = null;
 		int audioSfxIdIndex = -1;
 		for (Symbol sym : symbol.expression) {
-			skipNulls(params);	//Skip implicit parameters
+			skipNulls(paramIt);	//Skip implicit parameters
 			if (sym.terminal) {
 				if (sym.terminalType == TerminalType.KEYWORD) {
 					statement.add(new Expression(sym.keyword));
 				} else if (sym.terminalType != TerminalType.EOL) {
-					Expression param = decompile(func, params);
+					Expression param = decompile(func, paramIt);
 					statement.add(param);
 				}
 			} else if (sym.alternatives != null) {
@@ -1486,7 +1639,7 @@ public class CHLDecompiler {
 				} else {
 					String[] words = boolOptions.get(sym.keyword);
 					if (words != null) {
-						Expression param = params.next();
+						Expression param = paramIt.next();
 						boolean val = param.boolVal();
 						String opt = val ? words[0] : words[1];
 						if (opt != null) {
@@ -1495,14 +1648,14 @@ public class CHLDecompiler {
 					} else {
 						words = enumOptions.get(sym.keyword);
 						if (words != null) {
-							Expression param = params.next();
+							Expression param = paramIt.next();
 							int val = param.intVal();
 							String opt = words[val];
 							if (opt != null) {
 								statement.add(new Expression(opt));
 							}
 						} else {
-							Expression param = decompile(func, params);
+							Expression param = decompile(func, paramIt);
 							statement.add(param);
 						}
 					}
@@ -1510,7 +1663,7 @@ public class CHLDecompiler {
 			} else if (sym.expression != null) {
 				String[] words = boolOptions.get(sym.keyword);
 				if (words != null) {
-					Expression param = params.next();
+					Expression param = paramIt.next();
 					boolean val = param.boolVal();
 					String opt = val ? words[0] : words[1];
 					if (opt != null) {
@@ -1519,21 +1672,21 @@ public class CHLDecompiler {
 				} else {
 					words = enumOptions.get(sym.keyword);
 					if (words != null) {
-						Expression param = params.next();
+						Expression param = paramIt.next();
 						int val = param.intVal();
 						String opt = words[val];
 						if (opt != null) {
 							statement.add(new Expression(opt));
 						}
 					} else {
-						Argument arg = func.args[params.nextIndex()];
+						Argument arg = func.args[paramIt.nextIndex()];
 						if (arg.type == ArgType.SCRIPT) {
-							Expression param = params.next();
+							Expression param = paramIt.next();
 							int strptr = param.intVal();
 							String string = chl.getDataSection().getString(strptr);
 							statement.add(new Expression(string));
 						} else if (arg.type == ArgType.SCRIPT_OBJECT_TYPE) {
-							Expression param = params.next();
+							Expression param = paramIt.next();
 							subtype = null;
 							if (param.isNumber()) {
 								int val = param.intVal();
@@ -1547,7 +1700,7 @@ public class CHLDecompiler {
 								statement.add(param);
 							}
 						} else if (arg.type == ArgType.SCRIPT_OBJECT_SUBTYPE) {
-							Expression param = params.next();
+							Expression param = paramIt.next();
 							if (param.isNumber()) {
 								int val = param.intVal();
 								if (val == DEFAULT_SUBTYPE) {
@@ -1557,7 +1710,7 @@ public class CHLDecompiler {
 										statement.add(param);
 										//
 										Instruction instr = instructions.get(ip);
-										out.println("WARNING: subtype not defined for type "+typeName
+										warning("WARNING: subtype not defined for type "+typeName
 												+" at instruction "+ip+" ("+instr+")"
 												+" in script "+currentScript.getName()
 												+" ("+currentScript.getSourceFilename()+":"+instr.lineNumber+")");
@@ -1571,7 +1724,7 @@ public class CHLDecompiler {
 							}
 							subtype = null;
 						} else if (arg.type == ArgType.CREATURE_ACTION_LEARNING_TYPE) {
-							Expression param = params.next();
+							Expression param = paramIt.next();
 							subtype = null;
 							if (param.isNumber()) {
 								int val = param.intVal();
@@ -1585,7 +1738,7 @@ public class CHLDecompiler {
 								statement.add(param);
 							}
 						} else if (arg.type == ArgType.CREATURE_ACTION_SUBTYPE) {
-							Expression param = params.next();
+							Expression param = paramIt.next();
 							if (param.isNumber()) {
 								int val = param.intVal();
 								if (val == DEFAULT_SUBTYPE) {
@@ -1595,7 +1748,7 @@ public class CHLDecompiler {
 										statement.add(param);
 										//
 										Instruction instr = instructions.get(ip);
-										out.println("WARNING: subtype not defined for type "+typeName
+										warning("WARNING: subtype not defined for type "+typeName
 												+" at instruction "+ip+" ("+instr+")"
 												+" in script "+currentScript.getName()
 												+" ("+currentScript.getSourceFilename()+":"+instr.lineNumber+")");
@@ -1609,7 +1762,7 @@ public class CHLDecompiler {
 							}
 							subtype = null;
 						} else if (arg.type == ArgType.AUDIO_SFX_BANK_TYPE) {
-							Expression param = params.next();
+							Expression param = paramIt.next();
 							if (param.isNumber()) {
 								int val = param.intVal();
 								Expression audioSfxId = statement.get(audioSfxIdIndex);
@@ -1634,23 +1787,23 @@ public class CHLDecompiler {
 							}
 							audioSfxIdIndex = -1;
 						} else if (arg.type == ArgType.AUDIO_SFX_ID) {
-							Expression param = params.next();
+							Expression param = paramIt.next();
 							audioSfxIdIndex = statement.size();	//Delayed replacement
 							statement.add(param);
 						} else if ("[( PARAMETERS )]".equals(sym.keyword)) {
-							Expression param = params.next();
+							Expression param = paramIt.next();
 							if (!param.value.isEmpty()) {
 								statement.add(new Expression("("+param+")"));
 							}
 						} else {
-							Expression param = decompile(func, sym, params);
+							Expression param = decompile(func, sym, params, paramIt);
 							if (param == null) {
 								//Don't add implicit parameters
-							} else if (arg.type == ArgType.OBJECT_FLOAT && sym.optional
+							} else if (arg.type == ArgType.OBJECT && sym.optional
 									&& sym.keyword.replace("OBJECT", "0").equals("["+param+"]")) {
 								param = null;	//Don't add missing OBJECT
 							} else if (arg.type == ArgType.COORD && sym.optional) {
-								boolean withPosition = params.next().boolVal();
+								boolean withPosition = paramIt.next().boolVal();
 								if (withPosition) {
 									statement.add(param);
 								} else {
@@ -1673,7 +1826,7 @@ public class CHLDecompiler {
 			return null;
 		}
 		ListIterator<Expression> tokens = statement.listIterator();
-		StringBuilder res = new StringBuilder();
+		StringBuilder res = new StringBuilder(16 * statement.size());
 		String prevToken = "(";
 		while (tokens.hasNext()) {
 			Expression part = tokens.next();
@@ -1691,7 +1844,45 @@ public class CHLDecompiler {
 				}
 			}
 		}
-		return new Expression(res.toString());
+		Expression expr = new Expression(res.toString(), func.returnType, func.returnClass);
+		//Try to guess the specific return type
+		Expression type, object;
+		switch (func) {
+			case CREATE:
+			case CALL_NEAR:
+			case CALL_IN:
+			case CALL_IN_NEAR:
+			case CALL_IN_NOT_NEAR:
+			case CALL_POISONED_IN:
+			case CALL_NOT_POISONED_IN:
+			case CALL_NEAR_IN_STATE:
+			case CALL_FLYING:
+				type = params.get(0);
+				if (type.isNumber()) {
+					typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, type.intVal);
+					expr.type = new Type(ArgType.OBJECT, typeName);
+				}
+				break;
+			case CREATE_WITH_ANGLE_AND_SCALE:
+				type = params.get(2);
+				if (type.isNumber()) {
+					typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, type.intVal);
+					expr.type = new Type(ArgType.OBJECT, typeName);
+				}
+				break;
+			case GAME_SUB_TYPE:
+				object = params.get(0);
+				if (object.type.isSpecificObject()) {
+					expr.type = new Type(ArgType.SCRIPT_OBJECT_SUBTYPE, subtypes.get(object.type.specificType));
+				}
+				break;
+			case RANDOM_ULONG:
+				Expression val = params.get(0);
+				expr.type = val.type;
+				break;
+			default:
+		}
+		return expr;
 	}
 	
 	private Expression decompile(NativeFunction func, ListIterator<Expression> params) {
@@ -1707,9 +1898,9 @@ public class CHLDecompiler {
 			return new Expression(alias, val);
 		} else if (arg.type == ArgType.INT && param.isNumber()) {
 			if (func == NativeFunction.RANDOM_ULONG && !typeContextStack.isEmpty()) {
-				String contextType = getLast(typeContextStack);
+				Type contextType = getLast(typeContextStack);
 				int val = param.intVal();
-				String alias = getSymbol(contextType, val);
+				String alias = getSymbol(contextType.toString(), val);
 				return new Expression(alias, val);
 			} else {
 				return new Expression("constant "+param);
@@ -2125,6 +2316,17 @@ public class CHLDecompiler {
 		return true;
 	}
 	
+	private static String join(String separator, Object[] items) {
+		if (items.length == 0) return "";
+		StringBuilder res = new StringBuilder(16 * items.length);
+		res.append(String.valueOf(items[0]));
+		for (int i = 1; i < items.length; i++) {
+			res.append(separator);
+			res.append(String.valueOf(items[i]));
+		}
+		return res.toString();
+	}
+	
 	private static void loadStatements() {
 		int lineno = 0;
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(Syntax.class.getResourceAsStream(STATEMENTS_FILE)));) {
@@ -2155,14 +2357,98 @@ public class CHLDecompiler {
 	}
 	
 	
+	private enum Scope {
+		global, local
+	}
+	
+	
+	private static class Type {
+		public static final Type UNKNOWN = new Type(ArgType.UNKNOWN);
+		public static final Type INT = new Type(ArgType.INT);
+		public static final Type FLOAT = new Type(ArgType.FLOAT);
+		public static final Type BOOL = new Type(ArgType.BOOL);
+		public static final Type COORD = new Type(ArgType.COORD);
+		public static final Type OBJECT = new Type(ArgType.OBJECT);
+		
+		public final ArgType type;
+		public final String specificType;
+		
+		public Type(ArgType type) throws NullPointerException {
+			this.type = type;
+			this.specificType = null;
+		}
+		
+		public Type(ArgType type, String specificType) throws IllegalArgumentException {
+			this.type = type;
+			this.specificType = specificType;
+			if (type == null) {
+				throw new IllegalArgumentException("Type cannot be null");
+			}
+		}
+		
+		public boolean isEnum() {
+			return type.isEnum;
+		}
+		
+		public boolean isObject() {
+			return type == ArgType.OBJECT;
+		}
+		
+		public boolean isGenericObject() {
+			return type == ArgType.OBJECT && specificType == null;
+		}
+		
+		public boolean isSpecificObject() {
+			return type == ArgType.OBJECT && specificType != null;
+		}
+		
+		@Override
+		public int hashCode() {
+			return type.hashCode();
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (!(obj instanceof Type)) return false;
+			Type other = (Type) obj;
+			if (this.type != other.type) return false;
+			if (this.specificType == null && other.specificType != null) {
+				return false;
+			}else if (this.specificType != null && other.specificType == null) {
+				return false;
+			} else if (this.specificType != null && other.specificType != null) {
+				if (!this.specificType.equals(other.specificType)) return false;
+			}
+			return true;
+		}
+		
+		public String toString() {
+			if (type == ArgType.OBJECT) {
+				if (specificType != null) {
+					return type.keyword+"<"+specificType+">";
+				} else {
+					return type.keyword;
+				}
+			} else if (specificType != null) {
+				return specificType;
+			} else {
+				return type.keyword;
+			}
+		}
+	}
+	
+	
 	private static class Var {
+		public final Scope scope;
 		public final String name;
 		public final int index;
-		public int size;		//CI introduced arrays
-		public final float val;	//CI introduced default value
+		public int size;			//CI introduced arrays
+		public final float val;		//CI introduced default value
+		public Type type;			//Guessed type
 		
-		public Var(String name, int index, int size, float val) {
+		public Var(Scope scope, String name, int index, int size, float val) {
 			if (size <= 0) throw new IllegalArgumentException("Invalid variable size: "+size);
+			this.scope = scope;
 			this.name = name;
 			this.index = index;
 			this.size = size;
@@ -2175,7 +2461,7 @@ public class CHLDecompiler {
 		
 		@Override
 		public String toString() {
-			return name;
+			return scope + " variable " + name;
 		}
 	}
 	
@@ -2183,7 +2469,7 @@ public class CHLDecompiler {
 	private static class Expression {
 		private final String value;
 		public final boolean lowPriority;
-		public final DataType type;
+		public Type type;
 		private final int intVal;
 		private final float floatVal;
 		private final boolean boolVal;
@@ -2195,19 +2481,19 @@ public class CHLDecompiler {
 		}
 		
 		public Expression(int intVal) {
-			this(null, false, DataType.INT, intVal);
+			this(null, false, Type.INT, intVal);
 		}
 		
 		public Expression(float floatVal) {
-			this(null, false, DataType.FLOAT, floatVal);
+			this(null, false, Type.FLOAT, floatVal);
 		}
 		
 		public Expression(boolean boolVal) {
-			this(null, false, DataType.BOOLEAN, boolVal);
+			this(null, false, Type.BOOL, boolVal);
 		}
 		
 		public Expression(Var var) {
-			this(null, false, null, var);
+			this(null, false, var.type, var);
 		}
 		
 		public Expression(String value, Var var) {
@@ -2218,15 +2504,21 @@ public class CHLDecompiler {
 			this(value, lowPriority, null, 0);
 		}
 		
-		public Expression(String value, DataType type) {
+		public Expression(String value, ArgType type, String specificType) {
+			this(value, false,
+					type == null ? null : new Type(type, specificType),
+					0);
+		}
+		
+		public Expression(String value, Type type) {
 			this(value, false, type, 0);
 		}
 		
 		public Expression(String value, int intVal) {
-			this(value, false, DataType.INT, intVal);
+			this(value, false, Type.INT, intVal);
 		}
 		
-		public Expression(String value, boolean lowPriority, DataType type, int intVal) {
+		public Expression(String value, boolean lowPriority, Type type, int intVal) {
 			this.isExpression = value != null;
 			this.value = isExpression ? value : String.valueOf(intVal);
 			this.lowPriority = lowPriority;
@@ -2237,7 +2529,7 @@ public class CHLDecompiler {
 			this.var = null;
 		}
 		
-		public Expression(String value, boolean lowPriority, DataType type, float floatVal) {
+		public Expression(String value, boolean lowPriority, Type type, float floatVal) {
 			this.isExpression = value != null;
 			this.value = isExpression ? value : format(floatVal);
 			this.lowPriority = lowPriority;
@@ -2248,7 +2540,7 @@ public class CHLDecompiler {
 			this.var = null;
 		}
 		
-		public Expression(String value, boolean lowPriority, DataType type, boolean boolVal) {
+		public Expression(String value, boolean lowPriority, Type type, boolean boolVal) {
 			this.isExpression = value != null;
 			this.value = isExpression ? value : String.valueOf(boolVal);
 			this.lowPriority = lowPriority;
@@ -2259,7 +2551,7 @@ public class CHLDecompiler {
 			this.var = null;
 		}
 		
-		public Expression(String value, boolean lowPriority, DataType type, Var var) {
+		public Expression(String value, boolean lowPriority, Type type, Var var) {
 			this.isExpression = value != null;
 			this.value = isExpression ? value : var.name;
 			this.lowPriority = lowPriority;
@@ -2271,11 +2563,13 @@ public class CHLDecompiler {
 		}
 		
 		public boolean isNumber() {
-			return type == DataType.FLOAT || type == DataType.INT;
+			if (type == null) return false;
+			return type.type == ArgType.FLOAT || type.type == ArgType.INT;
 		}
 		
 		public boolean isBool() {
-			return type == DataType.BOOLEAN;
+			if (type == null) return false;
+			return type.type == ArgType.BOOL;
 		}
 		
 		public boolean isVar() {

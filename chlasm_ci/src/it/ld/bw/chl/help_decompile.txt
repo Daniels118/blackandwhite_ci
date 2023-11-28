@@ -1,7 +1,7 @@
 Compile CHL source files into CHL binary file
 
 Syntax
-  chlasm -decompile -st filename -h files -i filename -o path [-a files] [-rln]
+  chlasm -decompile -st filename -h files -i filename -o path [-a files] [-dc] [-rln]
 
 Arguments
   -st  subtypes table
@@ -9,4 +9,5 @@ Arguments
   -i   input CHL file
   -o   output directory
   -a   files for alias definitions
+  -dc  define unknown constants
   -rln try to respect original line numbers
