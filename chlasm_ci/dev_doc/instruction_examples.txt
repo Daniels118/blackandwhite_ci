@@ -2158,7 +2158,7 @@ disable villager sound
 	SYS SET_VILLAGER_SOUND	//[1, 0] (bool enable)
 ___________________________________________
 
-3.8.86 make SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR [in world]
+3.8.86 make SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR in world [speed EXPRESSION]
 
 ?
 
@@ -2167,8 +2167,8 @@ make good spirit play ANIM_BLOW at hand position in world
 	PUSHI 1							//spirit
 	PUSHI 73						//animation
 	SYS GET_HAND_POSITION			//position
-	PUSHF 1.0						//in world
-	SYS PLAY_SPIRIT_ANIM_IN_WORLD	//[6, 0] (HELP_SPIRIT_TYPE spirit, int animation, Coord position, float inWorld)
+	PUSHF 1.0						//speed (default 1)
+	SYS PLAY_SPIRIT_ANIM_IN_WORLD	//[6, 0] (HELP_SPIRIT_TYPE spirit, int animation, Coord position, float speed)
 ___________________________________________
 
 3.8.87 clear hit land object

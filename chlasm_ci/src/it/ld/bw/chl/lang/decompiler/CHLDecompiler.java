@@ -91,6 +91,7 @@ public class CHLDecompiler {
 	private static final Map<String, String[]> boolOptions = new HashMap<>();
 	private static final Map<String, String[]> enumOptions = new HashMap<>();
 	private static final Map<String, String> dummyOptions = new HashMap<>();
+	private static final Map<String, String> coalesceTypes = new HashMap<>();
 	
 	private static final int DEFAULT_SUBTYPE = 5000;
 	private static final int AUDIO_SFX_BANK_TYPE_IN_GAME = 1;
@@ -128,6 +129,12 @@ public class CHLDecompiler {
 		dummyOptions.put("second|seconds", "seconds");
 		dummyOptions.put("event|events", "events");
 		dummyOptions.put("graphics|gfx", "graphics");
+		//
+		coalesceTypes.put("SCRIPT_OBJECT_TYPE_FEMALE_CREATURE", "SCRIPT_OBJECT_TYPE_CREATURE");
+		coalesceTypes.put("SCRIPT_OBJECT_TYPE_DUMB_CREATURE", "SCRIPT_OBJECT_TYPE_CREATURE");
+		coalesceTypes.put("SCRIPT_OBJECT_TYPE_VILLAGER_CHILD", "SCRIPT_OBJECT_TYPE_VILLAGER");
+		//coalesceTypes.put("", "");
+		//coalesceTypes.put("", "");
 	}
 	
 	private static void addBoolOption(String wordTrue, String wordFalse) {
@@ -278,7 +285,7 @@ public class CHLDecompiler {
 				String entryName = entry.getKey();
 				Integer entryVal = entry.getValue();
 				String oldName = revEntries.put(entryVal, entryName);
-				if (oldName != null) {
+				if (!entryName.equals(oldName)) {
 					notice("NOTICE: entries "+oldName+" and "+entryName+" in "+enumName
 							+" share the same value ("+entryVal+")");
 				}
@@ -288,6 +295,8 @@ public class CHLDecompiler {
 	
 	public void addAlias(File file) throws FileNotFoundException, IOException, ParseException {
 		Pattern pattern = Pattern.compile("global\\s+constant\\s+(.*)\\s*=\\s*(.*)");
+		Pattern varDecl = Pattern.compile("global\\s+.*");
+		Pattern funcDef = Pattern.compile("define\\s+script\\s+.+");
 	    int lineno = 0;
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)));) {
 			String line = "";
@@ -305,6 +314,10 @@ public class CHLDecompiler {
 					} else if (!alias.equals(oldAlias)) {
 						notice("NOTICE: definition of muliple aliases for symbol "+symbol+" at "+file.getName()+":"+lineno);
 					}
+				} else if (varDecl.matcher(line).matches()) {
+					//Ignore variable declarations
+				} else if (funcDef.matcher(line).matches()) {
+					//Ignore script definitions
 				} else {
 					throw new ParseException("Expected: global constant ALIAS = CONSTANT", file, lineno);
 				}
@@ -413,7 +426,7 @@ public class CHLDecompiler {
 			if (!isValidFilename(sourceFilename)) {
 				throw new RuntimeException("Invalid source filename: " + sourceFilename);
 			}
-			File sourceFile = path.resolve(sourceFilename).toFile();
+			File sourceFile = path.resolve(sourceFilename.stripTrailing()).toFile();
 			if (writtenSources.contains(sourceFile.getName())) {
 				int index = 0;
 				do {
@@ -804,7 +817,7 @@ public class CHLDecompiler {
 				op2 = decompile();
 				op1 = decompile();
 				if (op1 == SELF_ASSIGN) {
-					if (op2.isNumber() && op2.floatVal() == 1) {
+					if (op2.isNumber() && op2.floatVal() != null && op2.floatVal() == 1) {
 						return new Expression("++");
 					} else {
 						return new Expression(" += " + op2);
@@ -816,7 +829,7 @@ public class CHLDecompiler {
 				op2 = decompile();
 				op1 = decompile();
 				if (op1 == SELF_ASSIGN) {
-					if (op2.isNumber() && op2.floatVal() == 1) {
+					if (op2.isNumber() && op2.floatVal() != null && op2.floatVal() == 1) {
 						return new Expression("--");
 					} else {
 						return new Expression(" -= " + op2);
@@ -884,6 +897,7 @@ public class CHLDecompiler {
 							return new Expression("variable " + op1.safe(), op1.type);
 						}
 					case COORDS:
+						typeContextStack.add(Type.FLOAT);
 						op3 = decompile();
 						pInstr = prev();	//CASTC
 						verify(ip, pInstr, OPCode.CAST, 1, DataType.COORDS);
@@ -891,6 +905,7 @@ public class CHLDecompiler {
 						pInstr = prev();	//CASTC
 						verify(ip, pInstr, OPCode.CAST, 1, DataType.COORDS);
 						op1 = decompile();
+						Utils.pop(typeContextStack);
 						return new Expression("[" + op1 + ", " + op2 + ", " + op3 + "]", Type.COORD);
 					case OBJECT:
 						//CASTO
@@ -918,11 +933,15 @@ public class CHLDecompiler {
 							if (op2.isNumber()) {
 								property = getSymbol(ArgType.SCRIPT_OBJECT_PROPERTY_TYPE, op2.intVal());
 							}
+							typeContextStack.add(Type.OBJECT);
 							op1 = decompile();	//OBJECT
+							Utils.pop(typeContextStack);
 							return new Expression(op1 + " is " + property);
 						} else {
 							//PROPERTY of VARIABLE
+							typeContextStack.add(Type.OBJECT);
 							op1 = decompile();	//variable
+							Utils.pop(typeContextStack);
 							pInstr = prev();	//PUSHI int
 							verify(ip, pInstr, OPCode.PUSH, 1, DataType.INT);
 							int propertyId = pInstr.intVal;
@@ -942,7 +961,9 @@ public class CHLDecompiler {
 							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
 							pInstr = prev();	//DUP 1
 							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
+							typeContextStack.add(Type.OBJECT);
 							op1 = decompile();	//variable
+							Utils.pop(typeContextStack);
 							pInstr = prev();	//PUSHI int
 							verify(ip, pInstr, OPCode.PUSH, 1, DataType.INT);
 							int propertyId = pInstr.intVal;
@@ -957,7 +978,9 @@ public class CHLDecompiler {
 							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
 							pInstr = prev();	//DUP 1
 							verify(ip, pInstr, OPCode.DUP, 0, DataType.NONE, 1);
+							typeContextStack.add(Type.OBJECT);
 							op1 = decompile();	//variable
+							Utils.pop(typeContextStack);
 							pInstr = prev();	//PUSHI int
 							verify(ip, pInstr, OPCode.PUSH, 1, DataType.INT);
 							int propertyId = pInstr.intVal;
@@ -1436,7 +1459,7 @@ public class CHLDecompiler {
 				} else if (oldType.isSpecificObject() && newType.isGenericObject()) {
 					//Ignore generic Object types
 				} else if (oldType != Type.UNKNOWN) {
-					warning("WARNING: type of "+var+" in "+currentScript.getName()
+					warning("WARNING: type of "+var+" in "+currentScript.getSourceFilename()+":"+lineno
 						+" is ambiguous (found both "+oldType+" and "+newType+")");
 					var.type = Type.UNKNOWN;
 				}
@@ -1521,8 +1544,9 @@ public class CHLDecompiler {
 							} else if (oldType.isSpecificObject() && newType.isGenericObject()) {
 								//Ignore generic Object types
 							} else if (oldType != Type.UNKNOWN) {
-								warning("WARNING: type of parameter "+localIndex+" in "+currentScript.getName()
-									+" is ambiguous (found both "+oldType+" and "+newType+")");
+								warning("WARNING: type of parameter "+localIndex+" in "
+										+currentScript.getSourceFilename()+":"+lineno
+										+" is ambiguous (found both "+oldType+" and "+newType+")");
 								scriptParamTypes[localIndex] = Type.UNKNOWN;
 							}
 						}
@@ -1808,9 +1832,10 @@ public class CHLDecompiler {
 							subtype = null;
 							if (param.isNumber()) {
 								int val = param.intVal();
-								String entry = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, val);
-								if (entry != null) {
-									subtype = subtypes.get(entry);
+								typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, val);
+								if (typeName != null) {
+									typeName = coalesce(typeName);
+									subtype = subtypes.get(typeName);
 								}
 								String alias = getSymbol(ArgType.SCRIPT_OBJECT_TYPE, val);
 								statement.add(new Expression(alias));
@@ -1819,7 +1844,7 @@ public class CHLDecompiler {
 							}
 						} else if (arg.type == ArgType.SCRIPT_OBJECT_SUBTYPE) {
 							Expression param = paramIt.next();
-							if (param.isNumber()) {
+							if (param.isNumber() && param.intVal() != null) {
 								int val = param.intVal();
 								if (val == DEFAULT_SUBTYPE) {
 									statement.add(null);
@@ -1979,6 +2004,7 @@ public class CHLDecompiler {
 				type = params.get(0);
 				if (type.isNumber()) {
 					typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, type.intVal);
+					typeName = coalesce(typeName);
 					expr.type = new Type(ArgType.OBJECT, typeName);
 				}
 				break;
@@ -1986,6 +2012,7 @@ public class CHLDecompiler {
 				type = params.get(2);
 				if (type.isNumber()) {
 					typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, type.intVal);
+					typeName = coalesce(typeName);
 					expr.type = new Type(ArgType.OBJECT, typeName);
 				}
 				break;
@@ -2371,8 +2398,12 @@ public class CHLDecompiler {
 			id--;
 			names = chl.getGlobalVariables().getNames();
 		}
-		if (id < 0 || id >= names.size()) {
+		if (id < 0) {
 			throw new InvalidVariableIdException(id);
+		} else if (id >= names.size()) {
+			warning("WARNING: "+id+" isn't a valid variable index, assuming "+(names.size() - 1)
+					+" at "+currentScript.getSourceFilename()+":"+lineno);
+			id = names.size() - 1;
 		}
 		String name = names.get(id);
 		if ("LHVMA".equals(name)) {
@@ -2399,6 +2430,15 @@ public class CHLDecompiler {
 			var = globalMap.get(name);
 		}
 		return var;
+	}
+	
+	
+	/**Returns the generic of a type. For example CREATURE, FEMALE_CREATURE and DUMB_CREATURE are coalesced to CREATURE.
+	 * @param typename
+	 * @return the generic type
+	 */
+	private static String coalesce(String typename) {
+		return coalesceTypes.getOrDefault(typename, typename);
 	}
 	
 	private static void loadStatements() {

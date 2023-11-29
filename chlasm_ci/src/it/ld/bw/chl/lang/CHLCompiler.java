@@ -2682,16 +2682,8 @@ public class CHLCompiler implements Compiler {
 					sys(PLAY_SPIRIT_ANIM);
 					return replace(start, "STATEMENT");
 				} else {
-					//make SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR [in world]
-					parse("CONST_EXPR at COORD_EXPR");
-					symbol = peek(false);
-					if (symbol.is("in")) {
-						parse("in world");
-						pushf(1);
-					} else {
-						pushf(0);
-					}
-					accept(TokenType.EOL);
+					//make SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR in world [speed EXPRESSION]
+					parse("CONST_EXPR at COORD_EXPR in world [speed EXPRESSION] EOL", 1f);
 					sys(PLAY_SPIRIT_ANIM_IN_WORLD);
 					return replace(start, "STATEMENT");
 				}

@@ -148,7 +148,7 @@ START_COUNTDOWN_TIMER				enable countdown timer down with EXPRESSION seconds
 END_COUNTDOWN_TIMER					disable countdown timer
 SET_COUNTDOWN_TIMER_DRAW			set countdown timer draw CONST_EXPR
 SET_VILLAGER_SOUND					enable|disable villager sound
-PLAY_SPIRIT_ANIM_IN_WORLD			make HELP_SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR [in world]
+PLAY_SPIRIT_ANIM_IN_WORLD			make HELP_SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR in world [speed EXPRESSION]
 CLEAR_HIT_LAND_OBJECT				clear hit land object
 CREATE_REACTION						attach reaction OBJECT ENUM_REACTION
 REMOVE_REACTION						detach reaction OBJECT
@@ -397,3 +397,5 @@ GET_COUNTDOWN_TIMER_TIME			get countdown timer time
 SET_SCRIPT_STATE					state OBJECT CONST_EXPR
 SET_SCRIPT_STATE_WITH_PARAMS		state OBJECT CONST_EXPR position COORD_EXPR float EXPRESSION ulong EXPRESSION, EXPRESSION
 THING_PLAY_ANIM						OBJECT play CONST_EXPR [loop EXPRESSION]
+GET_MOUSE_ACROSS					mouse percentage across
+GET_MOUSE_DOWN						mouse percentage down

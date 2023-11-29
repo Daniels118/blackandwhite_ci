@@ -370,7 +370,7 @@ STATEMENT: {
 	disable countdown timer EOL
 	set countdown timer draw CONST_EXPR EOL
 	enable|disable villager sound EOL
-	make HELP_SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR [in world] EOL
+	make HELP_SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR in world [speed EXPRESSION] EOL
 	enable|disable OBJECT immune to spells EOL
 	set dolphin speed EXPRESSION EOL
 	enable|disable right hand only for OBJECT EOL

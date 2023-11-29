@@ -295,7 +295,7 @@ public class CHLFile {
 				} catch (Exception e) {
 					res = false;
 					int offset = code.getOffset() + 4 + i * Instruction.LENGTH;
-					String fmt = "%1$s in %2$s at %3$s:%4$d (0x%5$08X)\r\n";
+					String fmt = "WARNING: %1$s in %2$s at %3$s:%4$d (0x%5$08X)\r\n";
 					out.printf(fmt, e.getMessage(), script.getName(), script.getSourceFilename(), instr.lineNumber, offset);
 				}
 				if (instr.opcode == OPCode.END) break;
