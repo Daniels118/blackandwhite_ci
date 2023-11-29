@@ -2648,7 +2648,7 @@ make good spirit point to Object in world		//#HelpSystem.txt:136
 	SYS SPIRIT_POINT_GAME_THING	//[3, 0] (HELP_SPIRIT_TYPE spirit, Object target, bool inWorld)
 ___________________________________________
 
-3.16.1.2 make HELP_SPIRIT_TYPE spirit point at COORD_EXPR
+3.16.1.2 make HELP_SPIRIT_TYPE spirit point at COORD_EXPR [inWorld]
 
 Occasionally you might want to make an object (usually a help spirit) point to another object. You can
 do this via the make command.

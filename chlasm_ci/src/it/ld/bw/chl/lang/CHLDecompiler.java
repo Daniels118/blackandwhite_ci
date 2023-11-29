@@ -160,6 +160,7 @@ public class CHLDecompiler {
 	private PrintStream out;
 	private boolean verboseEnabled;
 	
+	private int heuristicLevel = 0;
 	private boolean respectLinenoEnabled = false;
 	private boolean defineUnknownConstantsEnabled = false;
 	
@@ -195,6 +196,14 @@ public class CHLDecompiler {
 		}
 	}
 	
+	public int getHeuristicLevel() {
+		return heuristicLevel;
+	}
+
+	public void setHeuristicLevel(int heuristicLevel) {
+		this.heuristicLevel = heuristicLevel;
+	}
+
 	public boolean isRespectLinenoEnabled() {
 		return respectLinenoEnabled;
 	}
@@ -433,7 +442,7 @@ public class CHLDecompiler {
 			}
 			//Try to make room for new statements
 			int requiredSpace = 0;
-			if (!requiredConstants.isEmpty()) requiredSpace += requiredConstants.size() + 1;
+			if (!requiredScripts.isEmpty()) requiredSpace += requiredScripts.size() + 1;
 			for (int i = 0; i < requiredSpace; i++) {
 				if (header.isEmpty()) break;
 				if (!getLast(header).isBlank()) break;
@@ -545,7 +554,7 @@ public class CHLDecompiler {
 				break;
 			}
 			initLocalVars(script);
-			if (true) {
+			if (heuristicLevel >= 2) {
 				Writer realWriter = writer;
 				int realLineno = lineno;
 				writer = Writer.nullWriter();
@@ -760,6 +769,7 @@ public class CHLDecompiler {
 		Expression op1, op2, op3;
 		String varName, varIndex;
 		Instruction pInstr, nInstr, nInstr2;
+		int start;
 		Instruction instr = prev();
 		switch (instr.opcode) {
 			case ADD:
@@ -784,7 +794,7 @@ public class CHLDecompiler {
 						return new Expression(" -= " + op2);
 					}
 				} else {
-					return new Expression(op1 + " - " + op2, true);
+					return new Expression(op1 + " - " + op2.safe(), true);
 				}
 			case MUL:
 				op2 = decompile();
@@ -809,27 +819,27 @@ public class CHLDecompiler {
 			case AND:
 				op2 = decompile();
 				op1 = decompile();
-				return new Expression(op1.safe() + " and " + op2.safe());
+				return new Expression("(" + op1.safe() + " and " + op2.safe() + ")");
 			case OR:
 				op2 = decompile();
 				op1 = decompile();
 				return new Expression(op1 + " or " + op2, true);
 			case NOT:
 				op1 = decompile();
-				return new Expression("not " + op1.safe());
+				return new Expression("not (" + op1 + ")");
 			case CAST:
 				switch (instr.dataType) {
 					case INT:
 						op1 = decompile();
 						if (op1.isVar()) {
 							return new Expression("constant " + op1.safe(), op1.getVar());
-						} else if (op1.isNumber() && !typeContextStack.isEmpty() && getLast(typeContextStack).isEnum()) {
+						/*} else if (op1.isNumber() && !typeContextStack.isEmpty() && getLast(typeContextStack).isEnum()) {
 							Type type = getLast(typeContextStack);
 							String entry = getEnumEntry(type.type, op1.floatVal().intValue());
 							if (entry != null) {
 								String alias = aliases.getOrDefault(entry, entry);
 								return new Expression(alias, false, Type.FLOAT, op1.floatVal());
-							}
+							}*/
 						}
 						return new Expression("constant " + op1.safe(), op1.type);
 					case FLOAT:
@@ -985,21 +995,23 @@ public class CHLDecompiler {
 					throw new DecompileException(currentScript, ip, e);
 				}
 			case EQ:
-				final int start = ip;
+				start = ip;
 				op2 = decompile();
 				op1 = decompile();
-				if (op1.type == Type.INT && op2.isVar()) {
-					gotoAddress(start);
-					op2 = decompile();
-					typeContextStack.add(op2.getVar().type);
-					op1 = decompile();
-					pop(typeContextStack);
-				} else if (op1.isVar() && op2.type == Type.INT) {
-					gotoAddress(start);
-					typeContextStack.add(op1.getVar().type);
-					op2 = decompile();
-					pop(typeContextStack);
-					op1 = decompile();
+				if (heuristicLevel >= 1) {
+					if (op1.type == Type.INT && op2.isVar()) {
+						gotoAddress(start);
+						op2 = decompile();
+						typeContextStack.add(op2.getVar().type);
+						op1 = decompile();
+						pop(typeContextStack);
+					} else if (op1.isVar() && op2.type == Type.INT) {
+						gotoAddress(start);
+						typeContextStack.add(op1.getVar().type);
+						op2 = decompile();
+						pop(typeContextStack);
+						op1 = decompile();
+					}
 				}
 				return new Expression(op1 + " == " + op2);
 			case GEQ:
@@ -1112,6 +1124,7 @@ public class CHLDecompiler {
 				next();
 				return SELF_ASSIGN;
 			case REF_AND_OFFSET_POP:
+				start = ip;
 				op2 = decompile();
 				pInstr = peek(-1);
 				if (pInstr.opcode == OPCode.POP && pInstr.flags == 1) {
@@ -1126,6 +1139,16 @@ public class CHLDecompiler {
 					varName = getVarName(pInstr.intVal, false);
 					varIndex = decompile().toString();
 					Var var = getVar(varName);
+					if (heuristicLevel >= 1 && var.type != null) {
+						gotoAddress(start);
+						typeContextStack.add(var.type);
+						op2 = decompile();
+						pop(typeContextStack);
+						pInstr = prev();	//POPI
+						pInstr = prev();	//REF_AND_OFFSET_PUSH
+						pInstr = prev();	//PUSHV var
+						varIndex = decompile().toString();
+					}
 					setVarType(var, op2);
 					String assignee = varName;
 					if (var.isArray()) {
@@ -1603,7 +1626,7 @@ public class CHLDecompiler {
 						if (params.get(1).intVal() != 0) {
 							throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript, ip, instructions.get(ip));
 						}
-						return new Expression("marker at " + params.get(2), ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
+						return new Expression("marker at " + params.get(2), true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
 					}
 				}
 				break;
@@ -1613,10 +1636,10 @@ public class CHLDecompiler {
 				anti = params.get(3).intVal() != 0;
 				if (anti) {
 					line = "create anti influence on "+params.get(0)+" radius "+params.get(1);
-					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
 					line = "create influence on "+params.get(0)+" radius "+params.get(1);
-					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case INFLUENCE_POSITION:
 				//INFLUENCE_POSITION(Coord position, float radius, int zero, int anti)
@@ -1624,11 +1647,11 @@ public class CHLDecompiler {
 				if (anti) {
 					//create anti influence at position COORD_EXPR [radius EXPRESSION]
 					line = "create anti influence at position "+params.get(0)+" radius "+params.get(1);
-					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
 					//create influence at position COORD_EXPR [radius EXPRESSION]
 					line = "create influence at "+params.get(0)+" radius "+params.get(1);
-					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case SNAPSHOT:
 				params.set(2, null);	//implicit focus
@@ -1911,7 +1934,8 @@ public class CHLDecompiler {
 				}
 			}
 		}
-		Expression expr = new Expression(res.toString(), func.returnType, func.returnClass);
+		boolean lowPriority = func.returnType == ArgType.FLOAT;
+		Expression expr = new Expression(res.toString(), lowPriority, func.returnType, func.returnClass);
 		//Try to guess the specific return type
 		Expression type, object;
 		switch (func) {
@@ -1967,10 +1991,25 @@ public class CHLDecompiler {
 			if (func == NativeFunction.RANDOM_ULONG && !typeContextStack.isEmpty() && param.intVal() != null) {
 				Type contextType = getLast(typeContextStack);
 				int val = param.intVal();
-				String alias = getSymbol(contextType.toString(), val);
-				return new Expression(alias, val);
+				String entry = getEnumEntry(contextType.toString(), val);
+				if (entry != null) {
+					String alias = getSymbol(contextType.toString(), val);
+					return new Expression(alias, val);
+				} else if (defineUnknownConstantsEnabled) {
+					requiredConstants.add(param.intVal());
+					return new Expression("_UNK" + param.intVal(), param.type);
+				} else {
+					//Workaround for missing constants
+					return new Expression("constant "+param);
+				}
 			} else if (!param.isExpression) {
-				return new Expression("constant "+param);
+				if (defineUnknownConstantsEnabled) {
+					requiredConstants.add(param.intVal());
+					return new Expression("_UNK" + param.intVal(), param.type);
+				} else {
+					//Workaround for missing constants
+					return new Expression("constant "+param);
+				}
 			}
 		}
 		return param;
@@ -2580,6 +2619,12 @@ public class CHLDecompiler {
 		
 		public Expression(String value, ArgType type, String specificType) {
 			this(value, false,
+					type == null ? null : new Type(type, specificType),
+					(Integer)null);
+		}
+		
+		public Expression(String value, boolean lowPriority, ArgType type, String specificType) {
+			this(value, lowPriority,
 					type == null ? null : new Type(type, specificType),
 					(Integer)null);
 		}

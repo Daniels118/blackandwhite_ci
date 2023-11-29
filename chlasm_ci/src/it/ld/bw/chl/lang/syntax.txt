@@ -304,7 +304,7 @@ STATEMENT: {
 	CANNON EOL
 	
 	make HELP_SPIRIT_TYPE spirit point to OBJECT [in world] EOL
-	make HELP_SPIRIT_TYPE spirit point at COORD_EXPR EOL
+	make HELP_SPIRIT_TYPE spirit point at COORD_EXPR [in world] EOL
 	make HELP_SPIRIT_TYPE spirit play across EXPRESSION down EXPRESSION CONST_EXPR [speed EXPRESSION] EOL
 	make HELP_SPIRIT_TYPE spirit cling across EXPRESSION down EXPRESSION EOL
 	make HELP_SPIRIT_TYPE spirit fly across EXPRESSION down EXPRESSION EOL
