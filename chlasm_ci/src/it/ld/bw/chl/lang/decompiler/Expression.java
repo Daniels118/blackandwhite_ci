@@ -15,8 +15,10 @@
  */
 package it.ld.bw.chl.lang.decompiler;
 
-import static it.ld.bw.chl.lang.decompiler.Utils.format;
+import static it.ld.bw.chl.lang.Utils.format;
 
+import it.ld.bw.chl.lang.Type;
+import it.ld.bw.chl.lang.Var;
 import it.ld.bw.chl.model.NativeFunction.ArgType;
 
 class Expression {

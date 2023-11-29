@@ -13,9 +13,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.ld.bw.chl.lang.decompiler;
+package it.ld.bw.chl.lang;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.List;
@@ -98,5 +99,99 @@ public final class Utils {
 			}
 			iterator.previous();
 		}
+	}
+	
+	public static ByteBuffer resize(ByteBuffer buffer, int capacity) {
+        ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
+        buffer.flip();
+        newBuffer.put(buffer);
+        return newBuffer;
+    }
+	
+	public static float asFloat(Object v) {
+		if (v instanceof Double) {
+			return ((Double)v).floatValue();
+		} else if (v instanceof Integer) {
+			return ((Integer)v).floatValue();
+		} else {
+			throw new IllegalArgumentException("Invalid numeric object: "+v);
+		}
+	}
+	
+	public static int asInt(Object v) {
+		if (v instanceof Double) {
+			return ((Double)v).intValue();
+		} else if (v instanceof Integer) {
+			return ((Integer)v).intValue();
+		} else {
+			throw new IllegalArgumentException("Invalid numeric object: "+v);
+		}
+	}
+	
+	public static Object parseImmed(String s) {
+		if ("true".equals(s)) return Boolean.TRUE;
+		if ("false".equals(s)) return Boolean.FALSE;
+		Object v = parseString(s);
+		if (v != null) return v;
+		if (s.indexOf('.') >= 0) {
+			v = parseFloat(s);
+			if (v != null) return v;
+		}
+		v = parseInt(s);
+		return v;
+	}
+	
+	public static String parseString(String s) {
+		if (!s.startsWith("\"") || !s.endsWith("\"")) return null;
+		s = s.substring(1, s.length() - 1);
+		s = s.replace("\\\\", "\\");
+		s = s.replace("\\\"", "\"");
+		s = s.replace("\\r", "\r");
+		s = s.replace("\\n", "\n");
+		s = s.replace("\\t", "\t");
+		return s;
+	}
+	
+	public static Float parseFloat(String s) {
+		try {
+	        return Float.parseFloat(s);
+	    } catch (NumberFormatException e) {
+	        return null;
+	    }
+	}
+	
+	public static Integer parseInt(String s) {
+		try {
+			if (s.startsWith("0x")) {
+				return Integer.parseInt(s.substring(2), 16);
+			} else {
+				return Integer.parseInt(s);
+			}
+	    } catch (NumberFormatException e) {
+	        return null;
+	    }
+	}
+	
+	public static boolean isValidIdentifier(String s) {
+	    if (s.isEmpty()) return false;
+	    if ("true".equals(s)) return false;
+	    if ("false".equals(s)) return false;
+	    if (!Character.isJavaIdentifierStart(s.charAt(0))) return false;
+	    for (int i = 1; i < s.length(); i++) {
+	        if (!Character.isJavaIdentifierPart(s.charAt(i))) return false;
+	    }
+	    return true;
+	}
+	
+	public static File find(File path, String filename) {
+		File file = new File(path, filename);
+		if (file.exists()) return file;
+		for (File f : path.listFiles()) {
+			if (f.isDirectory() && !".".equals(f.getName()) && !"..".equals(f.getName())) {
+				file = find(f, filename);
+				if (file != null) return file;
+			}
+		}
+		return null;
 	}
 }

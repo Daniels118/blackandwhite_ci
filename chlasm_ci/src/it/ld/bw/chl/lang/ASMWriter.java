@@ -42,8 +42,9 @@ import it.ld.bw.chl.model.DataType;
 import it.ld.bw.chl.model.ILabel;
 import it.ld.bw.chl.model.InitGlobal;
 
+import static it.ld.bw.chl.lang.Utils.*;
+
 public class ASMWriter {
-	private static final char[] ILLEGAL_CHARACTERS = {'/', '\n', '\r', '\t', '\0', '\f', '`', '?', '*', '\\', '<', '>', '|', '\"', ':'};
 	private static final Charset SRC_CHARSET = Charset.forName("ISO-8859-1");
 	
 	private boolean printDataHintEnabled = true;
@@ -518,18 +519,6 @@ public class ASMWriter {
 		str.write("\r\n");
 	}
 	
-	private static File find(File path, String filename) {
-		File file = new File(path, filename);
-		if (file.exists()) return file;
-		for (File f : path.listFiles()) {
-			if (f.isDirectory() && !".".equals(f.getName()) && !"..".equals(f.getName())) {
-				file = find(f, filename);
-				if (file != null) return file;
-			}
-		}
-		return null;
-	}
-	
 	private void setSourceFile(String sourceFilename) {
 		sourceFilename = sourceFilename.stripTrailing();
 		if (!sourceFilename.equals(currentSourceFilename)) {
@@ -548,13 +537,6 @@ public class ASMWriter {
 			}
 			currentSourceFilename = sourceFilename;
 		}
-	}
-	
-	private static boolean isValidFilename(String s) {
-		for (char c : ILLEGAL_CHARACTERS) {
-			if (s.indexOf(c) >= 0) return false;
-		}
-		return true;
 	}
 	
 	

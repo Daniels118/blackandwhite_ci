@@ -112,12 +112,7 @@ public class CHeaderParser {
 		int r = 0;
 		String[] sVals = expr.split("\\s*\\+\\s*");
 		for (String sVal : sVals) {
-			if (sVal.startsWith("0x")) {
-				sVal = sVal.substring(2);
-				r += Integer.parseInt(sVal, 16);
-			} else {
-				r += Integer.parseInt(sVal);
-			}
+			r += Utils.parseInt(sVal);
 		}
 		return r;
 	}

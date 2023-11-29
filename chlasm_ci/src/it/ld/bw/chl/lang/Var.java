@@ -13,9 +13,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.ld.bw.chl.lang.decompiler;
+package it.ld.bw.chl.lang;
 
-class Var {
+public class Var {
 	public final Scope scope;
 	public final String name;
 	public final int index;

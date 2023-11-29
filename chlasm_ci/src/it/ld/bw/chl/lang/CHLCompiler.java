@@ -42,6 +42,8 @@ import it.ld.bw.chl.model.OPCodeFlag;
 import it.ld.bw.chl.model.Script;
 import it.ld.bw.chl.model.ScriptType;
 
+import static it.ld.bw.chl.lang.Utils.*;
+
 import static it.ld.bw.chl.model.NativeFunction.*;
 
 //TODO add in camera/dialogue block check for statements that require it
@@ -372,7 +374,7 @@ public class CHLCompiler implements Compiler {
 				chlInits.add(new InitGlobal(DataType.FLOAT, "LHVMA", 0));
 			}
 			//
-			var = new Var(name, varId, size, val);
+			var = new Var(Scope.global, name, varId, size, val);
 			globalMap.put(name, var);
 		} else {
 			throw new ParseError("Redeclaration of global var "+name, file, line, col);
@@ -661,7 +663,7 @@ public class CHLCompiler implements Compiler {
 		for (int i = 1; i < size; i++) {
 			scriptVars.add("LHVMA");
 		}
-		Var var = new Var(name, id, size, 0);
+		Var var = new Var(Scope.local, name, id, size, 0);
 		localMap.put(name, var);
 		return var;
 	}
@@ -5563,13 +5565,6 @@ public class CHLCompiler implements Compiler {
 		return strptr;
 	}
 	
-	private static ByteBuffer resize(ByteBuffer buffer, int capacity) {
-        ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
-        buffer.flip();
-        newBuffer.put(buffer);
-        return newBuffer;
-    }
-	
 	private SymbolInstance parseString() throws ParseException {
 		SymbolInstance sInst = next();
 		if (!sInst.is(TokenType.STRING)) {
@@ -5764,26 +5759,6 @@ public class CHLCompiler implements Compiler {
 		return r;
 	}
 	
-	private static float asFloat(Object v) {
-		if (v instanceof Double) {
-			return ((Double)v).floatValue();
-		} else if (v instanceof Integer) {
-			return ((Integer)v).floatValue();
-		} else {
-			throw new IllegalArgumentException("Invalid numeric object: "+v);
-		}
-	}
-	
-	private static int asInt(Object v) {
-		if (v instanceof Double) {
-			return ((Double)v).intValue();
-		} else if (v instanceof Integer) {
-			return ((Integer)v).intValue();
-		} else {
-			throw new IllegalArgumentException("Invalid numeric object: "+v);
-		}
-	}
-	
 	private SymbolInstance accept(String keyword) throws ParseException {
 		SymbolInstance symbol = next();
 		if (!symbol.is(keyword)) {
@@ -5925,14 +5900,6 @@ public class CHLCompiler implements Compiler {
 		instructions.add(instruction);
 	}
 	
-	private void pushf(String variable) throws ParseException {
-		Instruction instruction = Instruction.fromKeyword("PUSHF");
-		instruction.flags = OPCodeFlag.REF;
-		instruction.intVal = getVarId(variable);
-		instruction.lineNumber = line;
-		instructions.add(instruction);
-	}
-	
 	private void pushvAddr(String variable) throws ParseException {
 		pushvAddr(variable, 0);
 	}
@@ -5995,17 +5962,26 @@ public class CHLCompiler implements Compiler {
 	}
 	
 	private void checkContext(NativeFunction func) {
+		if (func.context == null) {
+			return;
+		}
 		switch (func.context) {
 			case CAMERA:
 				if (!inCameraBlock) {
-					throw new ParseError("Statement must be called within a camera block", file, line, col);
+					throw new ParseError("Function "+func+" must be called within a camera block", file, line, col);
 				}
 				break;
 			case DIALOGUE:
 				if (!inDialogueBlock) {
-					throw new ParseError("Statement must be called within a camera block", file, line, col);
+					throw new ParseError("Function "+func+" must be called within a camera block", file, line, col);
 				}
 				break;
+			case CAMERA_OR_DIALOGUE:
+				if (!inCameraBlock && !inDialogueBlock) {
+					throw new ParseError("Function "+func+" must be called within a camera/dialogue block", file, line, col);
+				}
+				break;
+			default:
 		}
 	}
 	
@@ -6313,15 +6289,6 @@ public class CHLCompiler implements Compiler {
 		return instructions.size();
 	}
 	
-	private static String join(String sep, Object[] items) {
-		if (items.length == 0) return "";
-		String r = String.valueOf(items[0]);
-		for (int i = 1; i < items.length; i++) {
-			r += sep + String.valueOf(items[i]);
-		}
-		return r;
-	}
-	
 	
 	private static class ScriptToResolve {
 		public final File file;
@@ -6338,22 +6305,6 @@ public class CHLCompiler implements Compiler {
 			this.instr = instr;
 			this.name = name;
 			this.argc = argc;
-		}
-	}
-	
-	
-	private static class Var {
-		public final String name;
-		public final int index;
-		public final int size;	//CI introduced arrays
-		public final float val;	//CI introduced default value
-		
-		public Var(String name, int index, int size, float val) {
-			if (size <= 0) throw new IllegalArgumentException("Invalid variable size: "+size);
-			this.name = name;
-			this.index = index;
-			this.size = size;
-			this.val = val;
 		}
 	}
 }

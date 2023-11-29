@@ -15,7 +15,7 @@
  */
 package it.ld.bw.chl.lang.decompiler;
 
-import static it.ld.bw.chl.lang.decompiler.Utils.*;
+import static it.ld.bw.chl.lang.Utils.*;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -49,8 +49,12 @@ import it.ld.bw.chl.exceptions.InvalidVariableIdException;
 import it.ld.bw.chl.exceptions.ParseException;
 import it.ld.bw.chl.exceptions.ScriptNotFoundException;
 import it.ld.bw.chl.lang.CHeaderParser;
+import it.ld.bw.chl.lang.Scope;
 import it.ld.bw.chl.lang.Symbol;
 import it.ld.bw.chl.lang.Syntax;
+import it.ld.bw.chl.lang.Type;
+import it.ld.bw.chl.lang.Utils;
+import it.ld.bw.chl.lang.Var;
 import it.ld.bw.chl.lang.Symbol.TerminalType;
 import it.ld.bw.chl.model.CHLFile;
 import it.ld.bw.chl.model.DataType;
@@ -733,7 +737,7 @@ public class CHLDecompiler {
 							if (func.context == Context.CAMERA) {
 								requiresCamera = true;
 								if (requiresDialogue) break;
-							} else if (func.context == Context.DIALOGUE) {
+							} else if (func.context == Context.DIALOGUE || func.context == Context.CAMERA_OR_DIALOGUE) {
 								requiresDialogue = true;
 								if (requiresCamera) break;
 							}
@@ -2399,7 +2403,7 @@ public class CHLDecompiler {
 	
 	private static void loadStatements() {
 		int lineno = 0;
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(Syntax.class.getResourceAsStream(STATEMENTS_FILE)));) {
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(CHLDecompiler.class.getResourceAsStream(STATEMENTS_FILE)));) {
 			String line = "";
 			while ((line = reader.readLine()) != null) {
 				lineno++;

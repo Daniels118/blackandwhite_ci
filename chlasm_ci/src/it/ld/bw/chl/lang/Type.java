@@ -13,11 +13,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.ld.bw.chl.lang.decompiler;
+package it.ld.bw.chl.lang;
 
 import it.ld.bw.chl.model.NativeFunction.ArgType;
 
-class Type {
+public class Type {
 	public static final Type UNKNOWN = new Type(ArgType.UNKNOWN);
 	public static final Type INT = new Type(ArgType.INT);
 	public static final Type FLOAT = new Type(ArgType.FLOAT);
