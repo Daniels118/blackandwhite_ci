@@ -1,4 +1,21 @@
-package it.ld.bw.chl.lang;
+/* Copyright (c) 2023 Daniele Lombardi / Daniels118
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package it.ld.bw.chl.lang.decompiler;
+
+import static it.ld.bw.chl.lang.decompiler.Utils.*;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -12,8 +29,6 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.Writer;
 import java.nio.file.Path;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,7 +36,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -34,6 +48,9 @@ import it.ld.bw.chl.exceptions.InvalidScriptIdException;
 import it.ld.bw.chl.exceptions.InvalidVariableIdException;
 import it.ld.bw.chl.exceptions.ParseException;
 import it.ld.bw.chl.exceptions.ScriptNotFoundException;
+import it.ld.bw.chl.lang.CHeaderParser;
+import it.ld.bw.chl.lang.Symbol;
+import it.ld.bw.chl.lang.Syntax;
 import it.ld.bw.chl.lang.Symbol.TerminalType;
 import it.ld.bw.chl.model.CHLFile;
 import it.ld.bw.chl.model.DataType;
@@ -51,11 +68,6 @@ public class CHLDecompiler {
 	public static boolean traceEnabled = false;
 	
 	private static final String STATEMENTS_FILE = "statements.txt";
-	
-	private static final char[] ILLEGAL_CHARACTERS = {'/', '\n', '\r', '\t', '\0', '\f', '`', '?', '*', '\\', '<', '>', '|', '\"', ':'};
-	
-	private static final int SIGNIFICANT_DIGITS = 8;
-	private static final DecimalFormat decimalFormat = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
 	
 	private static final Expression END_SCRIPT = new Expression("end script");
 	private static final Expression SELF_ASSIGN = new Expression("?");
@@ -125,6 +137,8 @@ public class CHLDecompiler {
 	private static void addEnumOption(String keyword, String...options) {
 		enumOptions.put(keyword, options);
 	}
+	
+	private final Set<String> writtenSources = new HashSet<>();
 	
 	private final Map<String, String> subtypes = new HashMap<>();
 	private final Map<String, Map<Integer, String>> enums = new HashMap<>();
@@ -339,6 +353,7 @@ public class CHLDecompiler {
 	public void decompile(CHLFile chl, File outdir) throws IOException, DecompileException {
 		this.chl = chl;
 		this.path = outdir.toPath();
+		writtenSources.clear();
 		definedScripts.clear();
 		globalMap.clear();
 		stack.clear();
@@ -395,7 +410,15 @@ public class CHLDecompiler {
 				throw new RuntimeException("Invalid source filename: " + sourceFilename);
 			}
 			File sourceFile = path.resolve(sourceFilename).toFile();
-			info("Writing "+sourceFilename);
+			if (writtenSources.contains(sourceFile.getName())) {
+				int index = 0;
+				do {
+					sourceFile = path.resolve(addSuffix(sourceFile, "_"+(++index))).toFile();
+				} while (writtenSources.contains(sourceFile.getName()));
+				notice("NOTICE: a source file named "+sourceFilename+" has already been written to outputdir. "
+						+ "The file will be written as ");
+			}
+			info("Writing "+sourceFile.getName());
 			try (Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
 				writer = str;
 				lineno = 1;
@@ -406,6 +429,7 @@ public class CHLDecompiler {
 				insertRequiredDefinitions(sourceFile);
 				requiredScripts.clear();
 			}
+			writtenSources.add(sourceFile.getName());
 		}
 		//Additional enums
 		if (!requiredConstants.isEmpty()) {
@@ -446,7 +470,7 @@ public class CHLDecompiler {
 			for (int i = 0; i < requiredSpace; i++) {
 				if (header.isEmpty()) break;
 				if (!getLast(header).isBlank()) break;
-				pop(header);
+				Utils.pop(header);
 			}
 			//Write header
 			for (String h : header) {
@@ -974,7 +998,7 @@ public class CHLDecompiler {
 							guessed = true;
 						}
 						String params = param.toString();
-						pop(typeContextStack);
+						Utils.pop(typeContextStack);
 						for (int i = script.getParameterCount() - 2; i >= 0; i--) {
 							typeContextStack.add(paramTypes[i]);
 							param = decompile();
@@ -983,7 +1007,7 @@ public class CHLDecompiler {
 								guessed = true;
 							}
 							params = param + ", " + params;
-							pop(typeContextStack);
+							Utils.pop(typeContextStack);
 						}
 						line += "(" + params + ")";
 						if (guessed) {
@@ -1004,12 +1028,12 @@ public class CHLDecompiler {
 						op2 = decompile();
 						typeContextStack.add(op2.getVar().type);
 						op1 = decompile();
-						pop(typeContextStack);
+						Utils.pop(typeContextStack);
 					} else if (op1.isVar() && op2.type == Type.INT) {
 						gotoAddress(start);
 						typeContextStack.add(op1.getVar().type);
 						op2 = decompile();
-						pop(typeContextStack);
+						Utils.pop(typeContextStack);
 						op1 = decompile();
 					}
 				}
@@ -1047,7 +1071,7 @@ public class CHLDecompiler {
 					}
 					op2 = decompile();
 					if (var.type != null) {
-						pop(typeContextStack);
+						Utils.pop(typeContextStack);
 					}
 					setVarType(var, op2);
 					return new Expression(varName + " = " + op2);
@@ -1143,7 +1167,7 @@ public class CHLDecompiler {
 						gotoAddress(start);
 						typeContextStack.add(var.type);
 						op2 = decompile();
-						pop(typeContextStack);
+						Utils.pop(typeContextStack);
 						pInstr = prev();	//POPI
 						pInstr = prev();	//REF_AND_OFFSET_PUSH
 						pInstr = prev();	//PUSHV var
@@ -1456,7 +1480,7 @@ public class CHLDecompiler {
 					String entry = getEnumEntry(ArgType.AUDIO_SFX_BANK_TYPE, val);
 					subtype = subtypes.get(entry);
 				}
-				pop(typeContextStack);
+				Utils.pop(typeContextStack);
 				//
 				if (expr.isVar()) {
 					//Guess variable type
@@ -1515,7 +1539,7 @@ public class CHLDecompiler {
 	}
 	
 	private void popBlock() {
-		pop(blocks);
+		Utils.pop(blocks);
 		currentBlock = blocks.isEmpty() ? null : getLast(blocks);
 		decTabs();
 	}
@@ -2015,16 +2039,6 @@ public class CHLDecompiler {
 		return param;
 	}
 	
-	private static void skipNulls(ListIterator<?> iterator) {
-		if (iterator.hasNext()) {
-			Object item = iterator.next();
-			while (item == null) {
-				item = iterator.next();
-			}
-			iterator.previous();
-		}
-	}
-	
 	private void trace(String string) {
 		if (traceEnabled) {
 			out.println(string);
@@ -2159,7 +2173,7 @@ public class CHLDecompiler {
 				int argc = 0;
 				for (int i = 0; i < func.args.length; i++) {
 					if (func.args[i].varargs) {
-						argc = pop(argcStack);
+						argc = Utils.pop(argcStack);
 						for (int j = 0; j < argc; j++) {
 							push(ArgType.UNKNOWN);
 						}
@@ -2332,7 +2346,7 @@ public class CHLDecompiler {
 		if (stack.isEmpty()) {
 			throw new DecompileException("Cannot pop value from empty stack", currentScript, ip, instructions.get(ip));
 		}
-		return pop(stack);
+		return Utils.pop(stack);
 	}
 	
 	private void decTabs() {
@@ -2383,55 +2397,6 @@ public class CHLDecompiler {
 		return var;
 	}
 	
-	
-	private static <T> T getLast(List<T> list) {
-		return list.get(list.size() - 1);
-	}
-	
-	private static <T> T pop(List<T> stack) {
-		return stack.remove(stack.size() - 1);
-	}
-	
-	private static String escape(String string) {
-		string = string.replace("\\", "\\\\");
-		string = string.replace("\"", "\\\"");
-		return "\"" + string + "\"";
-	}
-	
-	private static String format(float v) {
-		//return Integer.toHexString(Float.floatToRawIntBits(v));
-		/*if (Math.abs(v) <= 16777216 && (int)v == v) {
-			return String.valueOf((int)v);
-		}*/
-		decimalFormat.setMaximumFractionDigits(SIGNIFICANT_DIGITS - 1);
-		String r = decimalFormat.format(v);
-		int nInt = r.indexOf('.');	//Compute the number of int digits
-		if (nInt > 1) {
-			int nDec = Math.max(1, Math.min(SIGNIFICANT_DIGITS - nInt, SIGNIFICANT_DIGITS - 1));
-			decimalFormat.setMaximumFractionDigits(nDec);
-			r = decimalFormat.format(v);
-		}
-		return r;
-	}
-	
-	private static boolean isValidFilename(String s) {
-		for (char c : ILLEGAL_CHARACTERS) {
-			if (s.indexOf(c) >= 0) return false;
-		}
-		return true;
-	}
-	
-	private static String join(String separator, Object[] items) {
-		if (items.length == 0) return "";
-		StringBuilder res = new StringBuilder(16 * items.length);
-		res.append(String.valueOf(items[0]));
-		for (int i = 1; i < items.length; i++) {
-			res.append(separator);
-			res.append(String.valueOf(items[i]));
-		}
-		return res.toString();
-	}
-	
 	private static void loadStatements() {
 		int lineno = 0;
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(Syntax.class.getResourceAsStream(STATEMENTS_FILE)));) {
@@ -2458,359 +2423,6 @@ public class CHLDecompiler {
 			}
 		} catch (Exception e) {
 			throw new RuntimeException(e.getMessage() + " at line " + lineno, e);
-		}
-	}
-	
-	
-	private enum Scope {
-		global, local
-	}
-	
-	
-	private static class Type {
-		public static final Type UNKNOWN = new Type(ArgType.UNKNOWN);
-		public static final Type INT = new Type(ArgType.INT);
-		public static final Type FLOAT = new Type(ArgType.FLOAT);
-		public static final Type BOOL = new Type(ArgType.BOOL);
-		public static final Type COORD = new Type(ArgType.COORD);
-		public static final Type OBJECT = new Type(ArgType.OBJECT);
-		
-		public final ArgType type;
-		public final String specificType;
-		
-		public Type(ArgType type) throws NullPointerException {
-			this.type = type;
-			this.specificType = null;
-		}
-		
-		public Type(ArgType type, String specificType) throws IllegalArgumentException {
-			this.type = type;
-			this.specificType = specificType;
-			if (type == null) {
-				throw new IllegalArgumentException("Type cannot be null");
-			}
-		}
-		
-		public boolean isEnum() {
-			return type.isEnum;
-		}
-		
-		public boolean isGenericEnum() {
-			return type.isEnum && specificType == null;
-		}
-		
-		public boolean isSpecificEnum() {
-			return type.isEnum && specificType != null;
-		}
-		
-		public boolean isObject() {
-			return type == ArgType.OBJECT;
-		}
-		
-		public boolean isGenericObject() {
-			return type == ArgType.OBJECT && specificType == null;
-		}
-		
-		public boolean isSpecificObject() {
-			return type == ArgType.OBJECT && specificType != null;
-		}
-		
-		@Override
-		public int hashCode() {
-			return type.hashCode();
-		}
-		
-		@Override
-		public boolean equals(Object obj) {
-			if (!(obj instanceof Type)) return false;
-			Type other = (Type) obj;
-			if (this.type != other.type) return false;
-			if (this.specificType == null && other.specificType != null) {
-				return false;
-			}else if (this.specificType != null && other.specificType == null) {
-				return false;
-			} else if (this.specificType != null && other.specificType != null) {
-				if (!this.specificType.equals(other.specificType)) return false;
-			}
-			return true;
-		}
-		
-		public String toString() {
-			if (type == ArgType.OBJECT) {
-				if (specificType != null) {
-					return type.keyword+"<"+specificType+">";
-				} else {
-					return type.keyword;
-				}
-			} else if (specificType != null) {
-				return specificType;
-			} else {
-				return type.keyword;
-			}
-		}
-	}
-	
-	
-	private static class Var {
-		public final Scope scope;
-		public final String name;
-		public final int index;
-		public int size;			//CI introduced arrays
-		public final float val;		//CI introduced default value
-		public Type type;			//Guessed type
-		
-		public Var(Scope scope, String name, int index, int size, float val) {
-			if (size <= 0) throw new IllegalArgumentException("Invalid variable size: "+size);
-			this.scope = scope;
-			this.name = name;
-			this.index = index;
-			this.size = size;
-			this.val = val;
-		}
-		
-		public boolean isArray() {
-			return size > 1;
-		}
-		
-		@Override
-		public String toString() {
-			return scope + " variable " + name;
-		}
-	}
-	
-	
-	private static class Expression {
-		private final String value;
-		public final boolean lowPriority;
-		public Type type;
-		private final Integer intVal;
-		private final Float floatVal;
-		private final Boolean boolVal;
-		private final Var var;
-		public final boolean isExpression;
-		
-		public Expression(String value) {
-			this(value, false, null, 0);
-		}
-		
-		public Expression(int intVal) {
-			this(null, false, Type.INT, intVal);
-		}
-		
-		public Expression(float floatVal) {
-			this(null, false, Type.FLOAT, floatVal);
-		}
-		
-		public Expression(boolean boolVal) {
-			this(null, false, Type.BOOL, boolVal);
-		}
-		
-		public Expression(Var var) {
-			this(null, false, var.type, var);
-		}
-		
-		public Expression(String value, Var var) {
-			this(value, false, null, var);
-		}
-		
-		public Expression(String value, boolean lowPriority) {
-			this(value, lowPriority, null, 0);
-		}
-		
-		public Expression(String value, ArgType type, String specificType) {
-			this(value, false,
-					type == null ? null : new Type(type, specificType),
-					(Integer)null);
-		}
-		
-		public Expression(String value, boolean lowPriority, ArgType type, String specificType) {
-			this(value, lowPriority,
-					type == null ? null : new Type(type, specificType),
-					(Integer)null);
-		}
-		
-		public Expression(String value, Type type) {
-			this(value, false, type, (Integer)null);
-		}
-		
-		public Expression(String value, int intVal) {
-			this(value, false, Type.INT, intVal);
-		}
-		
-		public Expression(String value, boolean lowPriority, Type type, Integer intVal) {
-			this.isExpression = value != null;
-			this.value = isExpression ? value : String.valueOf(intVal);
-			this.lowPriority = lowPriority;
-			this.type = type;
-			this.intVal = intVal;
-			this.floatVal = null;
-			this.boolVal = null;
-			this.var = null;
-		}
-		
-		public Expression(String value, boolean lowPriority, Type type, Float floatVal) {
-			this.isExpression = value != null;
-			this.value = isExpression ? value : format(floatVal);
-			this.lowPriority = lowPriority;
-			this.type = type;
-			this.intVal = null;
-			this.floatVal = floatVal;
-			this.boolVal = null;
-			this.var = null;
-		}
-		
-		public Expression(String value, boolean lowPriority, Type type, Boolean boolVal) {
-			this.isExpression = value != null;
-			this.value = isExpression ? value : String.valueOf(boolVal);
-			this.lowPriority = lowPriority;
-			this.type = type;
-			this.intVal = null;
-			this.floatVal = null;
-			this.boolVal = boolVal;
-			this.var = null;
-		}
-		
-		public Expression(String value, boolean lowPriority, Type type, Var var) {
-			this.isExpression = value != null;
-			this.value = isExpression ? value : var.name;
-			this.lowPriority = lowPriority;
-			this.type = type;
-			this.intVal = 0;
-			this.floatVal = 0f;
-			this.boolVal = false;
-			this.var = var;
-		}
-		
-		public boolean isNumber() {
-			if (type == null) return false;
-			return type.type == ArgType.FLOAT || type.type == ArgType.INT;
-		}
-		
-		public boolean isBool() {
-			if (type == null) return false;
-			return type.type == ArgType.BOOL;
-		}
-		
-		public boolean isVar() {
-			return var != null;
-		}
-		
-		public Integer intVal() {
-			if (!isNumber()) {
-				throw new RuntimeException("Not a number");
-			}
-			return intVal;
-		}
-		
-		public Float floatVal() {
-			if (!isNumber()) {
-				throw new RuntimeException("Not a number");
-			}
-			return floatVal;
-		}
-		
-		public Boolean boolVal() {
-			if (!isBool()) {
-				throw new RuntimeException("Not a bool");
-			}
-			return boolVal;
-		}
-		
-		public Var getVar() {
-			if (!isVar()) {
-				throw new RuntimeException("Not a variable");
-			}
-			return var;
-		}
-		
-		public String safe() {
-			return lowPriority ? "("+value+")" : value;
-		}
-		
-		@Override
-		public String toString() {
-			return value;
-		}
-	}
-	
-	
-	private enum BlockType {
-		SCRIPT, IF, ELSIF, ELSE, WHILE, LOOP, WHEN, UNTIL
-	}
-	
-	
-	private static class Block {
-		public BlockType type;
-		public int begin;
-		public int end;
-		public int farEnd;
-		public int exceptionHandlerBegin;
-		
-		public Block(int begin, BlockType type, int end) {
-			this(begin, type, end, -1);
-		}
-		
-		public Block(int begin, BlockType type, int end, int exceptionHandlerBegin) {
-			this.begin = begin;
-			this.type = type;
-			this.end = end;
-			this.exceptionHandlerBegin = exceptionHandlerBegin;
-		}
-		
-		public boolean is(BlockType...types) {
-			for (BlockType t : types) {
-				if (type == t) return true;
-			}
-			return false;
-		}
-		
-		@Override
-		public String toString() {
-			return type.name();
-		}
-	}
-	
-	
-	private static class StackVal {
-		public final ArgType type;
-		private Integer intVal;
-		private Float floatVal;
-		private Boolean boolVal;
-		
-		public StackVal(ArgType type) {
-			this.type = type;
-		}
-		
-		public StackVal(ArgType type, int intVal) {
-			this.type = type;
-			this.intVal = intVal;
-		}
-		
-		public StackVal(ArgType type, float floatVal) {
-			this.type = type;
-			this.floatVal = floatVal;
-		}
-		
-		public StackVal(ArgType type, boolean boolVal) {
-			this.type = type;
-			this.boolVal = boolVal;
-		}
-		
-		public int intVal() throws DecompileException {
-			if (intVal == null) throw new DecompileException("Unknown stack value");
-			return intVal;
-		}
-		@Override
-		public String toString() {
-			String r = type.toString();
-			if (intVal != null) {
-				r += " " + intVal;
-			} else if (floatVal != null) {
-				r += " " + floatVal;
-			} else if (boolVal != null) {
-				r += " " + boolVal;
-			}
-			return r;
 		}
 	}
 }
