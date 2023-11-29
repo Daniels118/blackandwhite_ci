@@ -162,7 +162,7 @@ public class CHLDecompiler {
 	
 	private int heuristicLevel = 0;
 	private boolean respectLinenoEnabled = false;
-	private boolean defineUnknownConstantsEnabled = false;
+	private boolean defineUnknownEnumsEnabled = false;
 	
 	public CHLDecompiler() {
 		this(System.out);
@@ -212,12 +212,12 @@ public class CHLDecompiler {
 		this.respectLinenoEnabled = respectLinenoEnabled;
 	}
 	
-	public boolean isDefineUnknownConstantsEnabled() {
-		return defineUnknownConstantsEnabled;
+	public boolean isDefineUnknownEnumsEnabled() {
+		return defineUnknownEnumsEnabled;
 	}
 
-	public void setDefineUnknownConstantsEnabled(boolean enabled) {
-		this.defineUnknownConstantsEnabled = enabled;
+	public void setDefineUnknownEnumsEnabled(boolean enabled) {
+		this.defineUnknownEnumsEnabled = enabled;
 	}
 
 	public void loadSubtypes(File file) {
@@ -409,7 +409,7 @@ public class CHLDecompiler {
 		}
 		//Additional enums
 		if (!requiredConstants.isEmpty()) {
-			File file = path.resolve("_additional_headers.h").toFile();
+			File file = path.resolve("_enums.h").toFile();
 			info("Writing "+file.getName());
 			try (Writer str = new BufferedWriter(new FileWriter(file));) {
 				writer = str;
@@ -418,7 +418,7 @@ public class CHLDecompiler {
 				List<Integer> sortedConstants = new ArrayList<>(requiredConstants);
 				Collections.sort(sortedConstants);
 				for (Integer val : sortedConstants) {
-					writeln("\t_UNK"+val+" = "+val+",");
+					writeln("\tUNK"+val+" = "+val+",");
 				}
 				writeln("};");
 			}
@@ -845,12 +845,12 @@ public class CHLDecompiler {
 					case FLOAT:
 						op1 = decompile();
 						if (op1.isNumber() && !op1.isExpression) {
-							if (defineUnknownConstantsEnabled) {
+							if (defineUnknownEnumsEnabled) {
 								requiredConstants.add(op1.intVal());
-								return new Expression("variable _UNK" + op1.intVal(), op1.type);
+								return new Expression("variable UNK" + op1.intVal(), op1.type);
 							} else {
 								//Workaround for missing constants
-								return new Expression(op1.floatVal());
+								return new Expression(op1.intVal());
 							}
 						} else {
 							return new Expression("variable " + op1.safe(), op1.type);
@@ -1995,17 +1995,17 @@ public class CHLDecompiler {
 				if (entry != null) {
 					String alias = getSymbol(contextType.toString(), val);
 					return new Expression(alias, val);
-				} else if (defineUnknownConstantsEnabled) {
+				} else if (defineUnknownEnumsEnabled) {
 					requiredConstants.add(param.intVal());
-					return new Expression("_UNK" + param.intVal(), param.type);
+					return new Expression("UNK" + param.intVal(), param.type);
 				} else {
 					//Workaround for missing constants
 					return new Expression("constant "+param);
 				}
 			} else if (!param.isExpression) {
-				if (defineUnknownConstantsEnabled) {
+				if (defineUnknownEnumsEnabled) {
 					requiredConstants.add(param.intVal());
-					return new Expression("_UNK" + param.intVal(), param.type);
+					return new Expression("UNK" + param.intVal(), param.type);
 				} else {
 					//Workaround for missing constants
 					return new Expression("constant "+param);

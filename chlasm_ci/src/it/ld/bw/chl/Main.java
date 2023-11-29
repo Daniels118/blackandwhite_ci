@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import it.ld.bw.chl.CHLComparator.Mode;
 import it.ld.bw.chl.exceptions.ParseError;
 import it.ld.bw.chl.exceptions.ParseException;
 import it.ld.bw.chl.lang.ASMCompiler;
@@ -204,7 +205,7 @@ public class Main {
 			decompiler.addAlias(file);
 		}
 		decompiler.setHeuristicLevel((int)cmd.getArgInt("-hl", 2));
-		decompiler.setDefineUnknownConstantsEnabled(cmd.getArgFlag("-dc"));
+		decompiler.setDefineUnknownEnumsEnabled(cmd.getArgFlag("-de"));
 		decompiler.setRespectLinenoEnabled(cmd.getArgFlag("-rln"));
 		//
 		System.out.println("Loading compiled CHL...");
@@ -228,9 +229,10 @@ public class Main {
 	}
 	
 	private static void compare(CmdLine cmd) throws Exception {
+		CHLComparator comparator = new CHLComparator();
 		File f1 = mandatory(cmd.getArgFile("-f1"), "-f1");
 		File f2 = mandatory(cmd.getArgFile("-f2"), "-f2");
-		boolean strict = cmd.getArgFlag("-strict");
+		comparator.setMode(Mode.valueOf(cmd.getArgVal("-m", "normal")));
 		Set<String> scripts = new HashSet<>(cmd.getArgVals("-s"));
 		if (scripts.isEmpty()) scripts = null;
 		//
@@ -241,8 +243,6 @@ public class Main {
 		CHLFile chl2 = new CHLFile();
 		chl2.read(f2);
 		System.out.println("Comparing...");
-		CHLComparator comparator = new CHLComparator();
-		comparator.setStrict(strict);
 		comparator.compare(chl1, chl2, scripts);
 	}
 	

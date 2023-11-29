@@ -42,7 +42,11 @@ import it.ld.bw.chl.model.Scripts;
  * and reference the same data.
  */
 public class CHLComparator {
-	private boolean strict;
+	public enum Mode {
+		normal, loose, strict
+	}
+	
+	private Mode mode;
 	private PrintStream out;
 	
 	public CHLComparator() {
@@ -53,12 +57,12 @@ public class CHLComparator {
 		this.out = out;
 	}
 	
-	public boolean isStrict() {
-		return strict;
+	public Mode getMode() {
+		return mode;
 	}
 	
-	public void setStrict(boolean strict) {
-		this.strict = strict;
+	public void setMode(Mode mode) {
+		this.mode = mode;
 	}
 	
 	public boolean compare(CHLFile a, CHLFile b) {
@@ -77,7 +81,7 @@ public class CHLComparator {
 		//Global variables
 		List<String> globalVars1 = a.getGlobalVariables().getNames();
 		List<String> globalVars2 = a.getGlobalVariables().getNames();
-		if (strict) {
+		if (mode == Mode.strict) {
 			if (!globalVars1.equals(globalVars2)) {
 				out.println("Global vars differ:");
 				out.println(globalVars1.size());
@@ -141,7 +145,7 @@ public class CHLComparator {
 					out.println();
 					res = false;
 				} else {
-					if (strict) {
+					if (mode == Mode.strict) {
 						if (script1.getScriptID() != script2.getScriptID()) {
 							out.println("Script "+name+" id: "+script1.getScriptID()+" -> "+script2.getScriptID());
 							res = false;
@@ -173,7 +177,7 @@ public class CHLComparator {
 							}
 							//
 							boolean eq = true;
-							if (strict) {
+							if (mode == Mode.strict) {
 								if (instr1.opcode != instr2.opcode || instr1.flags != instr2.flags
 										|| instr1.dataType != instr2.dataType
 										|| instr1.floatVal != instr2.floatVal || instr1.boolVal != instr2.boolVal
@@ -185,13 +189,53 @@ public class CHLComparator {
 								if (instr1.opcode != instr2.opcode || instr1.flags != instr2.flags
 										|| instr1.dataType != instr2.dataType
 										|| instr1.floatVal != instr2.floatVal || instr1.boolVal != instr2.boolVal) {
-									eq = false;
-									stop = true;
-								} else if (instr1.opcode.isIP) {
-									int relDst1 = instr1.intVal - offset1;
-									int relDst2 = instr2.intVal - offset2;
-									if (relDst1 != relDst2) {
+									boolean looseMatch = false;
+									if (mode == Mode.loose && instr1.opcode == OPCode.PUSH && instr2.opcode == OPCode.PUSH) {
+										if (instr1.dataType == DataType.INT && instr2.dataType == DataType.FLOAT) {
+											Instruction nInstr1 = instructions1.get(index1 + 1);
+											Instruction nInstr2 = instructions2.get(index2 + 1);
+											if (nInstr1.opcode == OPCode.CAST && nInstr1.dataType == DataType.FLOAT) {
+												if ((float)instr1.intVal == instr2.floatVal) {
+													index1++;
+													instr1 = it1.next();
+													looseMatch = true;
+												}
+											} else if (nInstr2.opcode == OPCode.CAST && nInstr2.dataType == DataType.INT) {
+												if (instr1.intVal == (int)instr2.floatVal) {
+													index2++;
+													instr2 = it2.next();
+													looseMatch = true;
+												}
+											}
+										} else if (instr1.dataType == DataType.FLOAT && instr2.dataType == DataType.INT) {
+											Instruction nInstr1 = instructions1.get(index1 + 1);
+											Instruction nInstr2 = instructions2.get(index2 + 1);
+											if (nInstr1.opcode == OPCode.CAST && nInstr1.dataType == DataType.INT) {
+												if ((int)instr1.intVal == instr2.floatVal) {
+													index1++;
+													instr1 = it1.next();
+													looseMatch = true;
+												}
+											} else if (nInstr2.opcode == OPCode.CAST && nInstr2.dataType == DataType.FLOAT) {
+												if (instr1.intVal == (float)instr2.floatVal) {
+													index2++;
+													instr2 = it2.next();
+													looseMatch = true;
+												}
+											}
+										}
+									}
+									if (!looseMatch) {
 										eq = false;
+										stop = true;
+									}
+								} else if (instr1.opcode.isIP) {
+									if (mode != Mode.loose) {
+										int relDst1 = instr1.intVal - offset1;
+										int relDst2 = instr2.intVal - offset2;
+										if (relDst1 != relDst2) {
+											eq = false;
+										}
 									}
 								} else if (instr1.opcode.isScript) {
 									try {
@@ -273,7 +317,7 @@ public class CHLComparator {
 		//Autostart scripts
 		List<Integer> autostart1 = a.getAutoStartScripts().getScripts();
 		List<Integer> autostart2 = b.getAutoStartScripts().getScripts();
-		if (strict) {
+		if (mode == Mode.strict) {
 			if (!autostart1.equals(autostart2)) {
 				out.println("Autostart scripts: "+autostart1+" -> "+autostart2);
 				res = false;
@@ -309,7 +353,7 @@ public class CHLComparator {
 			}
 		}
 		//Data
-		if (strict) {
+		if (mode == Mode.strict) {
 			byte[] rawData1 = a.getDataSection().getData();
 			byte[] rawData2 = b.getDataSection().getData();
 			if (!Arrays.equals(rawData1, rawData2)) {
@@ -323,7 +367,7 @@ public class CHLComparator {
 		//Init globals
 		List<InitGlobal> inits1 = a.getInitGlobals().getItems();
 		List<InitGlobal> inits2 = b.getInitGlobals().getItems();
-		if (strict) {
+		if (mode == Mode.strict) {
 			if (!inits1.equals(inits2)) {
 				out.println("Init globals mismatch:");
 				out.println(inits1);
@@ -355,14 +399,18 @@ public class CHLComparator {
 		}
 		//
 		if (res) {
-			if (strict) {
+			if (mode == Mode.strict) {
 				out.println("Files have a strict match!");
+			} else if (mode == Mode.loose) {
+				out.println("Files have a loose match, be careful!");
 			} else {
 				out.println("Files are functionally identical!");
 			}
 		} else {
-			if (strict) {
+			if (mode == Mode.strict) {
 				out.println("Files don't match. You may retry without strict option.");
+			} else if (mode == Mode.normal) {
+				out.println("Files don't match. You may retry with loose option.");
 			} else {
 				out.println("Files don't match");
 			}

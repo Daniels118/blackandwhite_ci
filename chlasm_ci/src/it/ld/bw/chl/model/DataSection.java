@@ -16,7 +16,6 @@
 package it.ld.bw.chl.model;
 
 import java.io.EOFException;
-import java.nio.charset.Charset;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -90,7 +89,7 @@ public class DataSection extends Section {
 	}
 	
 	private static boolean isPrintable(char c) {
-		return c > 31 && c < 127;
+		return c > 31;
 	}
 	
 	private static int getZString(byte[] data, int offset) {
@@ -133,7 +132,6 @@ public class DataSection extends Section {
 		}
 		
 		public String getString() {
-			final Charset ASCII = Charset.forName("US-ASCII");
 			return new String(data, offset, length, ASCII);
 		}
 		
