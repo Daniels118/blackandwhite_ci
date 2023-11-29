@@ -459,7 +459,7 @@ CONDITION: {
 	COORD_EXPR viewed
 	OBJECT active
 	OBJECT viewed
-	key CONST_EXPR down
+	key LH_KEY down
 	COORD_EXPR valid for creature
 	OBJECT can view camera in EXPRESSION degrees
 	inside temple
@@ -806,6 +806,8 @@ SCRIPT_BOOL: CONST_EXPR
 SCRIPT_DEV_FUNCTION: CONST_EXPR
 
 ANIM_LIST: CONST_EXPR
+
+LH_KEY: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

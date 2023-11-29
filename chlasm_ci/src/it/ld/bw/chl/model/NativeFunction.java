@@ -457,7 +457,7 @@ public enum NativeFunction {
 	/*408*/ WITHIN_ROTATION("", "bool"),
 	/*409*/ GET_PLAYER_TOWN_TOTAL("float player", "float"),
 	/*410*/ SPIRIT_SCREEN_POINT(3),
-	/*411*/ KEY_DOWN("int key", "bool"),
+	/*411*/ KEY_DOWN("LH_KEY key", "bool"),
 	/*412*/ SET_FIGHT_CAMERA_EXIT(1, 0),
 	/*413*/ GET_OBJECT_CLICKED("", "Object"),
 	/*414*/ GET_MANA("Object worshipSite", "float"),
@@ -502,7 +502,7 @@ public enum NativeFunction {
 	/*453*/ CAN_SKIP_CREATURE_TRAINING("", "bool"),
 	/*454*/ IS_KEEPING_OLD_CREATURE("", "bool"),
 	/*455*/ CURRENT_PROFILE_HAS_CREATURE("", "bool"),
-	/*456*/ THING_PLAY_ANIM("Object object, int animation, float loop"),
+	/*456*/ THING_PLAY_ANIM("Object object, ANIM_LIST animation, float loop"),
 	/*457*/ SET_SCRIPT_STATE_WITH_PARAMS("Object obj, int state, Coord pos, float fVal, float ulong0, float ulong1"),
 	/*458*/ START_COUNTDOWN_TIMER("bool alwaysFalse, float wait"),
 	/*459*/ END_COUNTDOWN_TIMER(0, 0),
@@ -795,58 +795,59 @@ public enum NativeFunction {
 		/* The following are enums. */
 		
 		//From ScriptEnums.h
-		SCRIPT_OBJECT_TYPE(),
-		SCRIPT_OBJECT_SUBTYPE(),		//various enums
-		SCRIPT_OBJECT_PROPERTY_TYPE(),
-		SCRIPT_BOOL(),
-		SCRIPT_INTERFACE_LEVEL(),
-		SCRIPT_DEV_FUNCTION(),
+		SCRIPT_OBJECT_TYPE,
+		SCRIPT_OBJECT_SUBTYPE,			//various enums
+		SCRIPT_OBJECT_PROPERTY_TYPE,
+		SCRIPT_BOOL,
+		SCRIPT_INTERFACE_LEVEL,
+		SCRIPT_DEV_FUNCTION,
 		
 		//From Enum.h
-		MAGIC_TYPE(),
-		TOWN_DESIRE_INFO(),
-		IMMERSION_EFFECT_TYPE(),
-		CARRIED_OBJECT(),
-		REACTION(),
-		ABODE_NUMBER(),
-		TRIBE_TYPE(),
-		DANCE_INFO(),
-		REWARD_OBJECT_INFO(),
-		HIGHLIGHT_INFO(),
-		RESOURCE_TYPE(),
-		HELP_SPIRIT_TYPE(),
-		VILLAGER_DISCIPLE(),
-		DYK_CATEGORY(),
-		SCRIPT_PUZZLE_GAME_STATUS(),
-		LEASH_TYPE(),
-		CREATURE_DESIRES(),
-		CREATURE_ACTION_LEARNING_TYPE(),
-		CREATURE_ACTION_SUBTYPE(),		//various enums
+		MAGIC_TYPE,
+		TOWN_DESIRE_INFO,
+		IMMERSION_EFFECT_TYPE,
+		CARRIED_OBJECT,
+		REACTION,
+		ABODE_NUMBER,
+		TRIBE_TYPE,
+		DANCE_INFO,
+		REWARD_OBJECT_INFO,
+		HIGHLIGHT_INFO,
+		RESOURCE_TYPE,
+		HELP_SPIRIT_TYPE,
+		VILLAGER_DISCIPLE,
+		DYK_CATEGORY,
+		SCRIPT_PUZZLE_GAME_STATUS,
+		LEASH_TYPE,
+		CREATURE_DESIRES,
+		CREATURE_ACTION_LEARNING_TYPE,
+		CREATURE_ACTION_SUBTYPE,		//various enums
 		
 		//From CreatureEnum.h
-		CREATURE_TYPE(),
-		CREATURE_ACTION(),
-		DEVELOPMENT_PHASE(),
-		CREATURE_CREED(),				//custom
+		CREATURE_TYPE,
+		CREATURE_ACTION,
+		DEVELOPMENT_PHASE,
+		CREATURE_CREED,					//custom
 		
 		//From CameraPosEnum.h
-		ScriptCameraPosition(),
-		SCRIPT_PATH(),
+		ScriptCameraPosition,
+		SCRIPT_PATH,
 		
 		//From HitRegions.h
-		FIGHT_MOVE(),
-		FIGHT_ACTION(),
+		FIGHT_MOVE,
+		FIGHT_ACTION,
 		
 		//Misc
-		MUSIC_TYPE(),					//defined in AudioMusic.h
-		AUDIO_SFX_ID(),					//various enums in LHSample.h
-		AUDIO_SFX_BANK_TYPE(),			//defined in AudioSFX.h
-		VILLAGER_STATES(),				//defined in GStates.h
-		ANIM_LIST(),					//defined in AllMeshes.h
-		HELP_EVENT_TYPE(),				//see enums.txt
-		HELP_TEXT(),					//defined in HelpTextEnums.h
-		ScriptChallengeEnums(),			//defined in ScriptChallengeEnums.h
-		CREATURE_TATTOO_TYPE();			//defined in ScriptEnumsTwo.h
+		MUSIC_TYPE,						//defined in AudioMusic.h
+		AUDIO_SFX_ID,					//various enums in LHSample.h
+		AUDIO_SFX_BANK_TYPE,			//defined in AudioSFX.h
+		VILLAGER_STATES,				//defined in GStates.h
+		ANIM_LIST,						//defined in AllMeshes.h
+		HELP_EVENT_TYPE,				//see enums.txt
+		HELP_TEXT,						//defined in HelpTextEnums.h
+		ScriptChallengeEnums,			//defined in ScriptChallengeEnums.h
+		CREATURE_TATTOO_TYPE,			//defined in ScriptEnumsTwo.h
+		LH_KEY;							//defined in LHKeyBoard.h
 		
 		private static final Map<String, ArgType> map = new HashMap<>();
 		

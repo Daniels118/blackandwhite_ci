@@ -220,7 +220,7 @@ GAME_DELETE_FIRE					delete delete fire at COORD_EXPR radius EXPRESSION
 POS_FIELD_OF_VIEW					COORD_EXPR viewed
 IS_ACTIVE							OBJECT active
 GAME_THING_FIELD_OF_VIEW			OBJECT viewed
-KEY_DOWN							key CONST_EXPR down
+KEY_DOWN							key LH_KEY down
 POS_VALID_FOR_CREATURE				COORD_EXPR valid for creature
 GAME_THING_CAN_VIEW_CAMERA			OBJECT can view camera in EXPRESSION degrees
 INSIDE_TEMPLE						inside temple

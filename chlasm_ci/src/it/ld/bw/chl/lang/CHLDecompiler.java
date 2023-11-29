@@ -823,9 +823,15 @@ public class CHLDecompiler {
 						op1 = decompile();
 						if (op1.isVar()) {
 							return new Expression("constant " + op1.safe(), op1.getVar());
-						} else {
-							return new Expression("constant " + op1.safe(), op1.type);
+						} else if (op1.isNumber() && !typeContextStack.isEmpty() && getLast(typeContextStack).isEnum()) {
+							Type type = getLast(typeContextStack);
+							String entry = getEnumEntry(type.type, op1.floatVal().intValue());
+							if (entry != null) {
+								String alias = aliases.getOrDefault(entry, entry);
+								return new Expression(alias, false, Type.FLOAT, op1.floatVal());
+							}
 						}
+						return new Expression("constant " + op1.safe(), op1.type);
 					case FLOAT:
 						op1 = decompile();
 						if (op1.isNumber() && !op1.isExpression) {
@@ -1963,12 +1969,11 @@ public class CHLDecompiler {
 				int val = param.intVal();
 				String alias = getSymbol(contextType.toString(), val);
 				return new Expression(alias, val);
-			} else {
+			} else if (!param.isExpression) {
 				return new Expression("constant "+param);
 			}
-		} else {
-			return param;
 		}
+		return param;
 	}
 	
 	private static void skipNulls(ListIterator<?> iterator) {
