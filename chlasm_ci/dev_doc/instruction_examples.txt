@@ -4541,11 +4541,17 @@ Villager = get VILLAGER in NorseTown excluding scripted		//#followus.txt:654
 	POPF Villager
 ___________________________________________
 
-9.6 get building TYPE in OBJECT [excluding scripted]
+9.6 get building ABODE_NUMBER in OBJECT min built EXPRESSION [excluding scripted]
 
 Gets a building of a certain type in a town.
 
-Never found (CALL_BUILDING_IN_TOWN)
+get building ABODE_TYPE_STORAGE_PIT in Dorf min built 0 excluding scripted
+
+	PUSHI 36					//type
+	PUSHV [Dorf]				//town
+	PUSHF 0.0					//minBuilt
+	PUSHB true					//exludingScripted
+	SYS CALL_BUILDING_IN_TOWN	//[4, 1] (ABODE_NUMBER type, Object<SCRIPT_OBJECT_TYPE_TOWN> town, float minBuilt, bool exludingScripted) returns (Object<SCRIPT_OBJECT_TYPE_ABODE>)
 ___________________________________________
 
 9.7 get poisoned TYPE [SCRIPT_OBJECT_SUBTYPE] in OBJECT

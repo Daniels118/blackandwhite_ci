@@ -54,12 +54,12 @@ public enum NativeFunction {
 	/*  5*/ GET_CAMERA_POSITION("", "Coord"),
 	/*  6*/ GET_CAMERA_FOCUS("", "Coord"),
 	/*  7*/ SPIRIT_EJECT("HELP_SPIRIT_TYPE spirit", Context.DIALOGUE),
-	/*  8*/ SPIRIT_HOME("HELP_SPIRIT_TYPE spirit"),
-	/*  9*/ SPIRIT_POINT_POS("HELP_SPIRIT_TYPE spirit, Coord position, bool inWorld"),
-	/* 10*/ SPIRIT_POINT_GAME_THING("HELP_SPIRIT_TYPE spirit, Object target, bool inWorld"),
+	/*  8*/ SPIRIT_HOME("HELP_SPIRIT_TYPE spirit", Context.DIALOGUE),
+	/*  9*/ SPIRIT_POINT_POS("HELP_SPIRIT_TYPE spirit, Coord position, bool inWorld", Context.DIALOGUE),
+	/* 10*/ SPIRIT_POINT_GAME_THING("HELP_SPIRIT_TYPE spirit, Object target, bool inWorld", Context.DIALOGUE),
 	/* 11*/ GAME_THING_FIELD_OF_VIEW("Object object", "bool"),
 	/* 12*/ POS_FIELD_OF_VIEW("Coord position", "bool"),
-	/* 13*/ RUN_TEXT("bool singleLine, HELP_TEXT textID, int withInteraction, Object speaker", Context.CAMERA_OR_DIALOGUE),
+	/* 13*/ RUN_TEXT("bool singleLine, HELP_TEXT textID, int withInteraction, Object speaker", Context.DIALOGUE),
 	/* 14*/ TEMP_TEXT("bool singleLine, StrPtr string, int withInteraction, Object speaker"),
 	/* 15*/ TEXT_READ("", "bool"),
 	/* 16*/ GAME_THING_CLICKED("Object object", "bool"),
@@ -271,7 +271,7 @@ public enum NativeFunction {
 	/*222*/ IS_FIGHTING("Object object", "bool"),
 	/*223*/ SET_MAGIC_RADIUS("Object object, float radius"),
 	/*224*/ TEMP_TEXT_WITH_NUMBER("bool singleLine, StrPtr format, float value, int withInteraction, Object speaker"),
-	/*225*/ RUN_TEXT_WITH_NUMBER("bool singleLine, HELP_TEXT string, float number, int withInteraction, Object speaker", Context.CAMERA_OR_DIALOGUE),
+	/*225*/ RUN_TEXT_WITH_NUMBER("bool singleLine, HELP_TEXT string, float number, int withInteraction, Object speaker", Context.DIALOGUE),
 	/*226*/ CREATURE_SPELL_REVERSION(2),
 	/*227*/ GET_DESIRE(2, "float"),
 	/*228*/ GET_EVENTS_PER_SECOND("HELP_EVENT_TYPE type", "float"),
@@ -319,7 +319,7 @@ public enum NativeFunction {
 	/*270*/ SET_POSITION_FOLLOW("Object target"),
 	/*271*/ SET_FOCUS_AND_POSITION_FOLLOW("Object target, float distance"),
 	/*272*/ SET_CAMERA_LENS("float lens"),
-	/*273*/ MOVE_CAMERA_LENS("float lens, float time"),
+	/*273*/ MOVE_CAMERA_LENS("float lens, float time", Context.CAMERA),
 	/*274*/ CREATURE_REACTION(2),
 	/*275*/ CREATURE_IN_DEV_SCRIPT("bool enable, Object<SCRIPT_OBJECT_TYPE_CREATURE> creature"),
 	/*276*/ STORE_CAMERA_DETAILS(),
@@ -414,7 +414,7 @@ public enum NativeFunction {
 	/*365*/ SET_FOCUS_FOLLOW_COMPUTER_PLAYER("float player"),
 	/*366*/ SET_POSITION_FOLLOW_COMPUTER_PLAYER("float player"),
 	/*367*/ CALL_COMPUTER_PLAYER("float player", "Object<SCRIPT_OBJECT_TYPE_COMPUTER_PLAYER>"),
-	/*368*/ CALL_BUILDING_IN_TOWN(4, "Object<SCRIPT_OBJECT_TYPE_ABODE>"),
+	/*368*/ CALL_BUILDING_IN_TOWN("ABODE_NUMBER type, Object<SCRIPT_OBJECT_TYPE_TOWN> town, float minBuilt, bool exludingScripted", "Object<SCRIPT_OBJECT_TYPE_ABODE>"),
 	/*369*/ SET_CAN_BUILD_WORSHIPSITE("bool enable, Object object"),
 	/*370*/ GET_FACING_CAMERA_POSITION("float distance", "Coord"),
 	/*371*/ SET_COMPUTER_PLAYER_ATTITUDE("float player1, float player2, float attitude"),
@@ -449,8 +449,8 @@ public enum NativeFunction {
 	/*400*/ RESET_GAME_TIME_PROPERTIES(),
 	/*401*/ SOUND_EXISTS("", "bool"),
 	/*402*/ GET_TOWN_WORSHIP_DEATHS("Object town", "float"),
-	/*403*/ GAME_CLEAR_DIALOGUE(Context.CAMERA_OR_DIALOGUE),
-	/*404*/ GAME_CLOSE_DIALOGUE(Context.CAMERA_OR_DIALOGUE),
+	/*403*/ GAME_CLEAR_DIALOGUE(Context.DIALOGUE),
+	/*404*/ GAME_CLOSE_DIALOGUE(Context.DIALOGUE),
 	/*405*/ GET_HAND_STATE("", "int"),
 	/*406*/ SET_INTERFACE_CITADEL("bool enable"),
 	/*407*/ MAP_SCRIPT_FUNCTION("StrPtr command"),
@@ -516,8 +516,8 @@ public enum NativeFunction {
 	/*467*/ GET_COUNTDOWN_TIMER_TIME("", "float"),
 	/*468*/ SET_OBJECT_IN_PLAYER_HAND("Object object, float player"),
 	/*469*/ CREATE_PLAYER_TEMPLE("float player, Coord position", "Object<SCRIPT_OBJECT_TYPE_CITADEL>"),
-	/*470*/ START_CANNON_CAMERA(0, 0),
-	/*471*/ END_CANNON_CAMERA(0, 0),
+	/*470*/ START_CANNON_CAMERA(0, 0, Context.CAMERA),
+	/*471*/ END_CANNON_CAMERA(0, 0, Context.CAMERA),
 	/*472*/ GET_LANDING_POS(5, 3),
 	/*473*/ SET_CREATURE_MASTER(2, 0),
 	/*474*/ SET_CANNON_PERCENTAGE(1, 0),
@@ -548,7 +548,7 @@ public enum NativeFunction {
 	/*499*/ SET_BOOKMARK_ON_OBJECT(2, 0),
 	/*500*/ SET_OBJECT_LIGHTBULB(2, 0),
 	/*501*/ SET_CREATURE_CAN_DROP(2, 0),
-	/*502*/ PLAY_SPIRIT_ANIM_IN_WORLD("HELP_SPIRIT_TYPE spirit, int animation, Coord position, float speed", Context.CAMERA_OR_DIALOGUE),
+	/*502*/ PLAY_SPIRIT_ANIM_IN_WORLD("HELP_SPIRIT_TYPE spirit, int animation, Coord position, float speed", Context.DIALOGUE),
 	/*503*/ SET_OBJECT_COLOUR("Object object, float red, float green, float blue"),
 	/*504*/ EFFECT_FROM_FILE("StrPtr filename", "Object<Effect>"),
 	/*505*/ ALEX_SPECIAL_EFFECT_POSITION("int effect, Coord position", "Object<SCRIPT_OBJECT_TYPE_CANNON>"),
@@ -658,6 +658,11 @@ public enum NativeFunction {
 	
 	//TODO comment out when finished
 	NativeFunction(int pop, int push) {
+		this(pop, push, null);
+	}
+	
+	//TODO comment out when finished
+	NativeFunction(int pop, int push, Context context) {
 		this.pop = pop;
 		this.push = push;
 		this.args = new Argument[pop];
@@ -674,7 +679,7 @@ public enum NativeFunction {
 		} else {
 			throw new IllegalArgumentException("Invalid number of return values: " + push);
 		}
-		this.context = null;
+		this.context = context;
 		this.returnClass = null;
 	}
 	
@@ -737,7 +742,7 @@ public enum NativeFunction {
 	
 	
 	public enum Context {
-		CINEMA, CAMERA, DIALOGUE, CAMERA_OR_DIALOGUE
+		CINEMA, CAMERA, DIALOGUE
 	}
 	
 	

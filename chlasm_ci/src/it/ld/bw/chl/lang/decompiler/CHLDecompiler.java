@@ -138,7 +138,6 @@ public class CHLDecompiler {
 		coalesceTypes.put("SCRIPT_OBJECT_TYPE_DUMB_CREATURE", "SCRIPT_OBJECT_TYPE_CREATURE");
 		coalesceTypes.put("SCRIPT_OBJECT_TYPE_VILLAGER_CHILD", "SCRIPT_OBJECT_TYPE_VILLAGER");
 		//coalesceTypes.put("", "");
-		//coalesceTypes.put("", "");
 	}
 	
 	private static void addBoolOption(String wordTrue, String wordFalse) {
@@ -177,11 +176,18 @@ public class CHLDecompiler {
 	private Script currentScript;
 	private ArrayList<Block> blocks = new ArrayList<>();
 	private Block currentBlock = null;
+	private boolean inCamera = false;
+	private boolean inDialogue = false;
+	private boolean inWildKnownCinema = false;
+	private boolean requireCamera = false;
+	private boolean requireDialogue = false;
+	private boolean requireLongCamera = false;
 	
 	private Writer writer;
 	private int lineno;
 	private String tabs = "";
 	private boolean incTabs = false;
+	private boolean outputEnabled = true;
 	
 	private CHLFile chl;
 	private Path path;
@@ -192,6 +198,7 @@ public class CHLDecompiler {
 	private int heuristicLevel = 0;
 	private boolean respectLinenoEnabled = false;
 	private boolean defineUnknownEnumsEnabled = false;
+	private boolean wildModeEnabled = false;
 	
 	public CHLDecompiler() {
 		this(System.out);
@@ -247,6 +254,14 @@ public class CHLDecompiler {
 
 	public void setDefineUnknownEnumsEnabled(boolean enabled) {
 		this.defineUnknownEnumsEnabled = enabled;
+	}
+
+	public boolean isWildModeEnabled() {
+		return wildModeEnabled;
+	}
+
+	public void setWildModeEnabled(boolean wildModeEnabled) {
+		this.wildModeEnabled = wildModeEnabled;
 	}
 
 	public void loadSubtypes(File file) {
@@ -444,7 +459,7 @@ public class CHLDecompiler {
 				writer = str;
 				lineno = 1;
 				writeHeader();
-				writeScripts(sourceFilename);
+				decompile(sourceFilename);
 			}
 			if (!requiredScripts.isEmpty()) {
 				insertRequiredDefinitions(sourceFile);
@@ -544,8 +559,10 @@ public class CHLDecompiler {
 	}
 	
 	private void writeln(String string) throws IOException {
-		writer.write(string + "\r\n");
-		lineno++;
+		if (outputEnabled) {
+			writer.write(string + "\r\n");
+			lineno++;
+		}
 	}
 	
 	private void writeHeader() throws IOException {
@@ -577,7 +594,7 @@ public class CHLDecompiler {
 		}
 	}
 	
-	private void writeScripts(String sourceFilename) throws IOException, DecompileException {
+	private void decompile(String sourceFilename) throws IOException, DecompileException {
 		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
 		int firstGlobal = 0;
 		Script script = null;
@@ -600,12 +617,9 @@ public class CHLDecompiler {
 			}
 			initLocalVars(script);
 			if (heuristicLevel >= 2) {
-				Writer realWriter = writer;
-				int realLineno = lineno;
-				writer = Writer.nullWriter();
+				outputEnabled = false;
 				decompile(script);
-				writer = realWriter;
-				lineno = realLineno;
+				outputEnabled = true;
 			}
 			decompile(script);
 			writeln("");
@@ -691,20 +705,36 @@ public class CHLDecompiler {
 			//
 			tabs = "\t";
 			incTabs = false;
-			Context knownContext = getKnownContext(script);
+			Context knownContext = null;
+			knownContext = getKnownContext(script);
 			if (knownContext == Context.CINEMA) {
 				writeln(tabs + "begin known cinema");
 				tabs += "\t";
+				inCamera = true;
+				inDialogue = true;
 			} else if (knownContext == Context.DIALOGUE) {
 				writeln(tabs + "begin known dialogue");
 				tabs += "\t";
+				inDialogue = true;
 			}
 			//
 			Expression statement = decompileNextStatement();
 			while (statement != END_SCRIPT) {
 				if (statement != null) {
+					if (wildModeEnabled && !inWildKnownCinema && (requireCamera && !inCamera || requireDialogue && !inDialogue)) {
+						writeln(tabs + "begin known cinema");
+						tabs += "\t";
+						inWildKnownCinema = true;
+					}
+					//
 					if (respectLinenoEnabled) alignToLineno();
 					writeln(tabs + statement);
+					//
+					if (wildModeEnabled && inWildKnownCinema && !requireLongCamera) {
+						decTabs();
+						writeln(tabs + "end known cinema");
+						inWildKnownCinema = false;
+					}
 				}
 				if (incTabs) {
 					tabs += "\t";	//Indentation must be delayed by one statement
@@ -754,7 +784,7 @@ public class CHLDecompiler {
 							if (func.context == Context.CAMERA) {
 								requiresCamera = true;
 								if (requiresDialogue) break;
-							} else if (func.context == Context.DIALOGUE || func.context == Context.CAMERA_OR_DIALOGUE) {
+							} else if (func.context == Context.DIALOGUE) {
 								requiresDialogue = true;
 								if (requiresCamera) break;
 							}
@@ -785,8 +815,10 @@ public class CHLDecompiler {
 	}
 	
 	private void alignToLineno(int target) throws IOException {
-		while (lineno < target) {
-			writeln("");
+		if (outputEnabled) {
+			while (lineno < target) {
+				writeln("");
+			}
 		}
 	}
 	
@@ -805,6 +837,8 @@ public class CHLDecompiler {
 	private Expression decompileNextStatement() throws DecompileException {
 		findEndOfStatement();
 		nextStatementIndex = ip + 1;
+		requireCamera = false;
+		requireDialogue = false;
 		Expression statement = decompile();
 		gotoAddress(nextStatementIndex);
 		return statement;
@@ -1312,15 +1346,19 @@ public class CHLDecompiler {
 									if (nInstr.opcode == OPCode.PUSH && nInstr2.is(NativeFunction.SET_WIDESCREEN)) {
 										this.nextStatementIndex += 5;
 										incTabs = true;
+										inCamera = true;
+										inDialogue = true;
 										return new Expression("begin cinema");
 									} else {
 										this.nextStatementIndex += 3;
 										incTabs = true;
+										inCamera = true;
 										return new Expression("begin camera");
 									}
 								}
 							} else {
 								incTabs = true;
+								inDialogue = true;
 								return new Expression("begin dialogue");
 							}
 						} else {
@@ -1570,7 +1608,7 @@ public class CHLDecompiler {
 		incTabs = true;
 	}
 	
-	private void popBlock() {
+	private void popBlock() throws DecompileException {
 		Utils.pop(blocks);
 		currentBlock = blocks.isEmpty() ? null : getLast(blocks);
 		decTabs();
@@ -1581,6 +1619,17 @@ public class CHLDecompiler {
 		boolean anti;
 		int strptr;
 		String scriptName, line;
+		//Set required context
+		if (func.context == Context.CAMERA) {
+			requireCamera = true;
+		} else if (func.context == Context.DIALOGUE) {
+			requireDialogue = true;
+		}
+		if (func == NativeFunction.START_CANNON_CAMERA) {
+			requireLongCamera = true;
+		} else if (func == NativeFunction.END_CANNON_CAMERA) {
+			requireLongCamera = false;
+		}
 		//Special cases (without parameters)
 		switch (func) {
 			case SET_CAMERA_FOCUS:
@@ -1634,6 +1683,10 @@ public class CHLDecompiler {
 				nInstr = peek(0);
 				if (nInstr.is(NativeFunction.END_DIALOGUE)) {
 					accept(NativeFunction.END_DIALOGUE);
+					inCamera = false;
+					inDialogue = false;
+					requireCamera = false;
+					requireDialogue = false;
 					nInstr = peek(0);
 					if (nInstr.is(NativeFunction.GAME_HOLD_WIDESCREEN)) {
 						accept(NativeFunction.GAME_HOLD_WIDESCREEN);
@@ -1649,6 +1702,8 @@ public class CHLDecompiler {
 					this.nextStatementIndex = ip + 1;
 					decTabs();
 					incTabs = true;
+					inCamera = false;
+					requireCamera = false;
 					return new Expression("end cinema with dialogue");
 				}
 			case END_GAME_SPEED:
@@ -1657,6 +1712,8 @@ public class CHLDecompiler {
 				accept(NativeFunction.END_DIALOGUE);
 				this.nextStatementIndex = ip + 1;
 				decTabs();
+				inCamera = false;
+				requireCamera = false;
 				return new Expression("end camera");
 			case RELEASE_DUAL_CAMERA:
 				decTabs();
@@ -1666,6 +1723,8 @@ public class CHLDecompiler {
 				return new Expression("end cannon");
 			case END_DIALOGUE:
 				decTabs();
+				inDialogue = false;
+				requireDialogue = false;
 				return new Expression("end dialogue");
 			default:
 		}
@@ -2427,7 +2486,11 @@ public class CHLDecompiler {
 		return Utils.pop(stack);
 	}
 	
-	private void decTabs() {
+	private void decTabs() throws DecompileException {
+		if (tabs.isEmpty()) {
+			if (!outputEnabled) return;	//Ignore the error while doing heuristic steps
+			throw new DecompileException("Cannot reduce indentation, already at column 1", currentScript, ip, instructions.get(ip));
+		}
 		tabs = tabs.substring(0, tabs.length() - 1);
 		incTabs = false;
 	}

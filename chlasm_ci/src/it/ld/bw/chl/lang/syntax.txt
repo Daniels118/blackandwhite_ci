@@ -559,7 +559,7 @@ OBJECT: {
 	get SCRIPT_OBJECT_TYPE [SCRIPT_OBJECT_SUBTYPE] in OBJECT at COORD_EXPR radius EXPRESSION [excluding scripted]
 	get SCRIPT_OBJECT_TYPE [SCRIPT_OBJECT_SUBTYPE] in OBJECT not near COORD_EXPR radius EXPRESSION [excluding scripted]
 	get SCRIPT_OBJECT_TYPE [SCRIPT_OBJECT_SUBTYPE] in OBJECT [excluding scripted]
-	get building CONST_EXPR in OBJECT [excluding scripted]
+	get building ABODE_NUMBER in OBJECT min built EXPRESSION [excluding scripted]
 	get poisoned SCRIPT_OBJECT_TYPE [SCRIPT_OBJECT_SUBTYPE] in OBJECT
 	get not poisoned SCRIPT_OBJECT_TYPE [SCRIPT_OBJECT_SUBTYPE] in OBJECT [excluding scripted]
 	get SCRIPT_OBJECT_TYPE [SCRIPT_OBJECT_SUBTYPE] flying at COORD_EXPR radius EXPRESSION [excluding scripted]

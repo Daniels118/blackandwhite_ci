@@ -399,3 +399,4 @@ SET_SCRIPT_STATE_WITH_PARAMS		state OBJECT CONST_EXPR position COORD_EXPR float 
 THING_PLAY_ANIM						OBJECT play CONST_EXPR [loop EXPRESSION]
 GET_MOUSE_ACROSS					mouse percentage across
 GET_MOUSE_DOWN						mouse percentage down
+CALL_BUILDING_IN_TOWN				get building ABODE_NUMBER in OBJECT min built EXPRESSION [excluding scripted]

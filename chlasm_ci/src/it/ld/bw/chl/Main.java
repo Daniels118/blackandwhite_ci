@@ -207,6 +207,7 @@ public class Main {
 		decompiler.setHeuristicLevel((int)cmd.getArgInt("-hl", 2));
 		decompiler.setDefineUnknownEnumsEnabled(cmd.getArgFlag("-de"));
 		decompiler.setRespectLinenoEnabled(cmd.getArgFlag("-rln"));
+		decompiler.setWildModeEnabled(cmd.getArgFlag("-wild"));
 		//
 		System.out.println("Loading compiled CHL...");
 		CHLFile chl = new CHLFile();
