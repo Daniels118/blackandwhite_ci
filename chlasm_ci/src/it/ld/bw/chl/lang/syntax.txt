@@ -374,7 +374,7 @@ STATEMENT: {
 	enable|disable OBJECT immune to spells EOL
 	set dolphin speed EXPRESSION EOL
 	enable|disable right hand only for OBJECT EOL
-	delete delete fire at COORD_EXPR radius EXPRESSION EOL
+	delete fire at COORD_EXPR radius EXPRESSION EOL
 }
 
 DELETE_MODE: {

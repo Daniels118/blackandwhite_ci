@@ -152,8 +152,6 @@ public class CHLDecompiler {
 		enumOptions.put(keyword, options);
 	}
 	
-	private final Set<String> writtenSources = new HashSet<>();
-	
 	private final Map<String, String> subtypes = new HashMap<>();
 	private final Map<String, Map<Integer, String>> enums = new HashMap<>();
 	private final Map<String, String> aliases = new HashMap<>();
@@ -389,7 +387,6 @@ public class CHLDecompiler {
 	public void decompile(CHLFile chl, File outdir) throws IOException, DecompileException {
 		this.chl = chl;
 		this.path = outdir.toPath();
-		writtenSources.clear();
 		definedScripts.clear();
 		globalMap.clear();
 		stack.clear();
@@ -399,23 +396,38 @@ public class CHLDecompiler {
 		mapGlobalVars();
 		//Write the list of source files
 		List<String> sources = chl.getSourceFilenames();
+		Set<String> writtenSources = new HashSet<>();
+		File[] renamedSources = new File[sources.size()];
 		info("Writing _challenges.txt");
 		File listFile = path.resolve("_challenges.txt").toFile();
 		try (FileWriter str = new FileWriter(listFile, ASCII);) {
-			writer = str;
-			lineno = 1;
-			writeln("//Source files list");
+			str.write("//Source files list\r\n");
 			if (!aliases.isEmpty()) {
-				writeln("_aliases.txt");
+				str.write("_aliases.txt\r\n");
 			}
-			for (String sourceFilename : sources) {
-				if (!isValidFilename(sourceFilename)) {
-					throw new RuntimeException("Invalid source filename: " + sourceFilename);
+			for (int i = 0; i < sources.size(); i++) {
+				String sourceFilename = sources.get(i);
+				String fixedName = sourceFilename.stripTrailing();
+				if (!isValidFilename(fixedName)) {
+					throw new RuntimeException("Invalid source filename: \""+sourceFilename+"\"");
 				}
-				writeln(sourceFilename);
+				//Check for duplicate filenames and compute a new name
+				File sourceFile = path.resolve(fixedName).toFile();
+				if (writtenSources.contains(sourceFile.getName().toLowerCase())) {
+					int index = 0;
+					do {
+						sourceFile = path.resolve(addSuffix(sourceFile, "_"+(++index))).toFile();
+					} while (writtenSources.contains(sourceFile.getName().toLowerCase()));
+					warning("ATTENTION: a source file named "+sourceFilename+" has already been written to output dir. "
+							+ "The file will be written as "+sourceFile.getName()+", pay attention!");
+				}
+				writtenSources.add(sourceFile.getName().toLowerCase());
+				renamedSources[i] = sourceFile;	//Store the renamed file
+				//
+				str.write(sourceFile.getName()+"\r\n");
 			}
 			if (!chl.getAutoStartScripts().getScripts().isEmpty()) {
-				writeln("_autorun.txt");
+				str.write("_autorun.txt\r\n");
 			}
 		}
 		//Write user defined constants (aliases)
@@ -441,31 +453,49 @@ public class CHLDecompiler {
 			}
 		}
 		//Write source files
-		for (String sourceFilename : sources) {
-			if (!isValidFilename(sourceFilename)) {
-				throw new RuntimeException("Invalid source filename: " + sourceFilename);
-			}
-			File sourceFile = path.resolve(sourceFilename.stripTrailing()).toFile();
-			if (writtenSources.contains(sourceFile.getName().toLowerCase())) {
-				int index = 0;
-				do {
-					sourceFile = path.resolve(addSuffix(sourceFile, "_"+(++index))).toFile();
-				} while (writtenSources.contains(sourceFile.getName().toLowerCase()));
-				warning("ATTENTION: a source file named "+sourceFilename+" has already been written to output dir. "
-						+ "The file will be written as "+sourceFile.getName()+", pay attention!");
-			}
+		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
+		int lastGlobal = 0;
+		ListIterator<Script> scriptIt = chl.getScriptsSection().getItems().listIterator();
+		Script script = scriptIt.next();
+		for (int fileIndex = 0; fileIndex < sources.size(); fileIndex++) {
+			String sourceFilename = sources.get(fileIndex);
+			File sourceFile = renamedSources[fileIndex];	//Use the renamed file as output
 			info("Writing "+sourceFile.getName());
 			try (Writer str = new BufferedWriter(new FileWriter(sourceFile, ASCII));) {
 				writer = str;
 				lineno = 1;
 				writeHeader();
-				decompile(sourceFilename);
+				//Write all scripts in this source file
+				while (script.getSourceFilename().equals(sourceFilename)) {
+					initLocalVars(script);
+					//Heuristics checks
+					if (heuristicLevel >= 2) {
+						outputEnabled = false;
+						decompile(script);
+						outputEnabled = true;
+					}
+					//Global variables
+					if (lastGlobal < script.getGlobalCount()) {
+						writeGlobals(lastGlobal, script.getGlobalCount());
+						lastGlobal = script.getGlobalCount();
+						writeln("");
+					}
+					//Script
+					decompile(script);
+					writeln("");
+					definedScripts.add(script.getName());
+					//
+					if (!scriptIt.hasNext()) {
+						script = null;
+						break;
+					}
+					script = scriptIt.next();
+				}
 			}
 			if (!requiredScripts.isEmpty()) {
 				insertRequiredDefinitions(sourceFile);
 				requiredScripts.clear();
 			}
-			writtenSources.add(sourceFile.getName().toLowerCase());
 		}
 		//Additional enums
 		if (!requiredConstants.isEmpty()) {
@@ -591,39 +621,6 @@ public class CHLDecompiler {
 				writeln("//" + msg);
 				throw new DecompileException(msg);
 			}
-		}
-	}
-	
-	private void decompile(String sourceFilename) throws IOException, DecompileException {
-		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
-		int firstGlobal = 0;
-		Script script = null;
-		ListIterator<Script> it = chl.getScriptsSection().getItems().listIterator();
-		while (it.hasNext()) {
-			script = it.next();
-			if (script.getSourceFilename().equals(sourceFilename)) {
-				it.previous();
-				break;
-			}
-			firstGlobal = script.getGlobalCount();
-		}
-		writeGlobals(firstGlobal, script.getGlobalCount());
-		firstGlobal = script.getGlobalCount();
-		writeln("");
-		while (it.hasNext()) {
-			script = it.next();
-			if (!script.getSourceFilename().equals(sourceFilename)) {
-				break;
-			}
-			initLocalVars(script);
-			if (heuristicLevel >= 2) {
-				outputEnabled = false;
-				decompile(script);
-				outputEnabled = true;
-			}
-			decompile(script);
-			writeln("");
-			definedScripts.add(script.getName());
 		}
 	}
 	
@@ -2060,6 +2057,8 @@ public class CHLDecompiler {
 								}
 							} else if (arg.type == ArgType.BOOL && sym.optional) {
 								throw new DecompileException("Undefined boolean option: "+sym.keyword, currentScript, ip, instructions.get(ip));
+							} else if (arg.type.isEnum && param.isNumber() && param.intVal() != null) {
+								statement.add(new Expression("constant "+param, param.intVal()));
 							} else {
 								statement.add(param);
 							}
@@ -2146,15 +2145,24 @@ public class CHLDecompiler {
 			return new Expression(escape(string));
 		} else if (arg.type.isEnum && param.isNumber() && param.intVal() != null) {
 			int val = param.intVal();
-			String alias = getSymbol(arg.type, val);
-			return new Expression(alias, val);
+			String entry = getEnumEntry(arg.type, val);
+			if (entry != null) {
+				String alias = aliases.getOrDefault(entry, entry);
+				return new Expression(alias, val);
+			} else if (defineUnknownEnumsEnabled) {
+				requiredConstants.add(param.intVal());
+				return new Expression("UNK" + param.intVal(), param.type);
+			} else {
+				//Workaround for missing constants
+				return new Expression("constant "+param);
+			}
 		} else if (arg.type == ArgType.INT && param.isNumber()) {
 			if (func == NativeFunction.RANDOM_ULONG && !typeContextStack.isEmpty() && param.intVal() != null) {
 				Type contextType = getLast(typeContextStack);
 				int val = param.intVal();
 				String entry = getEnumEntry(contextType.toString(), val);
 				if (entry != null) {
-					String alias = getSymbol(contextType.toString(), val);
+					String alias = aliases.getOrDefault(entry, entry);
 					return new Expression(alias, val);
 				} else if (defineUnknownEnumsEnabled) {
 					requiredConstants.add(param.intVal());
@@ -2174,6 +2182,33 @@ public class CHLDecompiler {
 			}
 		}
 		return param;
+	}
+	
+	private Expression getConstExpr(ArgType type, Expression expr) {
+		if (expr.isNumber() && expr.intVal() != null) {
+			int val = expr.intVal();
+			return getConstExpr(type, val);
+		} else {
+			return expr;
+		}
+	}
+	
+	private Expression getConstExpr(ArgType type, int val) {
+		return getConstExpr(type.toString(), val);
+	}
+	
+	private Expression getConstExpr(String type, int val) {
+		String entry = getEnumEntry(type, val);
+		if (entry != null) {
+			String alias = aliases.getOrDefault(entry, entry);
+			return new Expression(alias, val);
+		} else if (defineUnknownEnumsEnabled) {
+			requiredConstants.add(val);
+			return new Expression("UNK"+val, val);
+		} else {
+			//Workaround for missing constants
+			return new Expression("constant "+val, val);
+		}
 	}
 	
 	private void trace(String string) {

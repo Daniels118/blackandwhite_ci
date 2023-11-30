@@ -3330,7 +3330,7 @@ enable right hand only for MyCreature
 	SYS CREATURE_SET_RIGHT_HAND_ONLY	//[2, 0] (bool enable, Object creature)
 ___________________________________________
 
-3.18.36 delete delete fire at COORD_EXPR radius EXPRESSION
+3.18.36 delete fire at COORD_EXPR radius EXPRESSION
 
 ?
 

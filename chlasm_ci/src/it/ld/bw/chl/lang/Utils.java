@@ -62,6 +62,8 @@ public final class Utils {
 	}
 	
 	public static boolean isValidFilename(String s) {
+		if (s == null || s.isBlank()) return false;
+		if (s.endsWith(" ")) return false;
 		for (char c : ILLEGAL_CHARACTERS) {
 			if (s.indexOf(c) >= 0) return false;
 		}

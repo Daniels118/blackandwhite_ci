@@ -216,7 +216,7 @@ THING_JC_SPECIAL					enable|disable jc special CONST_EXPR on OBJECT
 ENABLE_OBJECT_IMMUNE_TO_SPELLS		enable|disable OBJECT immune to spells
 SET_DOLPHIN_SPEED					set dolphin speed EXPRESSION
 CREATURE_SET_RIGHT_HAND_ONLY		enable|disable right hand only for OBJECT
-GAME_DELETE_FIRE					delete delete fire at COORD_EXPR radius EXPRESSION
+GAME_DELETE_FIRE					delete fire at COORD_EXPR radius EXPRESSION
 POS_FIELD_OF_VIEW					COORD_EXPR viewed
 IS_ACTIVE							OBJECT active
 GAME_THING_FIELD_OF_VIEW			OBJECT viewed
