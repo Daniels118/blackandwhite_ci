@@ -144,7 +144,7 @@ SET_OBJECT_SCORE					set OBJECT score EXPRESSION
 SET_OBJECT_IN_PLAYER_HAND			set OBJECT in player EXPRESSION hand
 FIRE_GUN							fire gun OBJECT
 GUN_ANGLE_PITCH						set gun OBJECT angle EXPRESSION pitch EXPRESSION
-START_COUNTDOWN_TIMER				enable countdown timer down with EXPRESSION seconds
+START_COUNTDOWN_TIMER				enable countdown timer up|down with EXPRESSION seconds
 END_COUNTDOWN_TIMER					disable countdown timer
 SET_COUNTDOWN_TIMER_DRAW			set countdown timer draw CONST_EXPR
 SET_VILLAGER_SOUND					enable|disable villager sound
@@ -243,7 +243,7 @@ IS_OF_TYPE							OBJECT type SCRIPT_OBJECT_TYPE [SCRIPT_OBJECT_SUBTYPE]
 IS_ON_FIRE							OBJECT on fire
 IS_FIRE_NEAR						fire near COORD_EXPR radius EXPRESSION
 HAS_CAMERA_ARRIVED					camera ready
-WIDESCREEN_TRANSISTION_FINISHED		widescreen ready
+WIDESCREEN_TRANSISTION_FINISHED		widescreen transition complete
 FADE_FINISHED						fade ready
 IS_DIALOGUE_READY					dialogue ready
 COMPUTER_PLAYER_READY				computer player EXPRESSION ready

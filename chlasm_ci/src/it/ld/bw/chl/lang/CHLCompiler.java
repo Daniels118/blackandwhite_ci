@@ -1572,9 +1572,8 @@ public class CHLCompiler implements Compiler {
 			SymbolInstance action = next();
 			accept("countdown");
 			if (action.is("enable")) {
-				//enable countdown timer down with EXPRESSION seconds
-				pushb(false);
-				parse("timer down with EXPRESSION seconds EOL");
+				//enable countdown timer up|down with EXPRESSION seconds
+				parse("timer up|down with EXPRESSION seconds EOL");
 				sys(START_COUNTDOWN_TIMER);
 				return replace(start, "STATEMENT");
 			} else {
@@ -5644,6 +5643,8 @@ public class CHLCompiler implements Compiler {
 					r[i] = parseOptionKeyword("enter", "exit");
 				} else if ("left|right".equals(symbol)) {
 					r[i] = parseOptionKeyword("left", "right");
+				} else if ("up|down".equals(symbol)) {
+					r[i] = parseOptionKeyword("up", "down");
 				} else if ("second|seconds".equals(symbol)) {
 					SymbolInstance sInst = next();
 					if (!sInst.is("second") && !sInst.is("seconds")) {

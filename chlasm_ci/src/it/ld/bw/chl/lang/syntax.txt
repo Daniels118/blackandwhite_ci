@@ -366,7 +366,7 @@ STATEMENT: {
 	set OBJECT in player EXPRESSION hand EOL
 	fire gun OBJECT EOL
 	set gun OBJECT angle EXPRESSION pitch EXPRESSION EOL
-	enable countdown timer down with EXPRESSION seconds EOL
+	enable countdown timer up|down with EXPRESSION seconds EOL
 	disable countdown timer EOL
 	set countdown timer draw CONST_EXPR EOL
 	enable|disable villager sound EOL
@@ -486,7 +486,6 @@ CONDITION: {
 	fire near COORD_EXPR radius EXPRESSION
 	spell wind near COORD_EXPR radius EXPRESSION
 	camera ready
-	widescreen ready
 	widescreen transition complete
 	fade ready
 	camera not ready

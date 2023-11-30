@@ -1471,10 +1471,10 @@ ___________________________________________
 Saves the game into a specific slot inside the citadel. No. is 14 reserved for on leaving a land for
 purposes of the saving design, using other numbers will override specific windows inside the citadel.
 
-Never found
+save game in slot 19
 
-	PUSHI 1					//slot
-	SYS SAVE_GAME_IN_SLOT
+	PUSHF 19.0				//slot
+	SYS SAVE_GAME_IN_SLOT	//[1, 0] (float slot)
 ___________________________________________
 
 3.8.23 stop script STRING
@@ -2118,15 +2118,15 @@ set gun ef angle 50 pitch 20
 	SYS GUN_ANGLE_PITCH	//[3, 0] (Object gun, float angle, float pitch)
 ___________________________________________
 
-3.8.82 enable countdown timer down with EXPRESSION seconds
+3.8.82 enable countdown timer up|down with EXPRESSION seconds
 
 ?
 
 enable countdown timer down with 30 seconds
 
-	PUSHB false
-	PUSHF 30.0
-	SYS START_COUNTDOWN_TIMER	//[2, 0] (bool alwaysFalse, float wait)
+	PUSHB false					//up
+	PUSHF 30.0					//time
+	SYS START_COUNTDOWN_TIMER	//[2, 0] (bool up, float wait)
 ___________________________________________
 
 3.8.83 disable countdown timer
@@ -3768,18 +3768,13 @@ camera ready		//#Reward.txt:80
 	SYS HAS_CAMERA_ARRIVED	//[0, 1] () returns (bool)
 ___________________________________________
 
-6.31.1 widescreen ready
+6.31 widescreen transition complete
 
 Has the widescreen transition finished.
 
-widescreen ready		//#ChallengeNotify.txt:27
+widescreen transition complete
 
 	SYS WIDESCREEN_TRANSISTION_FINISHED	//[0, 1] () returns (bool)
-___________________________________________
-
-6.31.2 widescreen transition complete
-
-Alias of 6.31.1
 ___________________________________________
 
 6.32 fade ready

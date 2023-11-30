@@ -53,7 +53,7 @@ public enum NativeFunction {
 	/*  4*/ MOVE_CAMERA_FOCUS("Coord position, float time", Context.CAMERA),
 	/*  5*/ GET_CAMERA_POSITION("", "Coord"),
 	/*  6*/ GET_CAMERA_FOCUS("", "Coord"),
-	/*  7*/ SPIRIT_EJECT("HELP_SPIRIT_TYPE spirit"),
+	/*  7*/ SPIRIT_EJECT("HELP_SPIRIT_TYPE spirit", Context.DIALOGUE),
 	/*  8*/ SPIRIT_HOME("HELP_SPIRIT_TYPE spirit"),
 	/*  9*/ SPIRIT_POINT_POS("HELP_SPIRIT_TYPE spirit, Coord position, bool inWorld"),
 	/* 10*/ SPIRIT_POINT_GAME_THING("HELP_SPIRIT_TYPE spirit, Object target, bool inWorld"),
@@ -271,7 +271,7 @@ public enum NativeFunction {
 	/*222*/ IS_FIGHTING("Object object", "bool"),
 	/*223*/ SET_MAGIC_RADIUS("Object object, float radius"),
 	/*224*/ TEMP_TEXT_WITH_NUMBER("bool singleLine, StrPtr format, float value, int withInteraction, Object speaker"),
-	/*225*/ RUN_TEXT_WITH_NUMBER("bool singleLine, HELP_TEXT string, float number, int withInteraction, Object speaker"),
+	/*225*/ RUN_TEXT_WITH_NUMBER("bool singleLine, HELP_TEXT string, float number, int withInteraction, Object speaker", Context.CAMERA_OR_DIALOGUE),
 	/*226*/ CREATURE_SPELL_REVERSION(2),
 	/*227*/ GET_DESIRE(2, "float"),
 	/*228*/ GET_EVENTS_PER_SECOND("HELP_EVENT_TYPE type", "float"),
@@ -449,8 +449,8 @@ public enum NativeFunction {
 	/*400*/ RESET_GAME_TIME_PROPERTIES(),
 	/*401*/ SOUND_EXISTS("", "bool"),
 	/*402*/ GET_TOWN_WORSHIP_DEATHS("Object town", "float"),
-	/*403*/ GAME_CLEAR_DIALOGUE(),
-	/*404*/ GAME_CLOSE_DIALOGUE(),
+	/*403*/ GAME_CLEAR_DIALOGUE(Context.CAMERA_OR_DIALOGUE),
+	/*404*/ GAME_CLOSE_DIALOGUE(Context.CAMERA_OR_DIALOGUE),
 	/*405*/ GET_HAND_STATE("", "int"),
 	/*406*/ SET_INTERFACE_CITADEL("bool enable"),
 	/*407*/ MAP_SCRIPT_FUNCTION("StrPtr command"),
@@ -477,7 +477,7 @@ public enum NativeFunction {
 	/*428*/ SET_DRAW_TEXT_COLOUR("float red, float green, float blue"),
 	/*429*/ SET_CLIPPING_WINDOW("float across, float down, float width, float height, float time"),
 	/*430*/ CLEAR_CLIPPING_WINDOW("float time"),
-	/*431*/ SAVE_GAME_IN_SLOT("int slot"),
+	/*431*/ SAVE_GAME_IN_SLOT("float slot"),
 	/*432*/ SET_OBJECT_CARRYING("Object object, CARRIED_OBJECT carriedObj"),
 	/*433*/ POS_VALID_FOR_CREATURE("Coord position", "bool"),
 	/*434*/ GET_TIME_SINCE_OBJECT_ATTACKED("float player, Object town", "float"),
@@ -504,7 +504,7 @@ public enum NativeFunction {
 	/*455*/ CURRENT_PROFILE_HAS_CREATURE("", "bool"),
 	/*456*/ THING_PLAY_ANIM("Object object, ANIM_LIST animation, float loop"),
 	/*457*/ SET_SCRIPT_STATE_WITH_PARAMS("Object obj, int state, Coord pos, float fVal, float ulong0, float ulong1"),
-	/*458*/ START_COUNTDOWN_TIMER("bool alwaysFalse, float wait"),
+	/*458*/ START_COUNTDOWN_TIMER("bool up, float wait"),
 	/*459*/ END_COUNTDOWN_TIMER(0, 0),
 	/*460*/ SET_COUNTDOWN_TIMER_DRAW("int drawPos"),
 	/*461*/ SET_OBJECT_SCORE("Object object, float score"),
@@ -548,7 +548,7 @@ public enum NativeFunction {
 	/*499*/ SET_BOOKMARK_ON_OBJECT(2, 0),
 	/*500*/ SET_OBJECT_LIGHTBULB(2, 0),
 	/*501*/ SET_CREATURE_CAN_DROP(2, 0),
-	/*502*/ PLAY_SPIRIT_ANIM_IN_WORLD("HELP_SPIRIT_TYPE spirit, int animation, Coord position, float speed"),
+	/*502*/ PLAY_SPIRIT_ANIM_IN_WORLD("HELP_SPIRIT_TYPE spirit, int animation, Coord position, float speed", Context.CAMERA_OR_DIALOGUE),
 	/*503*/ SET_OBJECT_COLOUR("Object object, float red, float green, float blue"),
 	/*504*/ EFFECT_FROM_FILE("StrPtr filename", "Object<Effect>"),
 	/*505*/ ALEX_SPECIAL_EFFECT_POSITION("int effect, Coord position", "Object<SCRIPT_OBJECT_TYPE_CANNON>"),
@@ -610,6 +610,10 @@ public enum NativeFunction {
 	
 	NativeFunction(String sArgs, String sRet) {
 		this(sArgs, sRet, null);
+	}
+	
+	NativeFunction(Context context) {
+		this(null, null, context);
 	}
 	
 	NativeFunction(String sArgs, Context context) {

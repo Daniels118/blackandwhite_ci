@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -71,6 +72,8 @@ import it.ld.bw.chl.model.Script;
 public class CHLDecompiler {
 	public static boolean traceEnabled = false;
 	
+	private static final Charset ASCII = Charset.forName("windows-1252");
+	
 	private static final String STATEMENTS_FILE = "statements.txt";
 	
 	private static final Expression END_SCRIPT = new Expression("end script");
@@ -106,6 +109,7 @@ public class CHLDecompiler {
 		addBoolOption("quest", "challenge");
 		addBoolOption("enter", "exit");
 		addBoolOption("left", "right");
+		addBoolOption("up", "down");
 		//
 		addBoolOption("single line");
 		addBoolOption("with pause on trigger");
@@ -382,7 +386,7 @@ public class CHLDecompiler {
 		List<String> sources = chl.getSourceFilenames();
 		info("Writing _challenges.txt");
 		File listFile = path.resolve("_challenges.txt").toFile();
-		try (FileWriter str = new FileWriter(listFile);) {
+		try (FileWriter str = new FileWriter(listFile, ASCII);) {
 			writer = str;
 			lineno = 1;
 			writeln("//Source files list");
@@ -403,7 +407,7 @@ public class CHLDecompiler {
 		if (!aliases.isEmpty()) {
 			info("Writing _aliases.txt");
 			File autostartFile = path.resolve("_aliases.txt").toFile();
-			try (FileWriter str = new FileWriter(autostartFile);) {
+			try (FileWriter str = new FileWriter(autostartFile, ASCII);) {
 				writer = str;
 				lineno = 1;
 				writeHeader();
@@ -414,7 +418,7 @@ public class CHLDecompiler {
 		if (!chl.getAutoStartScripts().getScripts().isEmpty()) {
 			info("Writing _autorun.txt");
 			File autostartFile = path.resolve("_autorun.txt").toFile();
-			try (FileWriter str = new FileWriter(autostartFile);) {
+			try (FileWriter str = new FileWriter(autostartFile, ASCII);) {
 				writer = str;
 				lineno = 1;
 				writeHeader();
@@ -427,16 +431,16 @@ public class CHLDecompiler {
 				throw new RuntimeException("Invalid source filename: " + sourceFilename);
 			}
 			File sourceFile = path.resolve(sourceFilename.stripTrailing()).toFile();
-			if (writtenSources.contains(sourceFile.getName())) {
+			if (writtenSources.contains(sourceFile.getName().toLowerCase())) {
 				int index = 0;
 				do {
 					sourceFile = path.resolve(addSuffix(sourceFile, "_"+(++index))).toFile();
-				} while (writtenSources.contains(sourceFile.getName()));
-				notice("NOTICE: a source file named "+sourceFilename+" has already been written to outputdir. "
-						+ "The file will be written as ");
+				} while (writtenSources.contains(sourceFile.getName().toLowerCase()));
+				warning("ATTENTION: a source file named "+sourceFilename+" has already been written to output dir. "
+						+ "The file will be written as "+sourceFile.getName()+", pay attention!");
 			}
 			info("Writing "+sourceFile.getName());
-			try (Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
+			try (Writer str = new BufferedWriter(new FileWriter(sourceFile, ASCII));) {
 				writer = str;
 				lineno = 1;
 				writeHeader();
@@ -446,13 +450,13 @@ public class CHLDecompiler {
 				insertRequiredDefinitions(sourceFile);
 				requiredScripts.clear();
 			}
-			writtenSources.add(sourceFile.getName());
+			writtenSources.add(sourceFile.getName().toLowerCase());
 		}
 		//Additional enums
 		if (!requiredConstants.isEmpty()) {
 			File file = path.resolve("_enums.h").toFile();
 			info("Writing "+file.getName());
-			try (Writer str = new BufferedWriter(new FileWriter(file));) {
+			try (Writer str = new BufferedWriter(new FileWriter(file, ASCII));) {
 				writer = str;
 				writeln("enum");
 				writeln("{");
@@ -472,7 +476,7 @@ public class CHLDecompiler {
 		File tmpFile = path.resolve("_tmp.txt").toFile();
 		sourceFile.renameTo(tmpFile);
 		try (BufferedReader reader = new BufferedReader(new FileReader(tmpFile));
-				Writer str = new BufferedWriter(new FileWriter(sourceFile));) {
+				Writer str = new BufferedWriter(new FileWriter(sourceFile, ASCII));) {
 			writer = str;
 			List<String> header = new LinkedList<>();
 			//Copy everything before first script
@@ -1850,7 +1854,13 @@ public class CHLDecompiler {
 									statement.add(null);
 								} else {
 									if (subtype == null) {
-										statement.add(param);
+										if (defineUnknownEnumsEnabled) {
+											requiredConstants.add(param.intVal());
+											statement.add(new Expression("UNK"+val, val));
+										} else {
+											//Workaround for missing constants
+											statement.add(new Expression("constant "+param, val));
+										}
 										//
 										Instruction instr = instructions.get(ip);
 										warning("WARNING: subtype not defined for type "+typeName
@@ -1858,8 +1868,17 @@ public class CHLDecompiler {
 												+" in script "+currentScript.getName()
 												+" ("+currentScript.getSourceFilename()+":"+instr.lineNumber+")");
 									} else {
-										String alias = getSymbol(subtype, val);
-										statement.add(new Expression(alias));
+										String entry = getEnumEntry(subtype, val);
+										if (entry != null) {
+											String alias = aliases.getOrDefault(entry, entry);
+											statement.add(new Expression(alias, val));
+										} else if (defineUnknownEnumsEnabled) {
+											requiredConstants.add(param.intVal());
+											statement.add(new Expression("UNK"+val, val));
+										} else {
+											//Workaround for missing constants
+											statement.add(new Expression("constant "+param, val));
+										}
 									}
 								}
 							} else {
@@ -1896,8 +1915,17 @@ public class CHLDecompiler {
 												+" in script "+currentScript.getName()
 												+" ("+currentScript.getSourceFilename()+":"+instr.lineNumber+")");
 									} else {
-										String alias = getSymbol(subtype, val);
-										statement.add(new Expression(alias));
+										String entry = getEnumEntry(subtype, val);
+										if (entry != null) {
+											String alias = aliases.getOrDefault(entry, entry);
+											statement.add(new Expression(alias, val));
+										} else if (defineUnknownEnumsEnabled) {
+											requiredConstants.add(param.intVal());
+											statement.add(new Expression("UNK"+val, val));
+										} else {
+											//Workaround for missing constants
+											statement.add(new Expression("constant "+param, val));
+										}
 									}
 								}
 							} else {
@@ -1906,15 +1934,25 @@ public class CHLDecompiler {
 							subtype = null;
 						} else if (arg.type == ArgType.AUDIO_SFX_BANK_TYPE) {
 							Expression param = paramIt.next();
-							if (param.isNumber()) {
+							if (param.isNumber() && param.intVal() != null) {
 								int val = param.intVal();
 								Expression audioSfxId = statement.get(audioSfxIdIndex);
 								if (audioSfxId.isNumber() && audioSfxId.intVal() != null) {
 									String entry = getEnumEntry(ArgType.AUDIO_SFX_BANK_TYPE, val);
 									subtype = subtypes.get(entry);
 									if (subtype != null) {
-										String alias = getSymbol(subtype, audioSfxId.intVal());
-										statement.set(audioSfxIdIndex, new Expression(alias));
+										int subval = audioSfxId.intVal();
+										entry = getEnumEntry(subtype, subval);
+										if (entry != null) {
+											String alias = aliases.getOrDefault(entry, entry);
+											statement.set(audioSfxIdIndex, new Expression(alias, subval));
+										} else if (defineUnknownEnumsEnabled) {
+											requiredConstants.add(param.intVal());
+											statement.set(audioSfxIdIndex, new Expression("UNK"+subval, subval));
+										} else {
+											//Workaround for missing constants
+											statement.set(audioSfxIdIndex, new Expression("constant "+subval, subval));
+										}
 									} else {
 										statement.set(audioSfxIdIndex, new Expression("constant "+audioSfxId));
 									}
@@ -1922,8 +1960,17 @@ public class CHLDecompiler {
 								if (val == AUDIO_SFX_BANK_TYPE_IN_GAME) {
 									statement.add(null);
 								} else {
-									String alias = getSymbol(arg.type, val);
-									statement.add(new Expression(alias));
+									String entry = getEnumEntry(arg.type, val);
+									if (entry != null) {
+										String alias = aliases.getOrDefault(entry, entry);
+										statement.add(new Expression(alias, val));
+									} else if (defineUnknownEnumsEnabled) {
+										requiredConstants.add(param.intVal());
+										statement.add(new Expression("UNK"+val, val));
+									} else {
+										//Workaround for missing constants
+										statement.add(new Expression("constant "+param, val));
+									}
 								}
 							} else {
 								statement.add(param);
