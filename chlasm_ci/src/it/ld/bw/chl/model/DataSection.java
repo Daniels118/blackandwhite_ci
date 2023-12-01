@@ -161,7 +161,7 @@ public class DataSection extends Section {
 					return String.valueOf(getByte());
 				case STRING:
 					String t = getString();
-					t = t.replace("\\", "\\\\");
+					//t = t.replace("\\", "\\\\");
 					t = t.replace("\"", "\\\"");
 					return "\"" + t + "\"";
 				default:

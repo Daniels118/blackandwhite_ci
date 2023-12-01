@@ -24,6 +24,7 @@ public class Type {
 	public static final Type BOOL = new Type(ArgType.BOOL);
 	public static final Type COORD = new Type(ArgType.COORD);
 	public static final Type OBJECT = new Type(ArgType.OBJECT);
+	public static final Type STRPTR = new Type(ArgType.STRPTR);
 	
 	public final ArgType type;
 	public final String specificType;

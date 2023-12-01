@@ -534,7 +534,7 @@ public class CHLDecompiler {
 		trace("Inserting required definitions in "+sourceFile.getName());
 		File tmpFile = path.resolve("_tmp.txt").toFile();
 		sourceFile.renameTo(tmpFile);
-		try (BufferedReader reader = new BufferedReader(new FileReader(tmpFile));
+		try (BufferedReader reader = new BufferedReader(new FileReader(tmpFile, ASCII));
 				Writer str = new BufferedWriter(new FileWriter(sourceFile, ASCII));) {
 			writer = str;
 			List<String> header = new LinkedList<>();
@@ -1174,10 +1174,15 @@ public class CHLDecompiler {
 							if (!typeContextStack.isEmpty()) {
 								Type type = getLast(typeContextStack);
 								if (type != null) {
-									String entry = getEnumEntry(type.toString(), instr.intVal);
-									if (entry != null) {
-										String alias = aliases.getOrDefault(entry, entry);
-										return new Expression(alias, Priority.ATOMIC, Type.INT, instr.intVal);
+									if (type.isEnum()) {
+										String entry = getEnumEntry(type.toString(), instr.intVal);
+										if (entry != null) {
+											String alias = aliases.getOrDefault(entry, entry);
+											return new Expression(alias, Priority.ATOMIC, Type.INT, instr.intVal);
+										}
+									} else if (type.type == ArgType.STRPTR) {
+										String string = chl.getDataSection().getString(instr.intVal);
+										return new Expression(escape(string), Priority.ATOMIC, Type.STRPTR, instr.intVal);
 									}
 								}
 							}

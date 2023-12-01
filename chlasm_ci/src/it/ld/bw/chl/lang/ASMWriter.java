@@ -45,7 +45,8 @@ import it.ld.bw.chl.model.InitGlobal;
 import static it.ld.bw.chl.lang.Utils.*;
 
 public class ASMWriter {
-	private static final Charset SRC_CHARSET = Charset.forName("ISO-8859-1");
+	//private static final Charset SRC_CHARSET = Charset.forName("ISO-8859-1");
+	private static final Charset SRC_CHARSET = Charset.forName("windows-1252");
 	
 	private boolean printDataHintEnabled = true;
 	private boolean printNativeInfoEnabled = true;

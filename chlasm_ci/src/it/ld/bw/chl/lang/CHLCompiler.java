@@ -52,7 +52,6 @@ public class CHLCompiler implements Compiler {
 	private static final String DEFAULT_SOUNDBANK_NAME = "AUDIO_SFX_BANK_TYPE_IN_GAME";
 	private static final String DEFAULT_SUBTYPE_NAME = "SCRIPT_FIND_TYPE_ANY";
 	
-	//private static final Charset ASCII = Charset.forName("US-ASCII");
 	private static final Charset ASCII = Charset.forName("windows-1252");
 	private static final int INITIAL_BUFFER_SIZE = 16 * 1024;
 	private static final int MAX_BUFFER_SIZE = 2 * 1024 * 1024;
