@@ -3685,7 +3685,7 @@ Never found
 	SYS SPIRIT_PLAYED	//[1, 1] (HELP_SPIRIT_TYPE spirit) returns (bool)
 ___________________________________________
 
-6.23 HELP_SPIRIT_TYPE spirit speaks CONST_EXPR
+6.23 HELP_SPIRIT_TYPE spirit speaks HELP_TEXT
 
 A check on if a HELP_SPIRIT_TYPE speaks the text?
 
@@ -3694,7 +3694,7 @@ good spirit speaks constant AdvisorSpeak		//#StandardReminder.txt:8
 	PUSHI 1
 	PUSHF [AdvisorSpeak]
 	CASTI
-	SYS SPIRIT_SPEAKS	//[2, 1] (HELP_SPIRIT_TYPE spirit, int textID) returns (bool)
+	SYS SPIRIT_SPEAKS	//[2, 1] (HELP_SPIRIT_TYPE spirit, HELP_TEXT textID) returns (bool)
 ___________________________________________
 
 6.24 OBJECT poisoned
@@ -4719,7 +4719,7 @@ spell_dispenser = create with angle tangle and scale 1.0 SCRIPT_OBJECT_TYPE_SPEL
 	POPF spell_dispenser
 ___________________________________________
 
-9.19 create creature from creature OBJECT EXPRESSION at COORD_EXPR CONST_EXPR
+9.19 create [dumb] creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
 
 No doc.
 
@@ -4734,8 +4734,8 @@ CowBowling = create dumb creature from creature MyCreature 1 at [CowInitialPos] 
 	PUSHV [CowInitialPos]
 	SYS GET_POSITION							//position
 	PUSHI 1										//type
-	PUSHB true									//dumb?
-	SYS CREATURE_CREATE_RELATIVE_TO_CREATURE	//[7, 1] (Object model, float player, Coord pos, int type, bool dumb) returns (Object)
+	PUSHB true									//dumb
+	SYS CREATURE_CREATE_RELATIVE_TO_CREATURE	//[7, 1] (Object model, float player, Coord pos, CREATURE_TYPE type, bool dumb) returns (Object)
 	REF_AND_OFFSET_POP
 ___________________________________________
 

@@ -16,18 +16,14 @@
 package it.ld.bw.chl.lang;
 
 import java.io.File;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Locale;
 
 public final class Utils {
 	private static final char[] ILLEGAL_CHARACTERS = {'/', '\n', '\r', '\t', '\0', '\f', '`', '?', '*', '\\', '<', '>', '|', '\"', ':'};
-	
-	private static final int SIGNIFICANT_DIGITS = 8;
-	private static final DecimalFormat decimalFormat = new DecimalFormat("0", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
 	
 	private Utils() {}
 	
@@ -40,26 +36,30 @@ public final class Utils {
 	}
 	
 	public static String escape(String string) {
-		string = string.replace("\\", "\\\\");
+		//string = string.replace("\\", "\\\\");	Escaping backslashes is bad in CHL language!
 		string = string.replace("\"", "\\\"");
 		return "\"" + string + "\"";
 	}
 	
-	public static String format(float v) {
-		//return Integer.toHexString(Float.floatToRawIntBits(v));
-		/*if (Math.abs(v) <= 16777216 && (int)v == v) {
-			return String.valueOf((int)v);
-		}*/
-		decimalFormat.setMaximumFractionDigits(SIGNIFICANT_DIGITS - 1);
-		String r = decimalFormat.format(v);
-		int nInt = r.indexOf('.');	//Compute the number of int digits
-		if (nInt > 1) {
-			int nDec = Math.max(1, Math.min(SIGNIFICANT_DIGITS - nInt, SIGNIFICANT_DIGITS - 1));
-			decimalFormat.setMaximumFractionDigits(nDec);
-			r = decimalFormat.format(v);
+	/**This method tries to format float numbers using the minimum required number of decimal digits,
+	 * forcing at least one decimal if the value is an integer that cannot be exactly represented by a float.
+	 * @param number
+	 * @return
+	 */
+	public static String format(float number) {
+		if (Math.abs(number) <= 16777216 && (int)number == number) {
+			return String.valueOf((int)number);
 		}
-		return r;
-	}
+        BigDecimal bigDecimal = new BigDecimal(Float.toString(number));
+        // Determine scale dynamically based on the absolute value and magnitude of the number
+        int scale = Math.max(0, -bigDecimal.precision() + bigDecimal.scale() + 8);
+        bigDecimal = bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+        String r = bigDecimal.stripTrailingZeros().toPlainString();
+        if (r.indexOf('.') < 0) {
+			r += ".0";
+		}
+        return r;
+    }
 	
 	public static boolean isValidFilename(String s) {
 		if (s == null || s.isBlank()) return false;
@@ -68,18 +68,6 @@ public final class Utils {
 			if (s.indexOf(c) >= 0) return false;
 		}
 		return true;
-	}
-	
-	public static String addSuffix(File file, String suffix) {
-		String fullname = file.getName();
-		String name = fullname;
-		String extension = "";
-		int p = fullname.lastIndexOf('.');
-		if (p >= 0) {
-			name = fullname.substring(0, p);
-			extension = fullname.substring(p);
-		}
-		return name + suffix + extension;
 	}
 	
 	public static String join(String separator, Object[] items) {

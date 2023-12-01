@@ -42,6 +42,16 @@ public class CHLInfoExtractor {
 		//File version
 		int ver = chl.getHeader().getVersion();
 		out.println("Version: "+ver);
+		out.println();
+		//Section sizes
+		out.println("Section sizes");
+		out.println(String.format("Globals:   %10d", chl.getGlobalVariables().getLength()));
+		out.println(String.format("Code:      %10d", chl.getCode().getLength()));
+		out.println(String.format("Autostart: %10d", chl.getAutoStartScripts().getLength()));
+		out.println(String.format("Scripts:   %10d", chl.getScriptsSection().getLength()));
+		out.println(String.format("Data:      %10d", chl.getDataSection().getLength()));
+		out.println(String.format("Init:      %10d", chl.getInitGlobals().getLength()));
+		out.println();
 		//Number of global variables
 		List<String> globalVars = chl.getGlobalVariables().getNames();
 		out.println("Number of globals: "+globalVars.size());

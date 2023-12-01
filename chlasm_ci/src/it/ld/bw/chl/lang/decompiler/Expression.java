@@ -165,6 +165,10 @@ class Expression {
 		return var;
 	}
 	
+	public String wrap() {
+		return isExpression ? "("+value+")" : value;
+	}
+	
 	public String safe() {
 		return lowPriority ? "("+value+")" : value;
 	}

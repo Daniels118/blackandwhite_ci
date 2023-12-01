@@ -124,6 +124,7 @@ public class CHLDecompiler {
 		addBoolOption("destroys when placed");
 		addBoolOption("with sound");
 		addBoolOption("3d");
+		addBoolOption("dumb");
 		//
 		addEnumOption("HELP_SPIRIT_TYPE", "none", "good", "evil", "last");
 		addEnumOption("SAY_MODE", null, "with interaction", "without interaction");
@@ -346,10 +347,6 @@ public class CHLDecompiler {
 		return getSymbol(type, val, true);
 	}
 	
-	private String getSymbol(String type, int val) {
-		return getSymbol(type, val, true);
-	}
-	
 	private String getSymbol(ArgType type, int val, boolean useAlias) {
 		return getSymbol(type.name(), val, useAlias);
 	}
@@ -406,25 +403,30 @@ public class CHLDecompiler {
 				str.write("_aliases.txt\r\n");
 			}
 			for (int i = 0; i < sources.size(); i++) {
-				String sourceFilename = sources.get(i);
-				String fixedName = sourceFilename.stripTrailing();
+				final String sourceFilename = sources.get(i);
+				final String fixedName = sourceFilename.stripTrailing();	//Remove trailing spaces
 				if (!isValidFilename(fixedName)) {
 					throw new RuntimeException("Invalid source filename: \""+sourceFilename+"\"");
 				}
 				//Check for duplicate filenames and compute a new name
+				String dir = "";
 				File sourceFile = path.resolve(fixedName).toFile();
-				if (writtenSources.contains(sourceFile.getName().toLowerCase())) {
-					int index = 0;
+				if (writtenSources.contains(sourceFile.getPath().toLowerCase())) {
+					int index = -1;
 					do {
-						sourceFile = path.resolve(addSuffix(sourceFile, "_"+(++index))).toFile();
-					} while (writtenSources.contains(sourceFile.getName().toLowerCase()));
-					warning("ATTENTION: a source file named "+sourceFilename+" has already been written to output dir. "
-							+ "The file will be written as "+sourceFile.getName()+", pay attention!");
+						Path subdir = path.resolve(String.valueOf(++index));
+						File subdirFile = subdir.toFile();
+						if (!subdirFile.isDirectory()) {
+							subdirFile.mkdir();
+						}
+						sourceFile = subdir.resolve(fixedName).toFile();
+					} while (writtenSources.contains(sourceFile.getPath().toLowerCase()));
+					dir = index + File.separator;
 				}
-				writtenSources.add(sourceFile.getName().toLowerCase());
+				writtenSources.add(sourceFile.getPath().toLowerCase());
 				renamedSources[i] = sourceFile;	//Store the renamed file
 				//
-				str.write(sourceFile.getName()+"\r\n");
+				str.write(dir + sourceFilename + "\r\n");	//It's important to use the name with any trailing spaces
 			}
 			if (!chl.getAutoStartScripts().getScripts().isEmpty()) {
 				str.write("_autorun.txt\r\n");
@@ -433,8 +435,8 @@ public class CHLDecompiler {
 		//Write user defined constants (aliases)
 		if (!aliases.isEmpty()) {
 			info("Writing _aliases.txt");
-			File autostartFile = path.resolve("_aliases.txt").toFile();
-			try (FileWriter str = new FileWriter(autostartFile, ASCII);) {
+			File file = path.resolve("_aliases.txt").toFile();
+			try (FileWriter str = new FileWriter(file, ASCII);) {
 				writer = str;
 				lineno = 1;
 				writeHeader();
@@ -444,8 +446,8 @@ public class CHLDecompiler {
 		//Write autorun scripts
 		if (!chl.getAutoStartScripts().getScripts().isEmpty()) {
 			info("Writing _autorun.txt");
-			File autostartFile = path.resolve("_autorun.txt").toFile();
-			try (FileWriter str = new FileWriter(autostartFile, ASCII);) {
+			File file = path.resolve("_autorun.txt").toFile();
+			try (FileWriter str = new FileWriter(file, ASCII);) {
 				writer = str;
 				lineno = 1;
 				writeHeader();
@@ -612,7 +614,9 @@ public class CHLDecompiler {
 	}
 	
 	private void writeAutoStartScripts() throws IOException, DecompileException {
-		for (int scriptID : chl.getAutoStartScripts().getScripts()) {
+		List<Integer> scripts = chl.getAutoStartScripts().getScripts();
+		for (int i = scripts.size() - 1; i >= 0; i--) {
+			int scriptID = scripts.get(i);
 			try {
 				Script script = chl.getScriptsSection().getScript(scriptID);
 				writeln("run script "+script.getName());
@@ -870,7 +874,7 @@ public class CHLDecompiler {
 						return new Expression(" -= " + op2);
 					}
 				} else {
-					return new Expression(op1 + " - " + op2.safe(), true);
+					return new Expression(op1 + " - " + op2.wrap(), true);
 				}
 			case MUL:
 				op2 = decompile();
@@ -883,14 +887,14 @@ public class CHLDecompiler {
 			case MOD:
 				op2 = decompile();
 				op1 = decompile();
-				return new Expression(op1.safe() + " % " + op2.safe());
+				return new Expression(op1.safe() + " % " + op2.wrap());
 			case DIV:
 				op2 = decompile();
 				op1 = decompile();
 				if (op1 == SELF_ASSIGN) {
 					return new Expression(" /= " + op2);
 				} else {
-					return new Expression(op1.safe() + " / " + op2.safe());
+					return new Expression(op1.safe() + " / " + op2.wrap());
 				}
 			case AND:
 				op2 = decompile();
@@ -899,23 +903,16 @@ public class CHLDecompiler {
 			case OR:
 				op2 = decompile();
 				op1 = decompile();
-				return new Expression(op1 + " or " + op2, true);
+				return new Expression(op1.safe() + " or " + op2.safe(), true);
 			case NOT:
 				op1 = decompile();
-				return new Expression("not (" + op1 + ")");
+				return new Expression("not " + op1.wrap());
 			case CAST:
 				switch (instr.dataType) {
 					case INT:
 						op1 = decompile();
 						if (op1.isVar()) {
 							return new Expression("constant " + op1.safe(), op1.getVar());
-						/*} else if (op1.isNumber() && !typeContextStack.isEmpty() && getLast(typeContextStack).isEnum()) {
-							Type type = getLast(typeContextStack);
-							String entry = getEnumEntry(type.type, op1.floatVal().intValue());
-							if (entry != null) {
-								String alias = aliases.getOrDefault(entry, entry);
-								return new Expression(alias, false, Type.FLOAT, op1.floatVal());
-							}*/
 						}
 						return new Expression("constant " + op1.safe(), op1.type);
 					case FLOAT:
@@ -1765,6 +1762,18 @@ public class CHLDecompiler {
 					line = "create influence at "+params.get(0)+" radius "+params.get(1);
 					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
+			case CREATURE_CREATE_RELATIVE_TO_CREATURE:
+				//CREATURE_CREATE_RELATIVE_TO_CREATURE(Object<SCRIPT_OBJECT_TYPE_CREATURE> model, float player, Coord pos, CREATURE_TYPE type, bool dumb)
+				boolean dumb = params.get(4).boolVal();
+				if (dumb) {
+					//create dumb creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
+					line = "create dumb creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2)+" "+params.get(3);
+					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
+				} else {
+					//create creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
+					line = "create creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2)+" "+params.get(3);
+					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
+				}
 			case SNAPSHOT:
 				params.set(2, null);	//implicit focus
 				params.set(3, null);	//implicit position
@@ -1910,32 +1919,13 @@ public class CHLDecompiler {
 									statement.add(null);
 								} else {
 									if (subtype == null) {
-										if (defineUnknownEnumsEnabled) {
-											requiredConstants.add(param.intVal());
-											statement.add(new Expression("UNK"+val, val));
-										} else {
-											//Workaround for missing constants
-											statement.add(new Expression("constant "+param, val));
-										}
-										//
 										Instruction instr = instructions.get(ip);
 										warning("WARNING: subtype not defined for type "+typeName
 												+" at instruction "+ip+" ("+instr+")"
 												+" in script "+currentScript.getName()
 												+" ("+currentScript.getSourceFilename()+":"+instr.lineNumber+")");
-									} else {
-										String entry = getEnumEntry(subtype, val);
-										if (entry != null) {
-											String alias = aliases.getOrDefault(entry, entry);
-											statement.add(new Expression(alias, val));
-										} else if (defineUnknownEnumsEnabled) {
-											requiredConstants.add(param.intVal());
-											statement.add(new Expression("UNK"+val, val));
-										} else {
-											//Workaround for missing constants
-											statement.add(new Expression("constant "+param, val));
-										}
 									}
+									statement.add(getConstExpr(subtype, val));
 								}
 							} else {
 								statement.add(param);
@@ -1971,17 +1961,7 @@ public class CHLDecompiler {
 												+" in script "+currentScript.getName()
 												+" ("+currentScript.getSourceFilename()+":"+instr.lineNumber+")");
 									} else {
-										String entry = getEnumEntry(subtype, val);
-										if (entry != null) {
-											String alias = aliases.getOrDefault(entry, entry);
-											statement.add(new Expression(alias, val));
-										} else if (defineUnknownEnumsEnabled) {
-											requiredConstants.add(param.intVal());
-											statement.add(new Expression("UNK"+val, val));
-										} else {
-											//Workaround for missing constants
-											statement.add(new Expression("constant "+param, val));
-										}
+										statement.add(getConstExpr(subtype, val));
 									}
 								}
 							} else {
@@ -1996,37 +1976,12 @@ public class CHLDecompiler {
 								if (audioSfxId.isNumber() && audioSfxId.intVal() != null) {
 									String entry = getEnumEntry(ArgType.AUDIO_SFX_BANK_TYPE, val);
 									subtype = subtypes.get(entry);
-									if (subtype != null) {
-										int subval = audioSfxId.intVal();
-										entry = getEnumEntry(subtype, subval);
-										if (entry != null) {
-											String alias = aliases.getOrDefault(entry, entry);
-											statement.set(audioSfxIdIndex, new Expression(alias, subval));
-										} else if (defineUnknownEnumsEnabled) {
-											requiredConstants.add(param.intVal());
-											statement.set(audioSfxIdIndex, new Expression("UNK"+subval, subval));
-										} else {
-											//Workaround for missing constants
-											statement.set(audioSfxIdIndex, new Expression("constant "+subval, subval));
-										}
-									} else {
-										statement.set(audioSfxIdIndex, new Expression("constant "+audioSfxId));
-									}
+									statement.set(audioSfxIdIndex, getConstExpr(subtype, audioSfxId));
 								}
 								if (val == AUDIO_SFX_BANK_TYPE_IN_GAME) {
 									statement.add(null);
 								} else {
-									String entry = getEnumEntry(arg.type, val);
-									if (entry != null) {
-										String alias = aliases.getOrDefault(entry, entry);
-										statement.add(new Expression(alias, val));
-									} else if (defineUnknownEnumsEnabled) {
-										requiredConstants.add(param.intVal());
-										statement.add(new Expression("UNK"+val, val));
-									} else {
-										//Workaround for missing constants
-										statement.add(new Expression("constant "+param, val));
-									}
+									statement.add(getConstExpr(arg.type, val));
 								}
 							} else {
 								statement.add(param);
@@ -2057,8 +2012,8 @@ public class CHLDecompiler {
 								}
 							} else if (arg.type == ArgType.BOOL && sym.optional) {
 								throw new DecompileException("Undefined boolean option: "+sym.keyword, currentScript, ip, instructions.get(ip));
-							} else if (arg.type.isEnum && param.isNumber() && param.intVal() != null) {
-								statement.add(new Expression("constant "+param, param.intVal()));
+							} else if ((arg.type == ArgType.INT || arg.type.isEnum) && param.isNumber() && param.intVal() != null) {
+								statement.add(getConstExpr(arg.type, param));
 							} else {
 								statement.add(param);
 							}
@@ -2136,7 +2091,7 @@ public class CHLDecompiler {
 		return expr;
 	}
 	
-	private Expression decompile(NativeFunction func, ListIterator<Expression> params) {
+	private Expression decompile(NativeFunction func, ListIterator<Expression> params) throws DecompileException {
 		Argument arg = func.args[params.nextIndex()];
 		Expression param = params.next();
 		if (arg.type == ArgType.STRPTR && param.isNumber()) {
@@ -2144,52 +2099,34 @@ public class CHLDecompiler {
 			String string = chl.getDataSection().getString(strptr);
 			return new Expression(escape(string));
 		} else if (arg.type.isEnum && param.isNumber() && param.intVal() != null) {
-			int val = param.intVal();
-			String entry = getEnumEntry(arg.type, val);
-			if (entry != null) {
-				String alias = aliases.getOrDefault(entry, entry);
-				return new Expression(alias, val);
-			} else if (defineUnknownEnumsEnabled) {
-				requiredConstants.add(param.intVal());
-				return new Expression("UNK" + param.intVal(), param.type);
-			} else {
-				//Workaround for missing constants
-				return new Expression("constant "+param);
-			}
+			return getConstExpr(arg.type, param);
 		} else if (arg.type == ArgType.INT && param.isNumber()) {
 			if (func == NativeFunction.RANDOM_ULONG && !typeContextStack.isEmpty() && param.intVal() != null) {
 				Type contextType = getLast(typeContextStack);
-				int val = param.intVal();
-				String entry = getEnumEntry(contextType.toString(), val);
-				if (entry != null) {
-					String alias = aliases.getOrDefault(entry, entry);
-					return new Expression(alias, val);
-				} else if (defineUnknownEnumsEnabled) {
-					requiredConstants.add(param.intVal());
-					return new Expression("UNK" + param.intVal(), param.type);
-				} else {
-					//Workaround for missing constants
-					return new Expression("constant "+param);
-				}
+				return getConstExpr(contextType, param);
 			} else if (!param.isExpression) {
-				if (defineUnknownEnumsEnabled) {
-					requiredConstants.add(param.intVal());
-					return new Expression("UNK" + param.intVal(), param.type);
-				} else {
-					//Workaround for missing constants
-					return new Expression("constant "+param);
-				}
+				return getConstExpr(arg.type, param);
 			}
 		}
 		return param;
 	}
 	
-	private Expression getConstExpr(ArgType type, Expression expr) {
+	private Expression getConstExpr(Type type, Expression expr) throws DecompileException {
+		return getConstExpr(type.toString(), expr);
+	}
+	
+	private Expression getConstExpr(ArgType type, Expression expr) throws DecompileException {
+		return getConstExpr(type.keyword, expr);
+	}
+	
+	private Expression getConstExpr(String type, Expression expr) throws DecompileException {
 		if (expr.isNumber() && expr.intVal() != null) {
 			int val = expr.intVal();
-			return getConstExpr(type, val);
+			Expression res = getConstExpr(type, val);
+			res.type = expr.type;	//Overwrite with the original type
+			return res;
 		} else {
-			return expr;
+			throw new DecompileException("Expected immediate value", currentScript, ip, instructions.get(ip));
 		}
 	}
 	
