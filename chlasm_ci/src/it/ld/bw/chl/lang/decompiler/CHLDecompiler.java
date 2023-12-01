@@ -90,6 +90,18 @@ public class CHLDecompiler {
 			ArgType.UNKNOWN
 		};
 	
+	private static final Priority[] priorityMap = new Priority[] {
+			Priority.VOID,			//UNKNOWN
+			Priority.CONST_EXPR,	//INT
+			Priority.EXPRESSION,	//FLOAT
+			Priority.COORD_EXPR,	//COORD
+			Priority.CONDITION,		//BOOL
+			Priority.OBJECT,		//OBJECT
+			Priority.EXPRESSION,	//INT_OR_FLOAT	TODO we could do better
+			Priority.ATOMIC,		//STRPTR
+			Priority.ATOMIC,		//SCRIPT
+		};
+	
 	private static final Symbol[] statements = new Symbol[NativeFunction.values().length];
 	private static final Map<String, String[]> boolOptions = new HashMap<>();
 	private static final Map<String, String[]> enumOptions = new HashMap<>();
@@ -862,7 +874,7 @@ public class CHLDecompiler {
 						return new Expression(" += " + op2);
 					}
 				} else {
-					return new Expression(op1 + " + " + op2, true);
+					return new Expression(Priority.ADD, op1.wrap(Priority.ADD) + " + " + op2.wrap(Priority.ADD));
 				}
 			case SUB:
 				op2 = decompile();
@@ -874,7 +886,7 @@ public class CHLDecompiler {
 						return new Expression(" -= " + op2);
 					}
 				} else {
-					return new Expression(op1 + " - " + op2.wrap(), true);
+					return new Expression(Priority.SUB, op1.wrap(Priority.SUB) + " - " + op2.wrap(Priority.SUB2));
 				}
 			case MUL:
 				op2 = decompile();
@@ -882,39 +894,39 @@ public class CHLDecompiler {
 				if (op1 == SELF_ASSIGN) {
 					return new Expression(" *= " + op2);
 				} else {
-					return new Expression(op1.safe() + " * " + op2.safe());
+					return new Expression(Priority.MUL, op1.wrap(Priority.MUL0) + " * " + op2.wrap(Priority.MUL));
 				}
 			case MOD:
 				op2 = decompile();
 				op1 = decompile();
-				return new Expression(op1.safe() + " % " + op2.wrap());
+				return new Expression(Priority.MOD, op1.wrap(Priority.MOD) + " % " + op2.wrap(Priority.MOD2));
 			case DIV:
 				op2 = decompile();
 				op1 = decompile();
 				if (op1 == SELF_ASSIGN) {
 					return new Expression(" /= " + op2);
 				} else {
-					return new Expression(op1.safe() + " / " + op2.wrap());
+					return new Expression(Priority.DIV, op1.wrap(Priority.DIV) + " / " + op2.wrap(Priority.DIV2));
 				}
 			case AND:
 				op2 = decompile();
 				op1 = decompile();
-				return new Expression("(" + op1.safe() + " and " + op2.safe() + ")");
+				return new Expression(Priority.AND, op1.wrap(Priority.AND0) + " and " + op2.wrap(Priority.AND));
 			case OR:
 				op2 = decompile();
 				op1 = decompile();
-				return new Expression(op1.safe() + " or " + op2.safe(), true);
+				return new Expression(Priority.OR, op1.wrap(Priority.OR0) + " or " + op2.wrap(Priority.OR));
 			case NOT:
 				op1 = decompile();
-				return new Expression("not " + op1.wrap());
+				return new Expression(Priority.NOT, "not " + op1.wrap(Priority.NOT));
 			case CAST:
 				switch (instr.dataType) {
 					case INT:
 						op1 = decompile();
 						if (op1.isVar()) {
-							return new Expression("constant " + op1.safe(), op1.getVar());
+							return new Expression("constant " + op1.wrap(Priority.CONST_EXPR), Priority.CONST_EXPR, op1.getVar());
 						}
-						return new Expression("constant " + op1.safe(), op1.type);
+						return new Expression("constant " + op1.wrap(Priority.CONST_EXPR), Priority.CONST_EXPR, op1.type);
 					case FLOAT:
 						op1 = decompile();
 						if (op1.isNumber() && !op1.isExpression) {
@@ -926,7 +938,7 @@ public class CHLDecompiler {
 								return new Expression(op1.intVal());
 							}
 						} else {
-							return new Expression("variable " + op1.safe(), op1.type);
+							return new Expression("variable " + op1.wrap(Priority.EXPRESSION), op1.type);
 						}
 					case COORDS:
 						typeContextStack.add(Type.FLOAT);
@@ -938,7 +950,7 @@ public class CHLDecompiler {
 						verify(ip, pInstr, OPCode.CAST, 1, DataType.COORDS);
 						op1 = decompile();
 						Utils.pop(typeContextStack);
-						return new Expression("[" + op1 + ", " + op2 + ", " + op3 + "]", Type.COORD);
+						return new Expression("[" + op1 + ", " + op2 + ", " + op3 + "]", Priority.ATOMIC, Type.COORD);
 					case OBJECT:
 						//CASTO
 						return decompile();
@@ -1115,7 +1127,7 @@ public class CHLDecompiler {
 				return new Expression(op1 + " < " + op2);
 			case NEG:
 				op1 = decompile();
-				return new Expression("-" + op1.safe());
+				return new Expression("-" + op1.wrap(Priority.NEG));
 			case NEQ:
 				op2 = decompile();
 				op1 = decompile();
@@ -1165,7 +1177,7 @@ public class CHLDecompiler {
 									String entry = getEnumEntry(type.toString(), instr.intVal);
 									if (entry != null) {
 										String alias = aliases.getOrDefault(entry, entry);
-										return new Expression(alias, instr.intVal);
+										return new Expression(alias, Priority.ATOMIC, Type.INT, instr.intVal);
 									}
 								}
 							}
@@ -1178,8 +1190,11 @@ public class CHLDecompiler {
 							pInstr = prev();
 							verify(ip, instr, OPCode.PUSH, 1, DataType.COORDS);
 							op1 = new Expression(format(pInstr.floatVal));
-							return new Expression("["+op1+", "+op2+", "+op3+"]", Type.COORD);
+							return new Expression("["+op1+", "+op2+", "+op3+"]", Priority.ATOMIC, Type.COORD);
 						case OBJECT:
+							if (instr.intVal != 0) {
+								throw new DecompileException("Expected 0 after PUSHO", currentScript, ip, instr);
+							}
 							return new Expression("0", Type.OBJECT);
 						case BOOLEAN:
 							return new Expression(instr.boolVal);
@@ -1417,33 +1432,33 @@ public class CHLDecompiler {
 				break;
 			case SLEEP:
 				op1 = decompile();
-				return new Expression(op1.safe() + " seconds");
+				return new Expression(op1.wrap(Priority.EXPRESSION) + " seconds");
 			case SQRT:
 				op1 = decompile();
-				return new Expression("square root " + op1.safe());
+				return new Expression("square root " + op1.wrap(Priority.EXPRESSION));
 			case TAN:
 				op1 = decompile();
-				return new Expression("tan " + op1.safe());
+				return new Expression("tan " + op1.wrap(Priority.EXPRESSION));
 			case SIN:
 				op1 = decompile();
-				return new Expression("sin " + op1.safe());
+				return new Expression("sin " + op1.wrap(Priority.EXPRESSION));
 			case COS:
 				op1 = decompile();
-				return new Expression("cos " + op1.safe());
+				return new Expression("cos " + op1.wrap(Priority.EXPRESSION));
 			case ATAN:
 				op1 = decompile();
-				return new Expression("arctan " + op1.safe());
+				return new Expression("arctan " + op1.wrap(Priority.EXPRESSION));
 			case ASIN:
 				op1 = decompile();
-				return new Expression("arcsin " + op1.safe());
+				return new Expression("arcsin " + op1.wrap(Priority.EXPRESSION));
 			case ACOS:
 				op1 = decompile();
-				return new Expression("arccos " + op1.safe());
+				return new Expression("arccos " + op1.wrap(Priority.EXPRESSION));
 			case ATAN2:
 				break;	//Never found
 			case ABS:
 				op1 = decompile();
-				return new Expression("abs " + op1.safe());
+				return new Expression("abs " + op1.wrap(Priority.EXPRESSION));
 			case LINE:
 				break;	//Never found
 			case END:
@@ -1735,7 +1750,7 @@ public class CHLDecompiler {
 						if (params.get(1).intVal() != 0) {
 							throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript, ip, instructions.get(ip));
 						}
-						return new Expression("marker at " + params.get(2), true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
+						return new Expression("marker at "+params.get(2), Priority.OBJECT, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
 					}
 				}
 				break;
@@ -1745,10 +1760,10 @@ public class CHLDecompiler {
 				anti = params.get(3).intVal() != 0;
 				if (anti) {
 					line = "create anti influence on "+params.get(0)+" radius "+params.get(1);
-					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
 					line = "create influence on "+params.get(0)+" radius "+params.get(1);
-					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case INFLUENCE_POSITION:
 				//INFLUENCE_POSITION(Coord position, float radius, int zero, int anti)
@@ -1756,11 +1771,11 @@ public class CHLDecompiler {
 				if (anti) {
 					//create anti influence at position COORD_EXPR [radius EXPRESSION]
 					line = "create anti influence at position "+params.get(0)+" radius "+params.get(1);
-					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
 					//create influence at position COORD_EXPR [radius EXPRESSION]
 					line = "create influence at "+params.get(0)+" radius "+params.get(1);
-					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case CREATURE_CREATE_RELATIVE_TO_CREATURE:
 				//CREATURE_CREATE_RELATIVE_TO_CREATURE(Object<SCRIPT_OBJECT_TYPE_CREATURE> model, float player, Coord pos, CREATURE_TYPE type, bool dumb)
@@ -1768,11 +1783,11 @@ public class CHLDecompiler {
 				if (dumb) {
 					//create dumb creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
 					line = "create dumb creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2)+" "+params.get(3);
-					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
 				} else {
 					//create creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
 					line = "create creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2)+" "+params.get(3);
-					return new Expression(line, true, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
+					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
 				}
 			case SNAPSHOT:
 				params.set(2, null);	//implicit focus
@@ -2024,7 +2039,7 @@ public class CHLDecompiler {
 				throw new DecompileException("Bad symbol: "+sym, currentScript, ip, instructions.get(ip));
 			}
 		}
-		//
+		//Build the statement to return
 		if (statement.isEmpty()) {
 			return null;
 		}
@@ -2047,8 +2062,15 @@ public class CHLDecompiler {
 				}
 			}
 		}
-		boolean lowPriority = func.returnType == ArgType.FLOAT;
-		Expression expr = new Expression(res.toString(), lowPriority, func.returnType, func.returnClass);
+		Priority priority = Priority.VOID;
+		if (func.returnType != null) {
+			if (func.returnType.isEnum) {
+				priority = Priority.CONST_EXPR;
+			} else {
+				priority = priorityMap[func.returnType.ordinal()];
+			}
+		}
+		Expression expr = new Expression(res.toString(), priority, func.returnType, func.returnClass);
 		//Try to guess the specific return type
 		Expression type, object;
 		switch (func) {
@@ -2063,7 +2085,7 @@ public class CHLDecompiler {
 			case CALL_FLYING:
 				type = params.get(0);
 				if (type.isNumber()) {
-					typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, type.intVal);
+					typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, type.intVal());
 					typeName = coalesce(typeName);
 					expr.type = new Type(ArgType.OBJECT, typeName);
 				}
@@ -2071,7 +2093,7 @@ public class CHLDecompiler {
 			case CREATE_WITH_ANGLE_AND_SCALE:
 				type = params.get(2);
 				if (type.isNumber()) {
-					typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, type.intVal);
+					typeName = getEnumEntry(ArgType.SCRIPT_OBJECT_TYPE, type.intVal());
 					typeName = coalesce(typeName);
 					expr.type = new Type(ArgType.OBJECT, typeName);
 				}
@@ -2138,13 +2160,13 @@ public class CHLDecompiler {
 		String entry = getEnumEntry(type, val);
 		if (entry != null) {
 			String alias = aliases.getOrDefault(entry, entry);
-			return new Expression(alias, val);
+			return new Expression(alias, Priority.ATOMIC, Type.INT, val);
 		} else if (defineUnknownEnumsEnabled) {
 			requiredConstants.add(val);
-			return new Expression("UNK"+val, val);
+			return new Expression("UNK"+val, Priority.ATOMIC, Type.INT, val);
 		} else {
 			//Workaround for missing constants
-			return new Expression("constant "+val, val);
+			return new Expression("constant "+val, Priority.CONST_EXPR, Type.INT, val);
 		}
 	}
 	

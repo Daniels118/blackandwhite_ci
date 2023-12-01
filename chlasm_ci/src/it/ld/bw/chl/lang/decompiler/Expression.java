@@ -22,67 +22,71 @@ import it.ld.bw.chl.lang.Var;
 import it.ld.bw.chl.model.NativeFunction.ArgType;
 
 class Expression {
-	final String value;
-	public final boolean lowPriority;
+	public final String value;
+	public final Priority priority;
 	public Type type;
-	final Integer intVal;
+	private final Integer intVal;
 	private final Float floatVal;
 	private final Boolean boolVal;
 	private final Var var;
 	public final boolean isExpression;
 	
 	public Expression(String value) {
-		this(value, false, null, 0);
+		this(value, Priority.EXPRESSION, null, 0);
+	}
+	
+	public Expression(Priority priority, String value) {
+		this(value, priority, null, 0);
 	}
 	
 	public Expression(int intVal) {
-		this(null, false, Type.INT, intVal);
+		this(null, Priority.ATOMIC, Type.INT, intVal);
 	}
 	
 	public Expression(float floatVal) {
-		this(null, false, Type.FLOAT, floatVal);
+		this(null, Priority.ATOMIC, Type.FLOAT, floatVal);
 	}
 	
 	public Expression(boolean boolVal) {
-		this(null, false, Type.BOOL, boolVal);
+		this(null, Priority.ATOMIC, Type.BOOL, boolVal);
 	}
 	
 	public Expression(Var var) {
-		this(null, false, var.type, var);
+		this(null, Priority.ATOMIC, var.type, var);
 	}
 	
 	public Expression(String value, Var var) {
-		this(value, false, null, var);
+		this(value, Priority.ATOMIC, null, var);
 	}
 	
-	public Expression(String value, boolean lowPriority) {
-		this(value, lowPriority, null, 0);
+	public Expression(String value, Priority priority, Var var) {
+		this(value, priority, null, var);
 	}
 	
 	public Expression(String value, ArgType type, String specificType) {
-		this(value, false,
+		this(value, Priority.EXPRESSION,
 				type == null ? null : new Type(type, specificType),
 				(Integer)null);
 	}
 	
-	public Expression(String value, boolean lowPriority, ArgType type, String specificType) {
-		this(value, lowPriority,
+	public Expression(String value, Priority priority, ArgType type, String specificType) {
+		this(value, priority,
 				type == null ? null : new Type(type, specificType),
 				(Integer)null);
 	}
 	
 	public Expression(String value, Type type) {
-		this(value, false, type, (Integer)null);
+		this(value, Priority.EXPRESSION, type, (Integer)null);
 	}
 	
-	public Expression(String value, int intVal) {
-		this(value, false, Type.INT, intVal);
+	public Expression(String value, Priority priority, Type type) {
+		this(value, priority, type, (Integer)null);
 	}
 	
-	public Expression(String value, boolean lowPriority, Type type, Integer intVal) {
+	public Expression(String value, Priority priority, Type type, Integer intVal) {
 		this.isExpression = value != null;
 		this.value = isExpression ? value : String.valueOf(intVal);
-		this.lowPriority = lowPriority;
+		this.priority = priority;
 		this.type = type;
 		this.intVal = intVal;
 		this.floatVal = null;
@@ -90,10 +94,10 @@ class Expression {
 		this.var = null;
 	}
 	
-	public Expression(String value, boolean lowPriority, Type type, Float floatVal) {
+	public Expression(String value, Priority priority, Type type, Float floatVal) {
 		this.isExpression = value != null;
 		this.value = isExpression ? value : format(floatVal);
-		this.lowPriority = lowPriority;
+		this.priority = priority;
 		this.type = type;
 		this.intVal = null;
 		this.floatVal = floatVal;
@@ -101,10 +105,10 @@ class Expression {
 		this.var = null;
 	}
 	
-	public Expression(String value, boolean lowPriority, Type type, Boolean boolVal) {
+	public Expression(String value, Priority priority, Type type, Boolean boolVal) {
 		this.isExpression = value != null;
 		this.value = isExpression ? value : String.valueOf(boolVal);
-		this.lowPriority = lowPriority;
+		this.priority = priority;
 		this.type = type;
 		this.intVal = null;
 		this.floatVal = null;
@@ -112,10 +116,10 @@ class Expression {
 		this.var = null;
 	}
 	
-	public Expression(String value, boolean lowPriority, Type type, Var var) {
+	public Expression(String value, Priority priority, Type type, Var var) {
 		this.isExpression = value != null;
 		this.value = isExpression ? value : var.name;
-		this.lowPriority = lowPriority;
+		this.priority = priority;
 		this.type = type;
 		this.intVal = 0;
 		this.floatVal = 0f;
@@ -165,12 +169,12 @@ class Expression {
 		return var;
 	}
 	
-	public String wrap() {
-		return isExpression ? "("+value+")" : value;
-	}
-	
-	public String safe() {
-		return lowPriority ? "("+value+")" : value;
+	public String wrap(Priority priority) {
+		if (isExpression) {
+			return this.priority.value <= priority.value ? "("+value+")" : value;
+		} else {
+			return value;
+		}
 	}
 	
 	@Override
