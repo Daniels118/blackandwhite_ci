@@ -383,6 +383,17 @@ set Vortex properties town Town flock position [FlockPos] distance FlockDistance
 	SYS VORTEX_PARAMETERS		//[8, 0] (Object vortex, Object town, Coord position, float distance, float radius, Object flock)
 ___________________________________________
 
+3.1.24 enable|disable OBJECT navigation
+
+?
+
+enable ActorToUse navigation
+
+	PUSHB true					//enable
+	PUSHV [ActorToUse]			//object
+	SYS SET_OBJECT_NAVIGATION	//[2, 0] (bool enable, Object object)
+___________________________________________
+
 3.2.1 set OBJECT desire CONST_EXPR to EXPRESSION
 
 Sets the current value of one of the creature's desires (between 0 and 1 where 1 is full).
@@ -881,6 +892,28 @@ clear spells on MyCreature
 
 	PUSHV [MyCreature]
 	SYS CLEAR_SPELLS_ON_OBJECT	//[1, 0] (Object object)
+___________________________________________
+
+3.2.48 set OBJECT master OBJECT
+
+?
+
+set Tyke master MyCreature
+
+	PUSHV [Tyke]			//disciple
+	PUSHV [MyCreature]		//master
+	SYS SET_CREATURE_MASTER	//[2, 0] (Object<SCRIPT_OBJECT_TYPE_CREATURE> disciple, Object<SCRIPT_OBJECT_TYPE_CREATURE> master)
+___________________________________________
+
+3.2.49 enable|disable OBJECT follow master
+
+?
+
+enable Tyke follow master
+
+	PUSHB true						//enable
+	PUSHV [Tyke]					//disciple
+	SYS SET_CREATURE_FOLLOW_MASTER	//[2, 0] (bool enable, Object<SET_CREATURE_FOLLOW_MASTER> disciple)
 ___________________________________________
 
 3.3.1 set computer player EXPRESSION position to COORD_EXPR [with fixed height]
@@ -2180,6 +2213,16 @@ clear hit land object
 	SYS CLEAR_HIT_LAND_OBJECT	//[0, 0] ()
 ___________________________________________
 
+3.8.88 enable|disable scoreboard draw
+
+?
+
+enable scoreboard draw
+
+	PUSHB true				//enable
+	SYS SET_DRAW_SCOREBOARD	//[1, 0] (bool enable)
+___________________________________________
+
 3.9.1 attach reaction OBJECT ENUM_REACTION
 
 Creates a reaction centered around an object which moves with the object. The reaction information is
@@ -2985,11 +3028,15 @@ reset camera lens		//#TheMissionaries.txt:1527
 	SYS SET_CAMERA_LENS	//[1, 0] (float lens)
 ___________________________________________
 
-3.18.5 enable|disable clipping distance EXPRESSION
+3.18.5 enable|disable clipping distance [EXPRESSION]
 
 Sets the clipping distance.
 
-Never found (SET_GRAPHICS_CLIPPING)
+enable clipping distance 1.0
+
+	PUSHB true					//enable
+	PUSHF 1.0					//distance (default: 0)
+	SYS SET_GRAPHICS_CLIPPING	//[2, 0] (bool enable, float distance)
 ___________________________________________
 
 3.18.6 set camera lens EXPRESSION [time EXPRESSION]

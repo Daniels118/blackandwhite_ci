@@ -399,3 +399,8 @@ THING_PLAY_ANIM						OBJECT play CONST_EXPR [loop EXPRESSION]
 GET_MOUSE_ACROSS					mouse percentage across
 GET_MOUSE_DOWN						mouse percentage down
 CALL_BUILDING_IN_TOWN				get building ABODE_NUMBER in OBJECT min built EXPRESSION [excluding scripted]
+SET_CREATURE_MASTER					set OBJECT master OBJECT
+SET_CREATURE_FOLLOW_MASTER			enable|disable OBJECT follow master
+SET_OBJECT_NAVIGATION				enable|disable OBJECT navigation
+SET_GRAPHICS_CLIPPING				enable|disable clipping distance [EXPRESSION]
+SET_DRAW_SCOREBOARD					enable|disable scoreboard draw

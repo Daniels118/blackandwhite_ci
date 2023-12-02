@@ -31,6 +31,17 @@ class Expression {
 	private final Var var;
 	public final boolean isExpression;
 	
+	public Expression(Expression expr) {
+		this.value = "(" + expr.value + ")";
+		this.priority = Priority.ATOMIC;
+		this.type = expr.type;
+		this.intVal = expr.intVal;
+		this.floatVal = expr.floatVal;
+		this.boolVal = expr.boolVal;
+		this.var = expr.var;
+		this.isExpression = true;
+	}
+	
 	public Expression(String value) {
 		this(value, Priority.EXPRESSION, null, 0);
 	}
@@ -137,6 +148,16 @@ class Expression {
 		return type.type == ArgType.BOOL;
 	}
 	
+	public boolean isCoord() {
+		if (type == null) return false;
+		return type.type == ArgType.COORD;
+	}
+	
+	public boolean isScript() {
+		if (type == null) return false;
+		return type.type == ArgType.SCRIPT;
+	}
+	
 	public boolean isVar() {
 		return var != null;
 	}
@@ -167,6 +188,10 @@ class Expression {
 			throw new RuntimeException("Not a variable");
 		}
 		return var;
+	}
+	
+	public String wrap() {
+		return wrap(Priority.HIGH);
 	}
 	
 	public String wrap(Priority priority) {

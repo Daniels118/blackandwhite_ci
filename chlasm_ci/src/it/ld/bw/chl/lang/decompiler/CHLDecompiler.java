@@ -315,7 +315,7 @@ public class CHLDecompiler {
 				String entryName = entry.getKey();
 				Integer entryVal = entry.getValue();
 				String oldName = revEntries.put(entryVal, entryName);
-				if (!entryName.equals(oldName)) {
+				if (oldName != null && !entryName.equals(oldName)) {
 					notice("NOTICE: entries "+oldName+" and "+entryName+" in "+enumName
 							+" share the same value ("+entryVal+")");
 				}
@@ -396,6 +396,9 @@ public class CHLDecompiler {
 	public void decompile(CHLFile chl, File outdir) throws IOException, DecompileException {
 		this.chl = chl;
 		this.path = outdir.toPath();
+		if (!outdir.isDirectory()) {
+			outdir.mkdir();
+		}
 		definedScripts.clear();
 		globalMap.clear();
 		stack.clear();
@@ -1755,7 +1758,7 @@ public class CHLDecompiler {
 						if (params.get(1).intVal() != 0) {
 							throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript, ip, instructions.get(ip));
 						}
-						return new Expression("marker at "+params.get(2), Priority.OBJECT, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
+						return new Expression("marker at "+params.get(2).wrap(), Priority.OBJECT, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
 					}
 				}
 				break;
@@ -1775,11 +1778,11 @@ public class CHLDecompiler {
 				anti = params.get(3).intVal() != 0;
 				if (anti) {
 					//create anti influence at position COORD_EXPR [radius EXPRESSION]
-					line = "create anti influence at position "+params.get(0)+" radius "+params.get(1);
+					line = "create anti influence at position "+params.get(0).wrap()+" radius "+params.get(1).wrap();
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
 					//create influence at position COORD_EXPR [radius EXPRESSION]
-					line = "create influence at "+params.get(0)+" radius "+params.get(1);
+					line = "create influence at "+params.get(0).wrap()+" radius "+params.get(1).wrap();
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case CREATURE_CREATE_RELATIVE_TO_CREATURE:
@@ -1787,11 +1790,11 @@ public class CHLDecompiler {
 				boolean dumb = params.get(4).boolVal();
 				if (dumb) {
 					//create dumb creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
-					line = "create dumb creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2)+" "+params.get(3);
+					line = "create dumb creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2).wrap()+" "+params.get(3);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
 				} else {
 					//create creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
-					line = "create creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2)+" "+params.get(3);
+					line = "create creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2).wrap()+" "+params.get(3);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
 				}
 			case SNAPSHOT:
@@ -2050,20 +2053,22 @@ public class CHLDecompiler {
 		}
 		ListIterator<Expression> tokens = statement.listIterator();
 		StringBuilder res = new StringBuilder(16 * statement.size());
-		String prevToken = "(";
+		String prevToken = ")";
+		boolean prevIsScript = false;
 		while (tokens.hasNext()) {
 			Expression part = tokens.next();
 			if (part != null) {
-				String token = part.toString();
+				String token = part.isCoord() ? part.wrap() : part.toString();
 				if (!token.isEmpty()) {
 					char c0 = token.charAt(0);
 					char c1 = prevToken.charAt(prevToken.length() - 1);
-					if (c0 != ']' && c0 != '(' && c0 != ')' && c0 != ','
+					if (c0 != ']' && (c0 != '(' || c0 == '(' && prevIsScript) && c0 != ')' && c0 != ','
 							&& c1 != '[' && c1 != '(') {
 						res.append(" ");
 					}
 					res.append(token);
 					prevToken = token;
+					prevIsScript = part.isScript();
 				}
 			}
 		}

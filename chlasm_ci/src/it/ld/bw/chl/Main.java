@@ -199,7 +199,6 @@ public class Main {
 		}
 		File inp = mandatory(cmd.getArgFile("-i"), "-i");
 		File out = mandatory(cmd.getArgFile("-o"), "-o");
-		if (!out.isDirectory()) throw new Exception("-o must be a directory");
 		List<File> aliases = cmd.getArgFiles("-a");
 		for (File file : aliases) {
 			decompiler.addAlias(file);

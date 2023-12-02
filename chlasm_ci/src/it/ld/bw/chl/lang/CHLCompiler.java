@@ -1472,6 +1472,11 @@ public class CHLCompiler implements Compiler {
 					//set OBJECT in player EXPRESSION hand
 					sys(SET_OBJECT_IN_PLAYER_HAND);
 					return replace(start, "STATEMENT");
+				} else if (symbol.is("master")) {
+					parse("master OBJECT EOL");
+					//set OBJECT master OBJECT
+					sys(SET_CREATURE_MASTER);
+					return replace(start, "STATEMENT");
 				} else {
 					parse("CONST_EXPR development EOL");
 					//set OBJECT CONST_EXPR development
@@ -1725,10 +1730,10 @@ public class CHLCompiler implements Compiler {
 				sys(ENABLE_DISABLE_ALIGNMENT_MUSIC);
 				return replace(start, "STATEMENT");
 			} else if (symbol.is("clipping")) {
-				parse("clipping distance EXPRESSION EOL");
-				//enable|disable clipping distance EXPRESSION
-				throw new ParseException("Statement not implemented", file, line, col);
-				//return replace(start, "STATEMENT");
+				parse("clipping distance [EXPRESSION] EOL", 0f);
+				//enable|disable clipping distance [EXPRESSION]
+				sys(SET_GRAPHICS_CLIPPING);
+				return replace(start, "STATEMENT");
 			} else if (symbol.is("camera")) {
 				parse("camera fixed rotation at COORD_EXPR EOL");
 				//enable|disable camera fixed rotation at COORD_EXPR
@@ -1749,6 +1754,11 @@ public class CHLCompiler implements Compiler {
 				parse("right hand only for OBJECT EOL");
 				//enable|disable right hand only for OBJECT
 				sys(CREATURE_SET_RIGHT_HAND_ONLY);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("scoreboard")) {
+				parse("scoreboard draw EOL");
+				//enable|disable scoreboard draw
+				sys(SET_DRAW_SCOREBOARD);
 				return replace(start, "STATEMENT");
 			} else {
 				symbol = parseObject(false);
@@ -1886,6 +1896,16 @@ public class CHLCompiler implements Compiler {
 						parse("immune to spells EOL");
 						//enable|disable OBJECT immune to spells
 						sys(ENABLE_OBJECT_IMMUNE_TO_SPELLS);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("follow")) {
+						parse("follow master EOL");
+						//enable|disable OBJECT follow master
+						sys(SET_CREATURE_FOLLOW_MASTER);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("navigation")) {
+						parse("navigation EOL");
+						//enable|disable OBJECT navigation
+						sys(SET_OBJECT_NAVIGATION);
 						return replace(start, "STATEMENT");
 					} else {
 						throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);

@@ -375,6 +375,11 @@ STATEMENT: {
 	set dolphin speed EXPRESSION EOL
 	enable|disable right hand only for OBJECT EOL
 	delete fire at COORD_EXPR radius EXPRESSION EOL
+	set OBJECT master OBJECT EOL
+	enable|disable OBJECT follow master EOL
+	enable|disable OBJECT navigation EOL
+	enable|disable clipping distance [EXPRESSION] EOL
+	enable|disable scoreboard draw EOL
 }
 
 DELETE_MODE: {

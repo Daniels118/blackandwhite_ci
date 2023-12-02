@@ -32,8 +32,9 @@ public enum Priority {
 	
 	OBJECT(50),
 	
-	ATOMIC(99),
-	;
+	ATOMIC(90),
+	
+	HIGH(99);
 	
 	public final int value;
 	
