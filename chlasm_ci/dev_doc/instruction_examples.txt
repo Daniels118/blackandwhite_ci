@@ -688,7 +688,10 @@ ___________________________________________
 
 Attaches a creatures leash to the hand.
 
-Never found (ATTACH_OBJECT_LEASH_TO_HAND)
+attach MyCreature leash to hand
+
+	PUSHV [MyCreature]
+	SYS ATTACH_OBJECT_LEASH_TO_HAND	//[1, 0] (Object creature)
 ___________________________________________
 
 3.2.29 enable|disable leash on OBJECT
@@ -914,6 +917,29 @@ enable Tyke follow master
 	PUSHB true						//enable
 	PUSHV [Tyke]					//disciple
 	SYS SET_CREATURE_FOLLOW_MASTER	//[2, 0] (bool enable, Object<SET_CREATURE_FOLLOW_MASTER> disciple)
+___________________________________________
+
+3.2.50 draw OBJECT lightbulb EXPRESSION
+
+?
+
+draw MyCreature lightbulb 0.25
+
+	PUSHV [MyCreature]
+	PUSHF 0.25
+	SYS SET_OBJECT_LIGHTBULB	//[2, 0] (Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, float percent)
+___________________________________________
+
+3.2.51 enable|disable OBJECT can learn CREATURE_ACTION_LEARNING_TYPE
+
+?
+
+enable MyCreature can learn CREATURE_ACTION_LEARNING_TYPE_NORMAL
+
+	PUSHB true
+	PUSHV [MyCreature]
+	PUSHI 0
+	SYS CREATURE_CAN_LEARN	//[3, 0] (bool enable, Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, CREATURE_ACTION_LEARNING_TYPE type)
 ___________________________________________
 
 3.3.1 set computer player EXPRESSION position to COORD_EXPR [with fixed height]
@@ -2221,6 +2247,31 @@ enable scoreboard draw
 
 	PUSHB true				//enable
 	SYS SET_DRAW_SCOREBOARD	//[1, 0] (bool enable)
+___________________________________________
+
+3.8.89 enable|disable OBJECT can drop
+
+?
+
+enable MyCreature can drop
+
+	PUSHB true					//enable
+	PUSHV [MyCreature]			//creature
+	SYS SET_CREATURE_CAN_DROP	//[2, 0] (bool enable, Object creature)
+___________________________________________
+
+3.8.90 TODO
+
+?
+
+???
+
+	PUSHV [Defender]		//villager
+	PUSHI 334				//action
+	PUSHV [FSBall]			//ball
+	PUSHV [Target]
+	SYS GET_POSITION		//position
+	SYS DO_ACTION_AT_POS	//[6, 0] (Object<OBJECT_TYPE_VILLAGER> villager, VILLAGER_STATES action, Object<OBJECT_TYPE_BALL> ball, Coord position)
 ___________________________________________
 
 3.9.1 attach reaction OBJECT ENUM_REACTION
@@ -4456,6 +4507,24 @@ mouse right button down		//#Startgoetterdex.txt:5
 	SYS MOUSE_DOWN	//[1, 1] (bool leftButton) returns (bool)
 ___________________________________________
 
+6.80 OBJECT knows action CREATURE_ACTION_KNOWN_ABOUT
+
+MyCreature knows action CREATURE_ACTION_KNOWN_ABOUT_USE_STORAGE_PIT
+
+	PUSHV [MyCreature]				//creature
+	PUSHI 3							//action
+	SYS GET_CREATURE_KNOWS_ACTION	//[2, 1] (Object creature, CREATURE_ACTION_KNOWN_ABOUT action) returns (bool)
+___________________________________________
+
+6.81 creature help on
+
+?
+
+creature help on
+
+	SYS CREATURE_HELP_ON	//[0, 1] () returns (bool)
+___________________________________________
+
 7 remove resource CONST_EXPR EXPRESSION from OBJECT
 
 Removes an amount of resource from an object, and returns the amount removed. If the amount asked for
@@ -5699,7 +5768,7 @@ ___________________________________________
 No doc. Trivial.
 ___________________________________________
 
-11.7 player EXPRESSION temple position
+11.17 player EXPRESSION temple position
 
 TemplePos = marker at player 1 temple position		//#GameOver.txt:10
 
@@ -5711,7 +5780,7 @@ TemplePos = marker at player 1 temple position		//#GameOver.txt:10
 	POPF TemplePos
 ___________________________________________
 
-11.8 camera CONST_EXPR
+11.18 camera CONST_EXPR
 
 ?
 
@@ -5721,7 +5790,7 @@ camera T00_000
 	SYS CONVERT_CAMERA_FOCUS	//[1, 3] (int camera_enum) returns (Coord)
 ___________________________________________
 
-11.9 player EXPRESSION temple entrance position radius EXPRESSION height EXPRESSION
+11.19 player EXPRESSION temple entrance position radius EXPRESSION height EXPRESSION
 
 ?
 
@@ -5731,6 +5800,17 @@ player 1 temple entrance position radius 90 height 40		//#GameOver.txt:11
 	PUSHF 90.0							//radius
 	PUSHF 40.0							//height
 	SYS GET_TEMPLE_ENTRANCE_POSITION	//[3, 3] (float player, float radius, float height) returns (Coord)
+___________________________________________
+
+11.20 extra position EXPRESSION of OBJECT
+
+?
+
+extra position 0 of EggTree
+
+	PUSHF 0.0
+	PUSHV [EggTree]
+	SYS GET_OBJECT_EP	//[2, 3] (float index, Object object) returns (Coord)
 ___________________________________________
 
 ### 12 Expressions
@@ -6450,6 +6530,27 @@ ___________________________________________
 get countdown timer time
 
 	SYS GET_COUNTDOWN_TIMER_TIME	//[0, 1] () returns (float)
+___________________________________________
+
+12.52 get OBJECT current action
+
+?
+
+get MyCreature current action
+
+	PUSHV [MyCreature]
+	SYS GET_CREATURE_CURRENT_ACTION	//[1, 1] (Object<SCRIPT_OBJECT_TYPE_CREATURE> creature) returns (CREATURE_ACTION)
+___________________________________________
+
+12.53 get OBJECT spell MAGIC_TYPE skill
+
+?
+
+get MyCreature spell MAGIC_TYPE_FOOD skill
+
+	PUSHV [MyCreature]
+	PUSHI 14
+	SYS GET_CREATURE_SPELL_SKILL	//[2, 1] (Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, MAGIC_TYPE skill) returns (float)
 ___________________________________________
 
 

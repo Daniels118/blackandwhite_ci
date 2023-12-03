@@ -580,20 +580,24 @@ public class CHLCompiler implements Compiler {
 		accept("(");
 		SymbolInstance symbol = peek();
 		if (!symbol.is(")")) {
-			symbol = accept(TokenType.IDENTIFIER);
+			symbol = next();
+			boolean ref = symbol.is("*");
+			if (ref) symbol = accept(TokenType.IDENTIFIER);
 			String name = symbol.token.value;
 			argc++;
 			if (addToLocalVars) {
-				addLocalVar(name);
+				addLocalVar(name, ref);
 			}
 			symbol = peek();
 			while (!symbol.is(")")) {
 				accept(",");
-				symbol = accept(TokenType.IDENTIFIER);
+				symbol = next();
+				ref = symbol.is("*");
+				if (ref) symbol = accept(TokenType.IDENTIFIER);
 				name = symbol.token.value;
 				argc++;
 				if (addToLocalVars) {
-					addLocalVar(name);
+					addLocalVar(name, ref);
 				}
 				symbol = peek();
 			}
@@ -649,10 +653,18 @@ public class CHLCompiler implements Compiler {
 	}
 	
 	private Var addLocalVar(String name) throws ParseException {
-		return addLocalVar(name, 1);
+		return addLocalVar(name, 1, false);
+	}
+	
+	private Var addLocalVar(String name, boolean ref) throws ParseException {
+		return addLocalVar(name, 1, ref);
 	}
 	
 	private Var addLocalVar(String name, int size) throws ParseException {
+		return addLocalVar(name, size, false);
+	}
+	
+	private Var addLocalVar(String name, int size, boolean ref) throws ParseException {
 		if (localMap.containsKey(name)) {
 			throw new ParseException("Duplicate local variable: "+name, file, line, col);
 		}
@@ -662,7 +674,7 @@ public class CHLCompiler implements Compiler {
 		for (int i = 1; i < size; i++) {
 			scriptVars.add("LHVMA");
 		}
-		Var var = new Var(Scope.local, name, id, size, 0);
+		Var var = new Var(Scope.local, name, id, size, 0, ref);
 		localMap.put(name, var);
 		return var;
 	}
@@ -1883,10 +1895,26 @@ public class CHLCompiler implements Compiler {
 						sys(SET_AFFECTED_BY_WIND);
 						return replace(start, "STATEMENT");
 					} else if (symbol.is("can")) {
-						parse("can be leashed to EOL");
-						//enable|disable OBJECT can be leashed to
-						sys(CAN_BE_LEASHED);
-						return replace(start, "STATEMENT");
+						accept("can");
+						symbol = peek();
+						if (symbol.is("be")) {
+							parse("be leashed to EOL");
+							//enable|disable OBJECT can be leashed to
+							sys(CAN_BE_LEASHED);
+							return replace(start, "STATEMENT");
+						} else if (symbol.is("drop")) {
+							parse("drop EOL");
+							//enable|disable OBJECT can drop
+							sys(SET_CREATURE_CAN_DROP);
+							return replace(start, "STATEMENT");
+						} else if (symbol.is("learn")) {
+							parse("learn CONST_EXPR EOL");
+							//enable|disable OBJECT can learn CREATURE_ACTION_LEARNING_TYPE EOL
+							sys(CREATURE_CAN_LEARN);
+							return replace(start, "STATEMENT");
+						} else {
+							throw new ParseException("Unexpected token: "+symbol+". Expected: be|drop|learn", file, symbol.token.line, symbol.token.col);
+						}
 					} else if (symbol.is("tattoo")) {
 						parse("tattoo CONST_EXPR EOL");
 						//enable|disable OBJECT tattoo CONST_EXPR
@@ -2109,8 +2137,8 @@ public class CHLCompiler implements Compiler {
 				if (symbol.is("hand")) {
 					parse("hand EOL");
 					//attach OBJECT leash to hand
-					throw new ParseException("Statement not implemented", file, line, col);
-					//return replace(start, "STATEMENT");
+					sys(ATTACH_OBJECT_LEASH_TO_HAND);
+					return replace(start, "STATEMENT");
 				} else {
 					parse("OBJECT EOL");
 					//attach OBJECT leash to OBJECT
@@ -2858,17 +2886,26 @@ public class CHLCompiler implements Compiler {
 	
 	private SymbolInstance parseDraw() throws ParseException {
 		final int start = it.nextIndex();
-		parse("draw text");
+		accept("draw");
 		SymbolInstance symbol = peek();
-		if (symbol.is(TokenType.STRING)) {
-			parse("STRING across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds EOL");
-			//draw text STRING across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds
-			sys(GAME_DRAW_TEMP_TEXT);
-			return replace(start, "STATEMENT");
+		if (symbol.is("text")) {
+			accept("text");
+			symbol = peek();
+			if (symbol.is(TokenType.STRING)) {
+				parse("STRING across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds EOL");
+				//draw text STRING across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds
+				sys(GAME_DRAW_TEMP_TEXT);
+				return replace(start, "STATEMENT");
+			} else {
+				parse("CONST_EXPR across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds EOL");
+				//draw text CONST_EXPR across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds
+				sys(GAME_DRAW_TEXT);
+				return replace(start, "STATEMENT");
+			}
 		} else {
-			parse("CONST_EXPR across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds EOL");
-			//draw text CONST_EXPR across EXPRESSION down EXPRESSION width EXPRESSION height EXPRESSION size EXPRESSION fade in time EXPRESSION second|seconds
-			sys(GAME_DRAW_TEXT);
+			parse("OBJECT lightbulb EXPRESSION EOL");
+			//draw OBJECT lightbulb EXPRESSION EOL
+			sys(SET_OBJECT_LIGHTBULB);
 			return replace(start, "STATEMENT");
 		}
 	}
@@ -3461,16 +3498,43 @@ public class CHLCompiler implements Compiler {
 					seek(start);
 					return peek();
 				}
+			} else if (symbol.is("&")) {
+				//& VARIABLE
+				accept("&");
+				symbol = accept(TokenType.IDENTIFIER);
+				String name = symbol.token.value;
+				SymbolInstance sInst = peek();
+				if (sInst.is("[")) {
+					accept("[");
+					if (checkAhead("NUMBER ]")) {
+						//IDENTIFIER\[NUMBER\]
+						sInst = next();
+						accept("]");
+						int index = sInst.token.intVal();
+						pushvAddr(name, index);
+						ref_push();
+					} else {
+						//IDENTIFIER\[EXPRESSION\]
+						parseExpression(true);
+						accept("]");
+						pushvAddr(name, 0);
+						ref_add_pushv2();
+					}
+				} else {
+					pushvAddr(name);
+					ref_push();
+				}
+				return replace(start, "EXPRESSION");
 			} else if (symbol.is("remove")) {
 				parse("remove resource CONST_EXPR EXPRESSION from OBJECT");
 				//remove resource CONST_EXPR EXPRESSION from OBJECT
 				sys(REMOVE_RESOURCE);
-				return replace(start, "STATEMENT");
+				return replace(start, "EXPRESSION");
 			} else if (symbol.is("add")) {
 				parse("add resource CONST_EXPR EXPRESSION to OBJECT");
 				//add resource CONST_EXPR EXPRESSION to OBJECT
 				sys(ADD_RESOURCE);
-				return replace(start, "STATEMENT");
+				return replace(start, "EXPRESSION");
 			} else if (symbol.is("alignment")) {
 				parse("alignment of player");
 				//alignment of player
@@ -3714,6 +3778,11 @@ public class CHLCompiler implements Compiler {
 							//get OBJECT sacrifice total
 							sys(GET_SACRIFICE_TOTAL);
 							return replace(start, "EXPRESSION");
+						} else if (symbol.is("spell")) {
+							parse("spell MAGIC_TYPE skill");
+							//get OBJECT spell MAGIC_TYPE skill
+							sys(GET_CREATURE_SPELL_SKILL);
+							return replace(start, "EXPRESSION");
 						}
 						revert(checkpoint, checkpointIp, checkpointPreserve);
 					}
@@ -3836,6 +3905,11 @@ public class CHLCompiler implements Compiler {
 				parse("arccos EXPRESSION");
 				acos();
 				return replace(start, "EXPRESSION");
+			} else if (symbol.is("arctan2")) {
+				//arctan2 EXPRESSION over EXPRESSION
+				parse("arctan2 EXPRESSION over EXPRESSION");
+				atan2();
+				return replace(start, "EXPRESSION");
 			} else if (symbol.is("abs")) {
 				//abs EXPRESSION
 				parse("abs EXPRESSION");
@@ -3877,39 +3951,20 @@ public class CHLCompiler implements Compiler {
 				pushf(val);
 				return replace(start, "EXPRESSION");
 			} else if (symbol.is(TokenType.IDENTIFIER)) {
-				SymbolInstance id1 = accept(TokenType.IDENTIFIER);
-				symbol = peek();
+				symbol = peek(1);
 				if (symbol.is("of")) {
 					//[get] CONSTANT of OBJECT
+					SymbolInstance id1 = accept(TokenType.IDENTIFIER);
 					int property = getConstant(id1.token.value);
 					pushi(property);
 					parse("of OBJECT");
 					sys(GET_PROPERTY);
 					return replace(start, "EXPRESSION");
-				} else if (symbol.is("[")) {
-					String var = id1.token.value;
-					accept("[");
-					if (checkAhead("NUMBER ]")) {
-						//IDENTIFIER\[NUMBER\]
-						symbol = accept(TokenType.NUMBER);
-						int index = symbol.token.intVal();
-						accept("]");
-						pushvVal(var, index);
-						return replace(start, "EXPRESSION");
-					} else {
-						//IDENTIFIER\[EXPRESSION\]
-						int varId = getVarId(var);
-						parseExpression(true);
-						accept("]");
-						pushf(varId);
-						addf();
-						ref_push2();
-						return replace(start, "EXPRESSION");
-					}
 				} else {
 					//IDENTIFIER
-					String var = id1.token.value;
-					pushvVal(var);
+					//IDENTIFIER\[NUMBER\]
+					//IDENTIFIER\[EXPRESSION\]
+					parse("VARIABLE");
 					return replace(start, "EXPRESSION");
 				}
 			}
@@ -4126,10 +4181,18 @@ public class CHLCompiler implements Compiler {
 					//return replace(start, "CONDITION");
 				}
 			} else if (symbol.is("creature")) {
-				parse("creature CONST_EXPR is available");
-				//creature CONST_EXPR is available
-				sys(IS_CREATURE_AVAILABLE);
-				return replace(start, "CONDITION");
+				symbol = peek();
+				if (symbol.is("help")) {
+					parse("help on");
+					//creature help on
+					sys(CREATURE_HELP_ON);
+					return replace(start, "CONDITION");
+				} else {
+					parse("creature CONST_EXPR is available");
+					//creature CONST_EXPR is available
+					sys(IS_CREATURE_AVAILABLE);
+					return replace(start, "CONDITION");
+				}
 			} else if (symbol.is("get")) {
 				parse("get desire of OBJECT is CONST_EXPR");
 				//get desire of OBJECT is CONST_EXPR
@@ -4446,6 +4509,11 @@ public class CHLCompiler implements Compiler {
 					accept("fighting");
 					//OBJECT fighting
 					sys(IS_FIGHTING);
+					return replace(start, "CONDITION");
+				} else if (symbol.is("knows")) {
+					parse("knows action CREATURE_ACTION_KNOWN_ABOUT");
+					//OBJECT knows action CREATURE_ACTION_KNOWN_ABOUT
+					sys(GET_CREATURE_KNOWS_ACTION);
 					return replace(start, "CONDITION");
 				} else if (symbol.is("==")) {
 					parse("== OBJECT");
@@ -5088,6 +5156,11 @@ public class CHLCompiler implements Compiler {
 							//get OBJECT fight action
 							sys(GET_CREATURE_FIGHT_ACTION);
 							return replace(start, "CONST_EXPR");
+						} else if (symbol.is("current")) {
+							parse("current action");
+							//get OBJECT current action
+							sys(GET_CREATURE_CURRENT_ACTION);
+							return replace(start, "EXPRESSION");
 						}
 					} else {
 						symbol = parseConstExpr(false);
@@ -5106,6 +5179,11 @@ public class CHLCompiler implements Compiler {
 				parse("state of OBJECT");
 				//state of OBJECT
 				sys(GET_OBJECT_STATE);
+				return replace(start, "CONST_EXPR");
+			} else if (symbol.is("extra")) {
+				parse("extra position EXPRESSION of OBJECT");
+				//extra position EXPRESSION of OBJECT
+				sys(GET_OBJECT_EP);
 				return replace(start, "CONST_EXPR");
 			} else if (symbol.is("(")) {
 				parse("( CONST_EXPR )");
@@ -5439,7 +5517,7 @@ public class CHLCompiler implements Compiler {
 		} else {
 			lastParseException = null;
 		}
-		if (index < 0 || index >= var.size) {
+		if (index < 0 || (index >= var.size && !var.ref)) {
 			if (staticArrayCheckEnabled) {
 				lastParseException = new ParseException("Index "+index+" out of bounds for "+name+"["+var.size+"]", file, line, col);
 				throw lastParseException;
@@ -5609,6 +5687,8 @@ public class CHLCompiler implements Compiler {
 			} else if ("VARIABLE".equals(symbol)) {
 				r[i] = accept(TokenType.IDENTIFIER);
 				String name = r[i].token.value;
+				Var var = localMap.get(name);
+				boolean ref = var != null && var.ref;
 				SymbolInstance sInst = peek();
 				if (sInst.is("[")) {
 					accept("[");
@@ -5617,15 +5697,26 @@ public class CHLCompiler implements Compiler {
 						sInst = next();
 						accept("]");
 						int index = sInst.token.intVal();
-						pushvVal(name, index);
+						if (ref) {
+							pushvVal(name);
+							pushf(index);
+							ref_add_pushv();
+						} else {
+							pushvVal(name, index);
+						}
 					} else {
 						//IDENTIFIER\[EXPRESSION\]
 						parseExpression(true);
 						accept("]");
-						int varId = getVarId(name);
-						pushf(varId);
-						addf();
-						ref_push2();
+						if (ref) {
+							pushvVal(name);
+							ref_add_pushf();
+						} else {
+							int varId = getVarId(name);
+							pushf(varId);
+							addf();
+							ref_push2();
+						}
 					}
 				} else {
 					pushvVal(name);
@@ -6238,8 +6329,32 @@ public class CHLCompiler implements Compiler {
 		instructions.add(instruction);
 	}
 	
+	private void ref_push() {
+		Instruction instruction = Instruction.fromKeyword("REF_PUSH");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
 	private void ref_push2() {
 		Instruction instruction = Instruction.fromKeyword("REF_PUSH2");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void ref_add_pushf() {
+		Instruction instruction = Instruction.fromKeyword("REF_ADD_PUSHF");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void ref_add_pushv() {
+		Instruction instruction = Instruction.fromKeyword("REF_ADD_PUSHV");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void ref_add_pushv2() {
+		Instruction instruction = Instruction.fromKeyword("REF_ADD_PUSHV2");
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}
@@ -6282,6 +6397,12 @@ public class CHLCompiler implements Compiler {
 	
 	private void acos() {
 		Instruction instruction = Instruction.fromKeyword("ACOS");
+		instruction.lineNumber = line;
+		instructions.add(instruction);
+	}
+	
+	private void atan2() {
+		Instruction instruction = Instruction.fromKeyword("ATAN2");
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 	}

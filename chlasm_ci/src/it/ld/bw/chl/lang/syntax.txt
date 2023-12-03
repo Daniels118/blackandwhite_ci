@@ -56,7 +56,10 @@ SCRIPT_TYPE: {
 
 ARGS: ARG {, ARG}
 
-ARG: IDENTIFIER
+ARG: {
+	IDENTIFIER
+	* IDENTIFIER
+}
 
 PARAMETERS: PARAMETER {, PARAMETER}
 
@@ -380,6 +383,9 @@ STATEMENT: {
 	enable|disable OBJECT navigation EOL
 	enable|disable clipping distance [EXPRESSION] EOL
 	enable|disable scoreboard draw EOL
+	enable|disable OBJECT can drop EOL
+	draw OBJECT lightbulb EXPRESSION EOL
+	enable|disable OBJECT can learn CREATURE_ACTION_LEARNING_TYPE EOL
 }
 
 DELETE_MODE: {
@@ -523,6 +529,7 @@ CONDITION: {
 	OBJECT fighting
 	OBJECT is auto fighting
 	OBJECT is male
+	OBJECT knows action CREATURE_ACTION_KNOWN_ABOUT
 	help system on
 	player has mouse wheel
 	spell CONST_EXPR for player EXPRESSION
@@ -537,6 +544,9 @@ CONDITION: {
 	current profile has creature
 	in widescreen
 	mouse left|right button down
+	sound AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] playing
+	say sound HELP_TEXT playing
+	creature help on
 	not CONDITION
 	CONDITION and CONDITION
 	CONDITION or CONDITION
@@ -548,8 +558,6 @@ CONDITION: {
 	EXPRESSION < EXPRESSION
 	OBJECT == OBJECT
 	OBJECT != OBJECT
-	sound AUDIO_SFX_ID [AUDIO_SFX_BANK_TYPE] playing
-	say sound HELP_TEXT playing
 	(CONDITION)
 }
 
@@ -654,14 +662,15 @@ COORD_EXPR: {
 	arse position of OBJECT
 	belly position of OBJECT
 	destination of OBJECT
+	player EXPRESSION temple position
+	camera CONST_EXPR
+	player EXPRESSION temple entrance position radius EXPRESSION height EXPRESSION
+	extra position EXPRESSION of OBJECT
 	EXPRESSION * COORD_EXPR
 	COORD_EXPR / EXPRESSION
 	COORD_EXPR +|- COORD_EXPR
 	-COORD_EXPR
 	(COORD_EXPR)
-	player EXPRESSION temple position
-	camera CONST_EXPR
-	player EXPRESSION temple entrance position radius EXPRESSION height EXPRESSION
 }
 
 ### 12 Expressions
@@ -669,6 +678,7 @@ EXPRESSION: {
 	VARIABLE
 	CONSTANT of OBJECT
 	get CONSTANT of OBJECT
+	& VARIABLE
 	NUMBER
 	
 	remove resource CONST_EXPR EXPRESSION from OBJECT
@@ -734,11 +744,14 @@ EXPRESSION: {
 	arctan EXPRESSION
 	arcsin EXPRESSION
 	arccos EXPRESSION
+	arctan2 EXPRESSION over EXPRESSION
 	abs EXPRESSION
 	mouse percentage across
 	mouse percentage down
 	get OBJECT sacrifice total
 	get countdown timer time
+	get OBJECT current action
+	get OBJECT spell MAGIC_TYPE skill
 	EXPRESSION *|/|% EXPRESSION
 	EXPRESSION +|- EXPRESSION
 	-EXPRESSION
@@ -812,6 +825,8 @@ SCRIPT_DEV_FUNCTION: CONST_EXPR
 ANIM_LIST: CONST_EXPR
 
 LH_KEY: CONST_EXPR
+
+CREATURE_ACTION_KNOWN_ABOUT: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

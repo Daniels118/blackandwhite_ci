@@ -108,8 +108,8 @@ public enum OPCode {
 	LINE(ARG),					//31
 	REF_AND_OFFSET_PUSH(0, 1),	//32
 	REF_AND_OFFSET_POP(3, 0),	//33
-	REF_PUSH(),					//34
-	REF_ADD_PUSH(),				//35
+	REF_PUSH(1, 1),				//34
+	REF_ADD_PUSH(2, 1),			//35
 	TAN(1, 1),					//36
 	SIN(1, 1),					//37
 	COS(1, 1),					//38
@@ -159,7 +159,7 @@ public enum OPCode {
 /*32*/	{null, null, {null, null, null, null, null, null, null, "REF_AND_OFFSET_PUSH"}},
 /*33*/	{null, null, {null, null, "REF_AND_OFFSET_POP"}},
 /*34*/	{null, {null, null, null, null, null, null, null, "REF_PUSH"}, {null, null, null, null, null, null, null, "REF_PUSH2"}},
-/*35*/	{null, {null, null, "REF_ADD_PUSH"}},
+/*35*/	{null, {null, null, "REF_ADD_PUSHF", null, null, null, null, "REF_ADD_PUSHV"}, {null, null, "REF_ADD_PUSHF2", null, null, null, null, "REF_ADD_PUSHV2"}},
 /*36*/	{{"TAN"}},
 /*37*/	{{"SIN"}},
 /*38*/	{{"COS"}},

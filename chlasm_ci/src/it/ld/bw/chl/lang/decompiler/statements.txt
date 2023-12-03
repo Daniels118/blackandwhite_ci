@@ -404,3 +404,13 @@ SET_CREATURE_FOLLOW_MASTER			enable|disable OBJECT follow master
 SET_OBJECT_NAVIGATION				enable|disable OBJECT navigation
 SET_GRAPHICS_CLIPPING				enable|disable clipping distance [EXPRESSION]
 SET_DRAW_SCOREBOARD					enable|disable scoreboard draw
+SET_CREATURE_CAN_DROP				enable|disable OBJECT can drop
+ATTACH_OBJECT_LEASH_TO_HAND			attach OBJECT leash to hand
+GET_CREATURE_KNOWS_ACTION			OBJECT knows action CREATURE_ACTION_KNOWN_ABOUT
+SET_OBJECT_LIGHTBULB				draw OBJECT lightbulb EXPRESSION
+GET_CREATURE_CURRENT_ACTION			get OBJECT current action
+CREATURE_HELP_ON					creature help on
+GET_CREATURE_SPELL_SKILL			get OBJECT spell MAGIC_TYPE skill
+CREATURE_CAN_LEARN					enable|disable OBJECT can learn CREATURE_ACTION_LEARNING_TYPE
+GET_OBJECT_EP						extra position EXPRESSION of OBJECT
+#DO_ACTION_AT_POS					

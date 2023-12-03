@@ -203,7 +203,7 @@ public class Main {
 		for (File file : aliases) {
 			decompiler.addAlias(file);
 		}
-		decompiler.setHeuristicLevel((int)cmd.getArgInt("-hl", 2));
+		decompiler.setHeuristicLevel((int)cmd.getArgInt("-hl", 2, 0, 2));
 		decompiler.setDefineUnknownEnumsEnabled(cmd.getArgFlag("-de"));
 		decompiler.setRespectLinenoEnabled(cmd.getArgFlag("-rln"));
 		decompiler.setWildModeEnabled(cmd.getArgFlag("-wild"));

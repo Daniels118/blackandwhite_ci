@@ -41,6 +41,8 @@ public class Script extends Section {
 	private int parameterCount;
 	private int scriptID;
 	
+	private boolean[] references;
+	
 	private Map<String, Integer> localsMap = null;
 	private int lastInstructionAddress = -1;
 	
@@ -84,7 +86,7 @@ public class Script extends Section {
 		this.variables = variables;
 	}
 	
-	public int getLocalVarIndex(String name) {
+	public int getLocalVarIndex(String varName) {
 		if (localsMap == null) {
 			localsMap = new HashMap<>();
 			int i = 0;
@@ -94,7 +96,19 @@ public class Script extends Section {
 				localsMap.put(tName, i++);
 			}
 		}
-		return localsMap.getOrDefault(name, -1);
+		return localsMap.getOrDefault(varName, -1);
+	}
+	
+	public void setReference(String varName) throws IllegalArgumentException {
+		int i = getLocalVarIndex(varName);
+		if (i < 0) throw new IllegalArgumentException("Variable "+varName+" is not a parameter of script "+this.name);
+		references[i] = true;
+	}
+	
+	public boolean isReference(String varName) throws IllegalArgumentException {
+		int i = getLocalVarIndex(varName);
+		if (i < 0) throw new IllegalArgumentException("Variable "+varName+" is not a parameter of script "+this.name);
+		return references[i];
 	}
 	
 	public List<String> getVariablesWithoutParameters() {
@@ -120,6 +134,7 @@ public class Script extends Section {
 	
 	public void setParameterCount(int parameterCount) {
 		this.parameterCount = parameterCount;
+		this.references = new boolean[parameterCount];
 	}
 	
 	public int getScriptID() {
@@ -163,6 +178,8 @@ public class Script extends Section {
 		instructionAddress = str.readInt();
 		parameterCount = str.readInt();
 		scriptID = str.readInt();
+		//
+		this.references = new boolean[parameterCount];
 	}
 	
 	@Override
@@ -219,7 +236,7 @@ public class Script extends Section {
 		if (parameterCount > 0) {
 			String[] argNames = new String[parameterCount];
 			for (int i = 0; i < parameterCount; i++) {
-				argNames[i] = variables.get(i);
+				argNames[i] = (references[i] ? "*" : "") + variables.get(i);
 			}
 			res += "(" + String.join(", ", argNames) + ")";
 		}

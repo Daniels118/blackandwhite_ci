@@ -72,6 +72,15 @@ public class CmdLine {
 		return Integer.valueOf(v);
 	}
 	
+	public Integer getArgInt(String name, Integer def, int min, int max) {
+		String v = getArgVal(name, null);
+		if (v == null) return def;
+		int iv = Integer.valueOf(v);
+		if (iv < min) throw new RuntimeException("Value of "+name+" must be not less than "+min);
+		if (iv > max) throw new RuntimeException("Value of "+name+" must be not greater than "+max);
+		return iv;
+	}
+	
 	public String reqArgVal(String name) throws MissingArgumentException {
 		String r = getArgVal(name, null);
 		if (r == null) throw new MissingArgumentException(name);

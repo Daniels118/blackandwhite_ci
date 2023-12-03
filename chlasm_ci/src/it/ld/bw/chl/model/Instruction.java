@@ -304,8 +304,8 @@ public class Instruction extends Struct {
 						if (chl != null && script != null) {
 							String varName;
 							try {
-								varName = script.getVar(chl, intVal);
-								//varName = getVar(chl, script, intVal);
+								//varName = script.getVar(chl, intVal);
+								varName = getVar(chl, script, intVal);
 							} catch (InvalidVariableIdException e) {
 								varName = String.valueOf(intVal);
 							}

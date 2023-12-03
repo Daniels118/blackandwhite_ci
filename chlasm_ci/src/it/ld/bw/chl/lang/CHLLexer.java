@@ -179,6 +179,9 @@ public class CHLLexer {
 						} else if (c == ']') {
 							add(tokens, new Token(line, col, TokenType.KEYWORD, c));
 							buffer.setLength(0);
+						} else if (c == '&') {
+							add(tokens, new Token(line, col, TokenType.KEYWORD, c));
+							buffer.setLength(0);
 						} else if (Character.isJavaIdentifierStart(c)) {
 							status = Status.IDENTIFIER;
 							token = new Token(line, col, TokenType.IDENTIFIER);

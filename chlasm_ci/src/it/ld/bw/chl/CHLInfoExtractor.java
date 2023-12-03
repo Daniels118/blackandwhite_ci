@@ -66,7 +66,8 @@ public class CHLInfoExtractor {
 			Script s1 = scripts.get(i);
 			out.println("  "+s1.getScriptID()+": "+s1.getSignature()
 					+" [source: "+s1.getSourceFilename()+", ip: "+s1.getInstructionAddress()
-					+", globals: "+s1.getGlobalCount()+"]");
+					+", globals: "+s1.getGlobalCount()
+					+", locals: "+s1.getVariables()+"]");
 		}
 		//Autostart scripts offset
 		AutoStartScripts autostartSection = chl.getAutoStartScripts();

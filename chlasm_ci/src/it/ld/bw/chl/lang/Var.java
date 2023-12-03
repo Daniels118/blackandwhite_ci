@@ -21,15 +21,21 @@ public class Var {
 	public final int index;
 	public int size;			//CI introduced arrays
 	public final float val;		//CI introduced default value
+	public boolean ref;
 	public Type type;			//Guessed type
 	
 	public Var(Scope scope, String name, int index, int size, float val) {
+		this(scope, name, index, size, val, false);
+	}
+	
+	public Var(Scope scope, String name, int index, int size, float val, boolean ref) {
 		if (size <= 0) throw new IllegalArgumentException("Invalid variable size: "+size);
 		this.scope = scope;
 		this.name = name;
 		this.index = index;
 		this.size = size;
 		this.val = val;
+		this.ref = ref;
 	}
 	
 	public boolean isArray() {

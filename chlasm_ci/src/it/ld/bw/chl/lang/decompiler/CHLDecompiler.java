@@ -199,6 +199,7 @@ public class CHLDecompiler {
 	private String tabs = "";
 	private boolean incTabs = false;
 	private boolean outputEnabled = true;
+	private boolean hasUnknownStatements = false;
 	
 	private CHLFile chl;
 	private Path path;
@@ -399,6 +400,7 @@ public class CHLDecompiler {
 		if (!outdir.isDirectory()) {
 			outdir.mkdir();
 		}
+		hasUnknownStatements = false;
 		definedScripts.clear();
 		globalMap.clear();
 		stack.clear();
@@ -530,6 +532,10 @@ public class CHLDecompiler {
 				writeln("};");
 			}
 			out.println("IMPORTANT: please copy content of "+file.getName()+" into Enum.h");
+		}
+		//
+		if (hasUnknownStatements) {
+			throw new DecompileException("The CHL file contains native functions for which the syntax is not known");
 		}
 	}
 	
@@ -842,12 +848,14 @@ public class CHLDecompiler {
 		int start = ip;
 		Instruction popf = find(OPCode.POP, OPCodeFlag.REF, DataType.FLOAT, var.index);
 		if (popf == null) {
-			throw new DecompileException("Cannot find initialization statement for "+var, currentScript, start);
+			gotoAddress(start);
+			return new Expression(var.name+"[1]");
+		} else {
+			nextStatementIndex = ip + 1;
+			Expression statement = decompile();
+			gotoAddress(nextStatementIndex);
+			return statement;
 		}
-		nextStatementIndex = ip + 1;
-		Expression statement = decompile();
-		gotoAddress(nextStatementIndex);
-		return statement;
 	}
 	
 	private Expression decompileNextStatement() throws DecompileException {
@@ -1215,17 +1223,64 @@ public class CHLDecompiler {
 				}
 				break;
 			case REF_PUSH:
-				//IDENTIFIER\[EXPRESSION\]
-				verify(ip, instr, OPCode.REF_PUSH, OPCodeFlag.REF, DataType.VAR);
-				pInstr = prev();	//ADDF
-				verify(ip, pInstr, OPCode.ADD, 1, DataType.FLOAT);
-				pInstr = prev();	//PUSHF var
-				verify(ip, pInstr, OPCode.PUSH, 1, DataType.FLOAT);
-				varName = getVarName((int)pInstr.floatVal, false);
-				varIndex = decompile().toString();
-				return new Expression(varName + "[" + varIndex + "]");
+				if (instr.flags == 2) {
+					//IDENTIFIER\[EXPRESSION\]
+					verify(ip, instr, OPCode.REF_PUSH, OPCodeFlag.REF, DataType.VAR);
+					pInstr = prev();	//ADDF
+					verify(ip, pInstr, OPCode.ADD, 1, DataType.FLOAT);
+					pInstr = prev();	//PUSHF var
+					verify(ip, pInstr, OPCode.PUSH, 1, DataType.FLOAT);
+					varName = getVarName((int)pInstr.floatVal, false);
+					varIndex = decompile().toString();
+					return new Expression(varName + "[" + varIndex + "]");
+				} else {
+					//&VARIABLE
+					verify(ip, instr, OPCode.REF_PUSH, 1, DataType.VAR);
+					pInstr = prev();	//PUSHF var
+					verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
+					varName = getVarName((int)pInstr.intVal);
+					return new Expression("&"+varName);
+				}
 			case REF_ADD_PUSH:
-				break;	//Never found
+				if (instr.dataType == DataType.FLOAT) {
+					//REFERENCE\[EXPRESSION\]
+					pInstr = prev();	//PUSHV [var]
+					verify(ip, pInstr, OPCode.PUSH, OPCodeFlag.REF, DataType.VAR);
+					varName = getVarName(pInstr.intVal, false);
+					Var var = getVar(varName);
+					if (!var.ref) {
+						trace("TRACE: variable "+varName+" is a reference");
+						var.ref = true;
+						currentScript.setReference(var.name);
+					}
+					op2 = decompile();
+					return new Expression(varName+"["+op2+"]");
+				} else if (instr.dataType == DataType.VAR) {
+					if (instr.flags == 2) {
+						//&IDENTIFIER\[EXPRESSION\]
+						pInstr = prev();	//PUSHV var
+						verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
+						varName = getVarName(pInstr.intVal, false);
+						op2 = decompile();
+						return new Expression("&"+varName+"["+op2+"]");
+					} else {
+						//REFERENCE\[NUMBER\]
+						pInstr = prev();	//PUSHF index
+						verify(ip, pInstr, OPCode.PUSH, 1, DataType.FLOAT);
+						varIndex = String.valueOf((int)pInstr.floatVal);
+						pInstr = prev();	//PUSHV [var]
+						verify(ip, pInstr, OPCode.PUSH, OPCodeFlag.REF, DataType.VAR);
+						varName = getVarName(pInstr.intVal, false);
+						Var var = getVar(varName);
+						if (!var.ref) {
+							trace("TRACE: variable "+varName+" is a reference");
+							var.ref = true;
+							currentScript.setReference(var.name);
+						}
+						return new Expression(varName+"["+varIndex+"]");
+					}
+				}
+				break;
 			case REF_AND_OFFSET_PUSH:
 				next();
 				return SELF_ASSIGN;
@@ -1463,7 +1518,9 @@ public class CHLDecompiler {
 				op1 = decompile();
 				return new Expression("arccos " + op1.wrap(Priority.EXPRESSION));
 			case ATAN2:
-				break;	//Never found
+				op2 = decompile();
+				op1 = decompile();
+				return new Expression("arctan2 "+op1.wrap(Priority.EXPRESSION)+" over "+op2.wrap(Priority.EXPRESSION));
 			case ABS:
 				op1 = decompile();
 				return new Expression("abs " + op1.wrap(Priority.EXPRESSION));
@@ -1843,7 +1900,10 @@ public class CHLDecompiler {
 			Expression statement = decompile(func, symbol, params, null);
 			return statement;
 		}
-		throw new DecompileException(func+" is not supported", currentScript, ip, instructions.get(ip));
+		String msg = "ERROR: Function "+func+" is not supported at instruction "+ip+" in "+currentScript+":"+instructions.get(ip).lineNumber;
+		warning(msg);
+		hasUnknownStatements = true;
+		return new Expression(msg);
 	}
 	
 	private Expression decompile(NativeFunction func, Symbol symbol, List<Expression> params, ListIterator<Expression> paramIt) throws DecompileException {
