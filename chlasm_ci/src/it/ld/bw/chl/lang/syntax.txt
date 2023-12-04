@@ -392,6 +392,12 @@ STATEMENT: {
 	enable|disable fight camera exit EOL
 	enable|disable fight lock EOL
 	enable|disable fight queue only EOL
+	set camera auto track OBJECT distance EXPRESSION EOL
+	enable|disable OBJECT dice check EOL
+	set camera heading follow OBJECT distance EXPRESSION EOL
+	delete fragments at COORD_EXPR radius EXPRESSION EOL
+	set OBJECT distance from home EXPRESSION EOL
+	enable|disable bookmark on OBJECT EOL
 }
 
 DELETE_MODE: {
@@ -631,6 +637,9 @@ OBJECT: {
 	create player EXPRESSION temple at COORD_EXPR
 	get object which hit land
 	create special effect from file STRING
+	create player EXPRESSION town at COORD_EXPR type TRIBE_TYPE
+	get object OBJECT leashed to
+	get building woodpile in OBJECT
 	IDENTIFIER
 }
 
@@ -672,6 +681,7 @@ COORD_EXPR: {
 	camera CONST_EXPR
 	player EXPRESSION temple entrance position radius EXPRESSION height EXPRESSION
 	extra position EXPRESSION of OBJECT
+	landing position of OBJECT velocity heading COORD_EXPR speed EXPRESSION
 	EXPRESSION * COORD_EXPR
 	COORD_EXPR / EXPRESSION
 	COORD_EXPR +|- COORD_EXPR
@@ -758,6 +768,7 @@ EXPRESSION: {
 	get countdown timer time
 	get OBJECT current action
 	get OBJECT spell MAGIC_TYPE skill
+	get OBJECT score
 	EXPRESSION *|/|% EXPRESSION
 	EXPRESSION +|- EXPRESSION
 	-EXPRESSION
@@ -835,6 +846,8 @@ LH_KEY: CONST_EXPR
 CREATURE_ACTION_KNOWN_ABOUT: CONST_EXPR
 
 VILLAGER_STATES: CONST_EXPR
+
+TRIBE_TYPE: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

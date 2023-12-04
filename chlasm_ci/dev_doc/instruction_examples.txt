@@ -976,6 +976,17 @@ enable fight queue only
 	SYS SET_FIGHT_QUEUE_ONLY	//[1, 0] (bool enable)
 ___________________________________________
 
+3.2.56 set OBJECT distance from home EXPRESSION
+
+?
+
+set MyCreature distance from home 2.0
+
+	PUSHV [MyCreature]					//creature
+	PUSHF 2.0							//distance
+	SYS SET_CREATURE_DISTANCE_FROM_HOME	//[2, 0] (Object creature, float distance)
+___________________________________________
+
 3.3.1 set computer player EXPRESSION position to COORD_EXPR [with fixed height]
 
 Sets the computer player position. Once the computer player gets to the position he will be paused until
@@ -2318,6 +2329,40 @@ enable fight camera exit
 	SYS SET_FIGHT_CAMERA_EXIT	//[1, 0] (bool enable)
 ___________________________________________
 
+3.8.92 enable|disable OBJECT dice check
+
+?
+
+enable Dice dice check
+
+	PUSHB true				//enable
+	PUSHV [Dice]			//dice
+	SYS SET_DIE_ROLL_CHECK	//[2, 0] (bool enable, Object dice)
+___________________________________________
+
+3.8.93 delete fragments at COORD_EXPR radius EXPRESSION
+
+?
+
+delete fragments at [pos] radius 2.0
+
+	PUSHV [pos]
+	SYS GET_POSITION	//[1, 3] (Object object) returns (Coord)
+	PUSHF 2.0
+	SYS DELETE_FRAGMENTS_IN_RADIUS	//[4, 0] (Coord position, float radius)
+___________________________________________
+
+3.8.94 enable|disable bookmark on OBJECT
+
+?
+
+enable bookmark on MyCreature
+
+	PUSHB true					//enable
+	PUSHV [MyCreature]			//target
+	SYS SET_BOOKMARK_ON_OBJECT	//[2, 0] (bool enable, Object target)
+___________________________________________
+
 3.9.1 attach reaction OBJECT ENUM_REACTION
 
 Creates a reaction centered around an object which moves with the object. The reaction information is
@@ -3481,6 +3526,28 @@ delete fire at [MyCreature] radius 10
 	SYS GET_POSITION		//position
 	PUSHF 10.0				//radius
 	SYS GAME_DELETE_FIRE	//[4, 0] (Coord position, float radius)
+___________________________________________
+
+3.18.37 set camera auto track OBJECT distance EXPRESSION
+
+?
+
+set camera auto track MyCreature distance 35.0
+
+	PUSHV [MyCreature]
+	PUSHF 35.0
+	SYS SET_CAMERA_AUTO_TRACK	//[2, 0] (?, ?)
+___________________________________________
+
+3.18.38 set camera heading follow OBJECT distance EXPRESSION
+
+?
+
+set camera heading follow Dice distance 2.0
+
+	PUSHV [Dice]					//target
+	PUSHF 2.0						//distance
+	SYS SET_CAMERA_HEADING_FOLLOW	//[2, 0] (Object target, float distance)
 ___________________________________________
 
 ### 4 Exceptions
@@ -5461,6 +5528,39 @@ get object which hit land
 	SYS GET_LAST_OBJECT_WHICH_HIT_LAND	//[0, 1] () returns (Object)
 ___________________________________________
 
+9.55 create player EXPRESSION town at COORD_EXPR type TRIBE_TYPE
+
+?
+
+create player 0 town at [pos] type TRIBE_TYPE_JAPANESE
+
+	PUSHF 0.0				//player
+	PUSHV [pos]
+	SYS GET_POSITION		//position
+	PUSHI 3					//tribe
+	SYS GAME_CREATE_TOWN	//[5, 1] (float player, Coord position, TRIBE_TYPE tribe) returns (Object)
+___________________________________________
+
+9.56 get object OBJECT leashed to
+
+?
+
+get object MyCreature leashed to
+
+	PUSHV [MyCreature]					//creature
+	SYS GET_OBJECT_OBJECT_LEASHED_TO	//[1, 1] (Object creature) returns (Object)
+___________________________________________
+
+9.57 get building woodpile in OBJECT
+
+?
+
+get building woodpile in Hut
+
+	PUSHV [Hut]							//building
+	SYS CALL_BUILDING_WOODPILE_IN_TOWN	//[1, 1] (Object building) returns (Object)
+___________________________________________
+
 ### 10 Constants
 ___________________________________________
 
@@ -5855,6 +5955,19 @@ extra position 0 of EggTree
 	PUSHF 0.0
 	PUSHV [EggTree]
 	SYS GET_OBJECT_EP	//[2, 3] (float index, Object object) returns (Coord)
+___________________________________________
+
+11.21 landing position of OBJECT velocity heading COORD_EXPR speed EXPRESSION
+
+?
+
+landing position of Dice velocity heading [vector] speed 2.0
+
+	PUSHV [Dice]		//object
+	PUSHV [vector]
+	SYS GET_POSITION	//heading
+	PUSHF 2.0			//speed
+	SYS GET_LANDING_POS	//[5, 3] (Object object, Coord heading, float speed) returns (Coord)
 ___________________________________________
 
 ### 12 Expressions
@@ -6595,6 +6708,16 @@ get MyCreature spell MAGIC_TYPE_FOOD skill
 	PUSHV [MyCreature]
 	PUSHI 14
 	SYS GET_CREATURE_SPELL_SKILL	//[2, 1] (Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, MAGIC_TYPE skill) returns (float)
+___________________________________________
+
+12.54 get OBJECT score
+
+?
+
+get Dice score
+
+	PUSHV [Dice]			//object
+	SYS GET_OBJECT_SCORE	//[1, 1] (Object object) returns (float)
 ___________________________________________
 
 

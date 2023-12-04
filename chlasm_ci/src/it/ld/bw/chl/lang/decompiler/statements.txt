@@ -419,3 +419,14 @@ CREATURE_CLEAR_FIGHT_QUEUE			clear OBJECT fight queue
 SET_FIGHT_CAMERA_EXIT				enable|disable fight camera exit
 SET_FIGHT_LOCK						enable|disable fight lock
 SET_FIGHT_QUEUE_ONLY				enable|disable fight queue only
+GAME_CREATE_TOWN					create player EXPRESSION town at COORD_EXPR type TRIBE_TYPE
+SET_CAMERA_AUTO_TRACK				set camera auto track OBJECT distance EXPRESSION
+GET_OBJECT_SCORE					get OBJECT score
+SET_DIE_ROLL_CHECK					enable|disable OBJECT dice check
+GET_LANDING_POS						landing position of OBJECT velocity heading COORD_EXPR speed EXPRESSION
+SET_CAMERA_HEADING_FOLLOW			set camera heading follow OBJECT distance EXPRESSION
+GET_OBJECT_OBJECT_LEASHED_TO		get object OBJECT leashed to
+CALL_BUILDING_WOODPILE_IN_TOWN		get building woodpile in OBJECT
+DELETE_FRAGMENTS_IN_RADIUS			delete fragments at COORD_EXPR radius EXPRESSION
+SET_CREATURE_DISTANCE_FROM_HOME		set OBJECT distance from home EXPRESSION
+SET_BOOKMARK_ON_OBJECT				enable|disable bookmark on OBJECT

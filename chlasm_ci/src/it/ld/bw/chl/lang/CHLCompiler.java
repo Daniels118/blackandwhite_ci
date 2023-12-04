@@ -1202,6 +1202,16 @@ public class CHLCompiler implements Compiler {
 				//set camera properties distance EXPRESSION speed EXPRESSION angle EXPRESSION enable|disable behind
 				sys(CAMERA_PROPERTIES);
 				return replace(start, "STATEMENT");
+			} else if (symbol.is("auto")) {
+				parse("auto track OBJECT distance EXPRESSION EOL");
+				//set camera auto track OBJECT distance EXPRESSION
+				sys(SET_CAMERA_AUTO_TRACK);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("heading")) {
+				parse("heading follow OBJECT distance EXPRESSION EOL");
+				//set camera heading follow OBJECT distance EXPRESSION
+				sys(SET_CAMERA_HEADING_FOLLOW);
+				return replace(start, "STATEMENT");
 			} else {
 				throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
 			}
@@ -1489,6 +1499,11 @@ public class CHLCompiler implements Compiler {
 					//set OBJECT master OBJECT
 					sys(SET_CREATURE_MASTER);
 					return replace(start, "STATEMENT");
+				} else if (symbol.is("distance")) {
+					parse("distance from home EXPRESSION EOL");
+					//set OBJECT distance from home EXPRESSION
+					sys(SET_CREATURE_DISTANCE_FROM_HOME);
+					return replace(start, "STATEMENT");
 				} else {
 					parse("CONST_EXPR development EOL");
 					//set OBJECT CONST_EXPR development
@@ -1523,6 +1538,11 @@ public class CHLCompiler implements Compiler {
 			//delete delete fire at COORD_EXPR radius EXPRESSION
 			parse("fire at COORD_EXPR radius EXPRESSION EOL");
 			sys(GAME_DELETE_FIRE);
+			return replace(start, "STATEMENT");
+		} else if (symbol.is("fragments")) {
+			//delete fragments at COORD_EXPR radius EXPRESSION
+			parse("fragments at COORD_EXPR radius EXPRESSION EOL");
+			sys(DELETE_FRAGMENTS_IN_RADIUS);
 			return replace(start, "STATEMENT");
 		} else {
 			//delete OBJECT [with fade|with explosion|with temple explosion]
@@ -1793,6 +1813,11 @@ public class CHLCompiler implements Compiler {
 				//enable|disable scoreboard draw
 				sys(SET_DRAW_SCOREBOARD);
 				return replace(start, "STATEMENT");
+			} else if (symbol.is("bookmark")) {
+				parse("bookmark on OBJECT EOL");
+				//enable|disable bookmark on OBJECT EOL
+				sys(SET_BOOKMARK_ON_OBJECT);
+				return replace(start, "STATEMENT");
 			} else {
 				symbol = parseObject(false);
 				if (symbol != null) {
@@ -1955,6 +1980,11 @@ public class CHLCompiler implements Compiler {
 						parse("navigation EOL");
 						//enable|disable OBJECT navigation
 						sys(SET_OBJECT_NAVIGATION);
+						return replace(start, "STATEMENT");
+					} else if (symbol.is("dice")) {
+						parse("dice check EOL");
+						//enable|disable OBJECT dice check
+						sys(SET_DIE_ROLL_CHECK);
 						return replace(start, "STATEMENT");
 					} else {
 						throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
@@ -3816,6 +3846,11 @@ public class CHLCompiler implements Compiler {
 							//get OBJECT spell MAGIC_TYPE skill
 							sys(GET_CREATURE_SPELL_SKILL);
 							return replace(start, "EXPRESSION");
+						} else if (symbol.is("score")) {
+							accept("score");
+							//get OBJECT score
+							sys(GET_OBJECT_SCORE);
+							return replace(start, "EXPRESSION");
 						}
 						revert(checkpoint, checkpointIp, checkpointPreserve);
 					}
@@ -4688,10 +4723,19 @@ public class CHLCompiler implements Compiler {
 				accept("get");
 				symbol = peek();
 				if (symbol.is("building")) {
-					//get building TYPE in OBJECT [excluding scripted]
-					parse("building CONST_EXPR in OBJECT [excluding scripted]");
-					throw new ParseException("Statement not implemented", lastParseException, file, line, col);
-					//return replace(start, "OBJECT");
+					accept("building");
+					symbol = peek();
+					if (symbol.is("woodpile")) {
+						//get building woodpile in OBJECT
+						parse("woodpile in OBJECT");
+						sys(CALL_BUILDING_WOODPILE_IN_TOWN);
+						return replace(start, "OBJECT");
+					} else {
+						//get building TYPE in OBJECT [excluding scripted]
+						parse("CONST_EXPR in OBJECT [excluding scripted]");
+						throw new ParseException("Statement not implemented", lastParseException, file, line, col);
+						//return replace(start, "OBJECT");
+					}
 				} else if (symbol.is("poisoned")) {
 					//get poisoned TYPE [SCRIPT_OBJECT_SUBTYPE] in OBJECT
 					parse("poisoned CONST_EXPR");
@@ -4798,7 +4842,10 @@ public class CHLCompiler implements Compiler {
 						sys(GET_OBJECT_HAND_IS_OVER);
 						return replace(start, "OBJECT");
 					} else {
-						throw new ParseException("Unexpected token: "+symbol+". Expected: which|held|clicked", lastParseException, file, symbol.token.line, symbol.token.col);
+						//get object OBJECT leashed to
+						parse("OBJECT leashed to");
+						sys(GET_OBJECT_OBJECT_LEASHED_TO);
+						return replace(start, "OBJECT");
 					}
 				} else if (symbol.is("football")) {
 					parse("football pitch in OBJECT");
@@ -5014,10 +5061,21 @@ public class CHLCompiler implements Compiler {
 					sys(CREATURE_CREATE_RELATIVE_TO_CREATURE);
 					return replace(start, "OBJECT");
 				} else if (symbol.is("player")) {
-					//create player EXPRESSION temple at COORD_EXPR
-					parse("player EXPRESSION temple at COORD_EXPR");
-					sys(CREATE_PLAYER_TEMPLE);
-					return replace(start, "OBJECT");
+					parse("player EXPRESSION");
+					symbol = peek();
+					if (symbol.is("temple")) {
+						//create player EXPRESSION temple at COORD_EXPR
+						parse("temple at COORD_EXPR");
+						sys(CREATE_PLAYER_TEMPLE);
+						return replace(start, "OBJECT");
+					} else if (symbol.is("town")) {
+						//create player EXPRESSION town at COORD_EXPR type TRIBE_TYPE
+						parse("town at COORD_EXPR type TRIBE_TYPE");
+						sys(GAME_CREATE_TOWN);
+						return replace(start, "OBJECT");
+					} else {
+						throw new ParseException("Expected: temple|town", lastParseException, file, symbol.token.line, symbol.token.col);
+					}
 				} else if (symbol.is("alex")) {
 					//create alex special effect CONST_EXPR at COORD_EXPR
 					parse("alex special effect CONST_EXPR at COORD_EXPR");
@@ -5423,6 +5481,11 @@ public class CHLCompiler implements Compiler {
 			} else {
 				throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
 			}
+		} else if (symbol.is("landing")) {
+			parse("landing position of OBJECT velocity heading COORD_EXPR speed EXPRESSION");
+			//landing position of OBJECT velocity heading COORD_EXPR speed EXPRESSION
+			sys(GET_LANDING_POS);
+			return replace(start, "COORD_EXPR");
 		} else if (symbol.is("-")) {
 			parse("- COORD_EXPR");
 			//-COORD_EXPR
