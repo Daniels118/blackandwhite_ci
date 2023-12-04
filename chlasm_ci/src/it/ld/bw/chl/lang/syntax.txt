@@ -386,6 +386,12 @@ STATEMENT: {
 	enable|disable OBJECT can drop EOL
 	draw OBJECT lightbulb EXPRESSION EOL
 	enable|disable OBJECT can learn CREATURE_ACTION_LEARNING_TYPE EOL
+	force OBJECT VILLAGER_STATES OBJECT at COORD_EXPR EOL
+	queue OBJECT fight spell MAGIC_TYPE EOL
+	clear OBJECT fight queue EOL
+	enable|disable fight camera exit EOL
+	enable|disable fight lock EOL
+	enable|disable fight queue only EOL
 }
 
 DELETE_MODE: {
@@ -827,6 +833,8 @@ ANIM_LIST: CONST_EXPR
 LH_KEY: CONST_EXPR
 
 CREATURE_ACTION_KNOWN_ABOUT: CONST_EXPR
+
+VILLAGER_STATES: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

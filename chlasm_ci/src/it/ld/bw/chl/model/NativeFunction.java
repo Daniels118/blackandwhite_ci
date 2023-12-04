@@ -432,7 +432,7 @@ public enum NativeFunction {
 	/*383*/ SET_CREATURE_AUTO_FIGHTING("bool enable, Object<SCRIPT_OBJECT_TYPE_CREATURE> creature"),
 	/*384*/ IS_AUTO_FIGHTING("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature", "bool"),
 	/*385*/ SET_CREATURE_QUEUE_FIGHT_MOVE("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, FIGHT_MOVE move, float zero"),
-	/*386*/ SET_CREATURE_QUEUE_FIGHT_SPELL("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, int spell"),
+	/*386*/ SET_CREATURE_QUEUE_FIGHT_SPELL("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, MAGIC_TYPE spell"),
 	/*387*/ SET_CREATURE_QUEUE_FIGHT_STEP("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, int step"),
 	/*388*/ GET_CREATURE_FIGHT_ACTION("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature", "FIGHT_ACTION"),
 	/*389*/ CREATURE_FIGHT_QUEUE_HITS("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature", "float"),
@@ -458,7 +458,7 @@ public enum NativeFunction {
 	/*409*/ GET_PLAYER_TOWN_TOTAL("float player", "float"),
 	/*410*/ SPIRIT_SCREEN_POINT(3),
 	/*411*/ KEY_DOWN("LH_KEY key", "bool"),
-	/*412*/ SET_FIGHT_CAMERA_EXIT(1, 0),
+	/*412*/ SET_FIGHT_CAMERA_EXIT("bool enable"),
 	/*413*/ GET_OBJECT_CLICKED("", "Object"),
 	/*414*/ GET_MANA("Object worshipSite", "float"),
 	/*415*/ CLEAR_PLAYER_SPELL_CHARGING("float player"),
@@ -567,13 +567,13 @@ public enum NativeFunction {
 	/*518*/ CLEAR_HIT_LAND_OBJECT(0, 0),
 	/*519*/ SET_DRAW_SCOREBOARD("bool enable", Context.CAMERA),
 	/*520*/ GET_BRACELET_POSITION(1, 3),
-	/*521*/ SET_FIGHT_LOCK(1, 0),
+	/*521*/ SET_FIGHT_LOCK("bool enable"),
 	/*522*/ SET_VILLAGER_SOUND("bool enable"),
 	/*523*/ CLEAR_SPELLS_ON_OBJECT("Object object"),
 	/*524*/ ENABLE_OBJECT_IMMUNE_TO_SPELLS("bool enable, Object object"),
 	/*525*/ IS_OBJECT_IMMUNE_TO_SPELLS(1, 1),
 	/*526*/ GET_OBJECT_OBJECT_LEASHED_TO(1, 1),
-	/*527*/ SET_FIGHT_QUEUE_ONLY(1, 0);
+	/*527*/ SET_FIGHT_QUEUE_ONLY("bool enable");
 	
 	/**If varargs is false, this is the exact number of values popped from the stack.
 	 * If varargs is true, this is the minimum number of values popped from the stack; the exact

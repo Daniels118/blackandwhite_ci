@@ -199,7 +199,6 @@ public class CHLDecompiler {
 	private String tabs = "";
 	private boolean incTabs = false;
 	private boolean outputEnabled = true;
-	private boolean hasUnknownStatements = false;
 	
 	private CHLFile chl;
 	private Path path;
@@ -400,10 +399,8 @@ public class CHLDecompiler {
 		if (!outdir.isDirectory()) {
 			outdir.mkdir();
 		}
-		hasUnknownStatements = false;
 		definedScripts.clear();
 		globalMap.clear();
-		stack.clear();
 		instructions = chl.getCode().getItems();
 		lastTracedIp = -1;
 		currentScript = null;
@@ -532,10 +529,6 @@ public class CHLDecompiler {
 				writeln("};");
 			}
 			out.println("IMPORTANT: please copy content of "+file.getName()+" into Enum.h");
-		}
-		//
-		if (hasUnknownStatements) {
-			throw new DecompileException("The CHL file contains native functions for which the syntax is not known");
 		}
 	}
 	
@@ -686,8 +679,10 @@ public class CHLDecompiler {
 	}
 	
 	private void decompile(Script script) throws IOException, DecompileException {
+		stack.clear();
+		blocks.clear();
+		currentScript = script;
 		try {
-			currentScript = script;
 			scriptsParamTypes.put(script.getName(), new Type[script.getParameterCount()]);
 			//Load parameters on the stack
 			for (int i = 0; i < script.getParameterCount(); i++) {
@@ -1390,7 +1385,7 @@ public class CHLDecompiler {
 							Instruction jmpSkipCase = instructions.get(jmpSkipCaseIp);
 							if (jmpSkipCase.flags == OPCodeFlag.FORWARD) {
 								//if CONDITION
-								while (jmpSkipCase.opcode == OPCode.JMP && jmpSkipCase.flags == OPCodeFlag.FORWARD && jmpSkipCase.intVal > jmpSkipCaseIp + 1) {
+								while (jmpSkipCase.opcode == OPCode.JMP && jmpSkipCase.isForward() && jmpSkipCase.intVal > jmpSkipCaseIp + 1) {
 									jmpSkipCaseIp = jmpSkipCase.intVal;
 									jmpSkipCase = instructions.get(jmpSkipCaseIp);
 								}
@@ -1399,11 +1394,12 @@ public class CHLDecompiler {
 								currentBlock.farEnd = jmpSkipCaseIp;
 								return new Expression("if " + op1);
 							} else {
-								//while CONDITION
+								//TODO must be handled in EXCEPT
+								/*//while CONDITION
 								Instruction except = peek(-1);
 								verify(ip - 1, except, OPCode.EXCEPT, 1, DataType.INT);
 								pushBlock(new Block(beginIndex, BlockType.WHILE, endThenIp, except.intVal));
-								return new Expression("while " + op1);
+								return new Expression("while " + op1);*/
 							}
 						}
 					} else {
@@ -1440,6 +1436,7 @@ public class CHLDecompiler {
 						}
 					}
 				}
+				break;
 			case EXCEPT:
 				final int exceptionHandlerBegin = instr.intVal;
 				final int beginIndex = ip + 1;
@@ -1447,10 +1444,21 @@ public class CHLDecompiler {
 				if (jmp.opcode == OPCode.JMP && jmp.intVal == beginIndex) {
 					//begin loop
 					gotoAddress(beginIndex);
-					pushBlock(new Block(beginIndex, BlockType.LOOP, -1, exceptionHandlerBegin));
+					pushBlock(new Block(beginIndex, BlockType.LOOP, exceptionHandlerBegin - 1, exceptionHandlerBegin));
 					return new Expression("begin loop");
+				} else {
+					//while CONDITION
+					next();				//Skip EXCEPT
+					Instruction jz = findEndOfStatement();
+					verify(ip, jz, OPCode.JZ, OPCodeFlag.FORWARD, DataType.INT);
+					nextStatementIndex = ip + 1;
+					int endWhileIp = jz.intVal;
+					prev();				//Go before JZ
+					op1 = decompile();	//CONDITION
+					pushBlock(new Block(beginIndex, BlockType.WHILE, endWhileIp - 1, exceptionHandlerBegin));
+					return new Expression("while " + op1);
 				}
-				return null;
+				//return null;
 			case BRKEXCEPT:
 				if (currentBlock.type == BlockType.UNTIL) {
 					popBlock();
@@ -1616,6 +1624,10 @@ public class CHLDecompiler {
 				subtype = null;
 				//
 				Expression expr = decompile();
+				if (expr.isCoord() && arg.type != ArgType.COORD) {
+					throw new DecompileException(func+" expects parameter "+i+" to be a "+arg.type.keyword
+							+", but received Coord, this would corrupt the stack", currentScript, ip, instructions.get(ip));
+				}
 				params.add(0, expr);
 				//
 				if (arg.type == ArgType.AUDIO_SFX_BANK_TYPE && expr.isNumber()) {
@@ -1900,10 +1912,8 @@ public class CHLDecompiler {
 			Expression statement = decompile(func, symbol, params, null);
 			return statement;
 		}
-		String msg = "ERROR: Function "+func+" is not supported at instruction "+ip+" in "+currentScript+":"+instructions.get(ip).lineNumber;
-		warning(msg);
-		hasUnknownStatements = true;
-		return new Expression(msg);
+		throw new DecompileException("Function "+func+" is not supported", currentScript, ip, instructions.get(ip));
+		//IMPORTANT: going on may corrupt the stack!!!
 	}
 	
 	private Expression decompile(NativeFunction func, Symbol symbol, List<Expression> params, ListIterator<Expression> paramIt) throws DecompileException {
@@ -2467,7 +2477,7 @@ public class CHLDecompiler {
 	
 	private void verify(int index, Instruction instr, OPCode opcode, int flags, DataType type) throws DecompileException {
 		if (instr.opcode != opcode
-				|| instr.flags != flags
+				|| (instr.flags != flags && flags != -1)
 				|| (instr.dataType != type && type != null)) {
 			throw new DecompileException("Expected "+opcode, currentScript, index, instr);
 		}
@@ -2479,7 +2489,7 @@ public class CHLDecompiler {
 	
 	private void verify(int index, Instruction instr, OPCode opcode, int flags, DataType type, int arg) throws DecompileException {
 		if (instr.opcode != opcode
-				|| instr.flags != flags
+				|| (instr.flags != flags && flags != -1)
 				|| (instr.dataType != type && type != null)
 				|| instr.intVal != arg) {
 			throw new DecompileException("Expected "+opcode, currentScript, index, instr);

@@ -413,4 +413,9 @@ CREATURE_HELP_ON					creature help on
 GET_CREATURE_SPELL_SKILL			get OBJECT spell MAGIC_TYPE skill
 CREATURE_CAN_LEARN					enable|disable OBJECT can learn CREATURE_ACTION_LEARNING_TYPE
 GET_OBJECT_EP						extra position EXPRESSION of OBJECT
-#DO_ACTION_AT_POS					
+DO_ACTION_AT_POS					force OBJECT VILLAGER_STATES OBJECT at COORD_EXPR					
+SET_CREATURE_QUEUE_FIGHT_SPELL		queue OBJECT fight spell MAGIC_TYPE
+CREATURE_CLEAR_FIGHT_QUEUE			clear OBJECT fight queue
+SET_FIGHT_CAMERA_EXIT				enable|disable fight camera exit
+SET_FIGHT_LOCK						enable|disable fight lock
+SET_FIGHT_QUEUE_ONLY				enable|disable fight queue only

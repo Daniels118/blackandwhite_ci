@@ -822,11 +822,15 @@ queue Kampfkreatur fight step CTR_FIGHT_SPECIAL_MOVE
 	SYS SET_CREATURE_QUEUE_FIGHT_STEP	//[2, 0] (Object creature, int step)
 ___________________________________________
 
-3.2.41 queue OBJECT fight spell CONST_EXPR
+3.2.41 queue OBJECT fight spell MAGIC_TYPE
 
 Queues a fight spell into the objects fight move list.
 
-Never found (SET_CREATURE_QUEUE_FIGHT_SPELL)
+queue MyCreature fight spell MAGIC_TYPE_HEAL_PU_ONE
+
+	PUSHV [MyCreature]
+	PUSHI 11
+	SYS SET_CREATURE_QUEUE_FIGHT_SPELL	//[2, 0] (Object creature, MAGIC_TYPE spell)
 ___________________________________________
 
 3.2.42 set OBJECT name CONST_EXPR
@@ -925,8 +929,8 @@ ___________________________________________
 
 draw MyCreature lightbulb 0.25
 
-	PUSHV [MyCreature]
-	PUSHF 0.25
+	PUSHV [MyCreature]			//creature
+	PUSHF 0.25					//percent
 	SYS SET_OBJECT_LIGHTBULB	//[2, 0] (Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, float percent)
 ___________________________________________
 
@@ -936,10 +940,40 @@ ___________________________________________
 
 enable MyCreature can learn CREATURE_ACTION_LEARNING_TYPE_NORMAL
 
-	PUSHB true
-	PUSHV [MyCreature]
-	PUSHI 0
+	PUSHB true				//enable
+	PUSHV [MyCreature]		//creature
+	PUSHI 0					//type
 	SYS CREATURE_CAN_LEARN	//[3, 0] (bool enable, Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, CREATURE_ACTION_LEARNING_TYPE type)
+___________________________________________
+
+3.2.52 clear OBJECT fight queue
+
+?
+
+clear MyCreature fight queue
+
+	PUSHV [MyCreature]				//creature
+	SYS CREATURE_CLEAR_FIGHT_QUEUE	//[1, 0] (Object creature)
+___________________________________________
+
+3.2.53 enable|disable fight lock
+
+?
+
+enable fight lock
+
+	PUSHB true			//enable
+	SYS SET_FIGHT_LOCK	//[1, 0] (bool enable)
+___________________________________________
+
+3.2.54 enable|disable fight queue only
+
+?
+
+enable fight queue only
+
+	PUSHB true					//enable
+	SYS SET_FIGHT_QUEUE_ONLY	//[1, 0] (bool enable)
 ___________________________________________
 
 3.3.1 set computer player EXPRESSION position to COORD_EXPR [with fixed height]
@@ -2260,18 +2294,28 @@ enable MyCreature can drop
 	SYS SET_CREATURE_CAN_DROP	//[2, 0] (bool enable, Object creature)
 ___________________________________________
 
-3.8.90 TODO
+3.8.90 force OBJECT VILLAGER_STATES OBJECT at COORD_EXPR
 
 ?
 
-???
+force Defender VILLAGER_STATE_FOOTBALL_WAIT_FOR_KICK_OFF FSBall at [FSBall]
 
-	PUSHV [Defender]		//villager
-	PUSHI 334				//action
-	PUSHV [FSBall]			//ball
-	PUSHV [Target]
-	SYS GET_POSITION		//position
-	SYS DO_ACTION_AT_POS	//[6, 0] (Object<OBJECT_TYPE_VILLAGER> villager, VILLAGER_STATES action, Object<OBJECT_TYPE_BALL> ball, Coord position)
+	PUSHV [Defender]
+	PUSHI 72
+	PUSHV [FSBall]
+	PUSHV [FSBall]
+	SYS GET_POSITION	//[1, 3] (Object object) returns (Coord)
+	SYS DO_ACTION_AT_POS	//[6, 0] (Object villager, VILLAGER_STATES action, Object ball, Coord position)
+___________________________________________
+
+3.8.91 enable|disable fight camera exit
+
+?
+
+enable fight camera exit
+
+	PUSHB true
+	SYS SET_FIGHT_CAMERA_EXIT	//[1, 0] (bool enable)
 ___________________________________________
 
 3.9.1 attach reaction OBJECT ENUM_REACTION

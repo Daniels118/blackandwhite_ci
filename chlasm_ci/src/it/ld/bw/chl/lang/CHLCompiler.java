@@ -1634,10 +1634,31 @@ public class CHLCompiler implements Compiler {
 					throw new ParseException("Unexpected token: "+symbol+". Expected: wind|virtual", lastParseException, file, symbol.token.line, symbol.token.col);
 				}
 			} else if (symbol.is("fight")) {
-				parse("fight exit EOL");
-				//enable|disable fight exit
-				throw new ParseException("Statement not implemented", file, line, col);
-				//return replace(start, "STATEMENT");
+				accept("fight");
+				symbol = peek();
+				if (symbol.is("exit")) {
+					parse("exit EOL");
+					//enable|disable fight exit
+					throw new ParseException("Statement not implemented", file, line, col);
+					//return replace(start, "STATEMENT");
+				} else if (symbol.is("camera")) {
+					parse("camera exit EOL");
+					//enable|disable fight camera exit
+					sys(SET_FIGHT_CAMERA_EXIT);
+					return replace(start, "STATEMENT");
+				} else if (symbol.is("lock")) {
+					parse("lock EOL");
+					//enable|disable fight lock
+					sys(SET_FIGHT_LOCK);
+					return replace(start, "STATEMENT");
+				} else if (symbol.is("queue")) {
+					parse("queue only EOL");
+					//enable|disable fight queue only
+					sys(SET_FIGHT_QUEUE_ONLY);
+					return replace(start, "STATEMENT");
+				} else {
+					throw new ParseException("Unexpected token: "+symbol+". Expected: exit|camera|lock|queue", lastParseException, file, symbol.token.line, symbol.token.col);
+				}
 			} else if (symbol.is("computer")) {
 				parse("computer player EXPRESSION EOL");
 				//enable|disable computer player EXPRESSION
@@ -2016,10 +2037,19 @@ public class CHLCompiler implements Compiler {
 			sys(FORCE_COMPUTER_PLAYER_ACTION);
 			return replace(start, "STATEMENT");
 		} else {
-			parse("OBJECT CONST_EXPR OBJECT [with OBJECT] EOL");
-			//force OBJECT CONST_EXPR OBJECT [with OBJECT]
-			sys(CREATURE_DO_ACTION);
-			return replace(start, "STATEMENT");
+			parse("OBJECT CONST_EXPR OBJECT");
+			symbol = peek();
+			if (symbol.is("at")) {
+				parse("at COORD_EXPR EOL");
+				//force OBJECT CONST_EXPR OBJECT at COORD_EXPR
+				sys(DO_ACTION_AT_POS);
+				return replace(start, "STATEMENT");
+			} else {
+				parse("[with OBJECT] EOL");
+				//force OBJECT CONST_EXPR OBJECT [with OBJECT]
+				sys(CREATURE_DO_ACTION);
+				return replace(start, "STATEMENT");
+			}
 		}
 	}
 	
@@ -2098,7 +2128,10 @@ public class CHLCompiler implements Compiler {
 			sys(CLEAR_SPELLS_ON_OBJECT);
 			return replace(start, "STATEMENT");
 		} else {
-			throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
+			//clear OBJECT fight queue
+			parse("OBJECT fight queue EOL");
+			sys(CREATURE_CLEAR_FIGHT_QUEUE);
+			return replace(start, "STATEMENT");
 		}
 	}
 	
