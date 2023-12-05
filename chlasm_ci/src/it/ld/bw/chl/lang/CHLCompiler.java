@@ -1328,11 +1328,8 @@ public class CHLCompiler implements Compiler {
 					sys(HIGHLIGHT_PROPERTIES);
 					return replace(start, "STATEMENT");
 				} else if (symbol.is("velocity")) {
-					parse("velocity heading COORD_EXPR speed EXPRESSION EOL");
-					//set OBJECT velocity heading COORD_EXPR speed EXPRESSION
-					pushf(0);
-					pushf(0);
-					pushf(0);
+					//set OBJECT velocity heading COORD_EXPR speed EXPRESSION [angular x EXPRESSION y EXPRESSION z EXPRESSION]
+					parse("velocity heading COORD_EXPR speed EXPRESSION [angular x EXPRESSION y EXPRESSION z EXPRESSION] EOL");
 					sys(SET_HEADING_AND_SPEED);
 					return replace(start, "STATEMENT");
 				} else if (symbol.is("target")) {
@@ -1809,9 +1806,8 @@ public class CHLCompiler implements Compiler {
 				throw new ParseException("Statement not implemented", file, line, col);
 				//return replace(start, "STATEMENT");
 			} else if (symbol.is("jc")) {
-				parse("jc special CONST_EXPR on OBJECT EOL");
-				//enable|disable jc special CONST_EXPR on OBJECT
-				pushf(0);
+				parse("jc special CONST_EXPR on OBJECT [with number EXPRESSION] EOL");
+				//enable|disable jc special CONST_EXPR on OBJECT [with number EXPRESSION]
 				sys(THING_JC_SPECIAL);
 				return replace(start, "STATEMENT");
 			} else if (symbol.is("villager")) {
@@ -2060,9 +2056,8 @@ public class CHLCompiler implements Compiler {
 			sys(CREATURE_LEARN_EVERYTHING);
 			return replace(start, "STATEMENT");
 		} else {
-			parse("CONST_EXPR CONST_EXPR CONST_EXPR EOL");
-			//teach OBJECT CONST_EXPR CONST_EXPR CONST_EXPR
-			pushf(1);
+			parse("CONST_EXPR CONST_EXPR CONST_EXPR [percentage EXPRESSION] EOL", 1f);
+			//teach OBJECT CREATURE_ACTION_LEARNING_TYPE CREATURE_ACTION_SUBTYPE SCRIPT_BOOL [percentage EXPRESSION]
 			sys(CREATURE_SET_KNOWS_ACTION);
 			return replace(start, "STATEMENT");
 		}
@@ -2346,9 +2341,8 @@ public class CHLCompiler implements Compiler {
 			parse("OBJECT fight");
 			symbol = peek();
 			if (symbol.is("move")) {
-				parse("move CONST_EXPR EOL");
-				//queue OBJECT fight move FIGHT_MOVE
-				pushf(0);
+				parse("move CONST_EXPR [strength EXPRESSION] EOL");
+				//queue OBJECT fight move FIGHT_MOVE [strength EXPRESSION]
 				sys(SET_CREATURE_QUEUE_FIGHT_MOVE);
 				return replace(start, "STATEMENT");
 			} else if (symbol.is("step")) {
@@ -3959,9 +3953,9 @@ public class CHLCompiler implements Compiler {
 				//poisoned size of OBJECT
 				sys(ID_POISONED_SIZE);
 				return replace(start, "EXPRESSION");
-			} else if (symbol.is("square")) {
-				//square root EXPRESSION
-				parse("square root EXPRESSION");
+			} else if (symbol.is("sqrt")) {
+				//sqrt EXPRESSION
+				parse("sqrt EXPRESSION");
 				sqrt();
 				return replace(start, "EXPRESSION");
 			} else if (symbol.is("tan")) {
@@ -5165,15 +5159,27 @@ public class CHLCompiler implements Compiler {
 				parse("cast CONST_EXPR spell");
 				symbol = peek();
 				if (symbol.is("on")) {
+					//cast CONST_EXPR spell on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION [without reaction]
 					parse("on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION");
-					//cast CONST_EXPR spell on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION
-					pushb(true);
+					symbol = peek();
+					if (symbol.is("without")) {
+						parse("without reaction");
+						pushb(false);
+					} else {
+						pushb(true);
+					}
 					sys(SPELL_AT_THING);
 					return replace(start, "OBJECT");
 				} else if (symbol.is("at")) {
+					//cast CONST_EXPR spell at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION [without reaction]
 					parse("at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION");
-					//cast CONST_EXPR spell at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION
-					pushb(true);
+					symbol = peek();
+					if (symbol.is("without")) {
+						parse("without reaction");
+						pushb(false);
+					} else {
+						pushb(true);
+					}
 					sys(SPELL_AT_POS);
 					return replace(start, "OBJECT");
 				} else {

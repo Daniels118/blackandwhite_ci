@@ -138,6 +138,8 @@ public class CHLDecompiler {
 		addBoolOption("3d");
 		addBoolOption("dumb");
 		//
+		addBoolInvOption("without reaction");
+		//
 		addEnumOption("HELP_SPIRIT_TYPE", "none", "good", "evil", "last");
 		addEnumOption("SAY_MODE", null, "with interaction", "without interaction");
 		addEnumOption("[anti]", null, "anti");
@@ -159,6 +161,10 @@ public class CHLDecompiler {
 	
 	private static void addBoolOption(String wordTrue) {
 		boolOptions.put("[" + wordTrue + "]", new String[] {wordTrue, null});
+	}
+	
+	private static void addBoolInvOption(String wordFalse) {
+		boolOptions.put("[" + wordFalse + "]", new String[] {null, wordFalse});
 	}
 	
 	private static void addEnumOption(String keyword, String...options) {
@@ -946,7 +952,7 @@ public class CHLDecompiler {
 								return new Expression(op1.intVal());
 							}
 						} else {
-							return new Expression("variable " + op1.wrap(Priority.EXPRESSION), op1.type);
+							return new Expression("variable " + op1.wrapExpression(), op1.type);
 						}
 					case COORDS:
 						typeContextStack.add(Type.FLOAT);
@@ -1505,35 +1511,35 @@ public class CHLDecompiler {
 				break;
 			case SLEEP:
 				op1 = decompile();
-				return new Expression(op1.wrap(Priority.EXPRESSION) + " seconds");
+				return new Expression(op1.wrapExpression() + " seconds");
 			case SQRT:
 				op1 = decompile();
-				return new Expression("square root " + op1.wrap(Priority.EXPRESSION));
+				return new Expression("sqrt " + op1.wrapExpression());
 			case TAN:
 				op1 = decompile();
-				return new Expression("tan " + op1.wrap(Priority.EXPRESSION));
+				return new Expression("tan " + op1.wrapExpression());
 			case SIN:
 				op1 = decompile();
-				return new Expression("sin " + op1.wrap(Priority.EXPRESSION));
+				return new Expression("sin " + op1.wrapExpression());
 			case COS:
 				op1 = decompile();
-				return new Expression("cos " + op1.wrap(Priority.EXPRESSION));
+				return new Expression("cos " + op1.wrapExpression());
 			case ATAN:
 				op1 = decompile();
-				return new Expression("arctan " + op1.wrap(Priority.EXPRESSION));
+				return new Expression("arctan " + op1.wrapExpression());
 			case ASIN:
 				op1 = decompile();
-				return new Expression("arcsin " + op1.wrap(Priority.EXPRESSION));
+				return new Expression("arcsin " + op1.wrapExpression());
 			case ACOS:
 				op1 = decompile();
-				return new Expression("arccos " + op1.wrap(Priority.EXPRESSION));
+				return new Expression("arccos " + op1.wrapExpression());
 			case ATAN2:
 				op2 = decompile();
 				op1 = decompile();
-				return new Expression("arctan2 "+op1.wrap(Priority.EXPRESSION)+" over "+op2.wrap(Priority.EXPRESSION));
+				return new Expression("arctan2 "+op1.wrapExpression()+" over "+op2.wrapExpression());
 			case ABS:
 				op1 = decompile();
-				return new Expression("abs " + op1.wrap(Priority.EXPRESSION));
+				return new Expression("abs " + op1.wrapExpression());
 			case LINE:
 				break;	//Never found
 			case END:
@@ -1829,7 +1835,7 @@ public class CHLDecompiler {
 						if (params.get(1).intVal() != 0) {
 							throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript, ip, instructions.get(ip));
 						}
-						line = "marker at "+params.get(2).wrap(Priority.COORD_EXPR);
+						line = "marker at "+params.get(2).wrapCoordExpr();
 						return new Expression(line, Priority.OBJECT, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
 					}
 				}
@@ -1839,10 +1845,10 @@ public class CHLDecompiler {
 				//create [anti] influence on OBJECT [radius EXPRESSION]
 				anti = params.get(3).intVal() != 0;
 				if (anti) {
-					line = "create anti influence on "+params.get(0).wrap(Priority.OBJECT)+" radius "+params.get(1).wrap(Priority.EXPRESSION);
+					line = "create anti influence on "+params.get(0).wrap(Priority.OBJECT)+" radius "+params.get(1).wrapExpression();
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
-					line = "create influence on "+params.get(0).wrap(Priority.OBJECT)+" radius "+params.get(1).wrap(Priority.EXPRESSION);
+					line = "create influence on "+params.get(0).wrap(Priority.OBJECT)+" radius "+params.get(1).wrapExpression();
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case INFLUENCE_POSITION:
@@ -1850,11 +1856,11 @@ public class CHLDecompiler {
 				anti = params.get(3).intVal() != 0;
 				if (anti) {
 					//create anti influence at position COORD_EXPR [radius EXPRESSION]
-					line = "create anti influence at position "+params.get(0).wrap(Priority.COORD_EXPR)+" radius "+params.get(1).wrap(Priority.EXPRESSION);
+					line = "create anti influence at position "+params.get(0).wrapCoordExpr()+" radius "+params.get(1).wrapExpression();
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
 					//create influence at position COORD_EXPR [radius EXPRESSION]
-					line = "create influence at "+params.get(0).wrap(Priority.COORD_EXPR)+" radius "+params.get(1).wrap(Priority.EXPRESSION);
+					line = "create influence at "+params.get(0).wrapCoordExpr()+" radius "+params.get(1).wrapExpression();
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case CREATURE_CREATE_RELATIVE_TO_CREATURE:
@@ -1862,11 +1868,11 @@ public class CHLDecompiler {
 				boolean dumb = params.get(4).boolVal();
 				if (dumb) {
 					//create dumb creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
-					line = "create dumb creature from creature "+params.get(0).wrap(Priority.OBJECT)+" "+params.get(1).wrap(Priority.EXPRESSION)+" at "+params.get(2).wrap(Priority.COORD_EXPR)+" "+params.get(3).wrap(Priority.CONST_EXPR);
+					line = "create dumb creature from creature "+params.get(0).wrap(Priority.OBJECT)+" "+params.get(1).wrapExpression()+" at "+params.get(2).wrapCoordExpr()+" "+params.get(3).wrap(Priority.CONST_EXPR);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
 				} else {
 					//create creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
-					line = "create creature from creature "+params.get(0).wrap(Priority.OBJECT)+" "+params.get(1).wrap(Priority.EXPRESSION)+" at "+params.get(2).wrap(Priority.COORD_EXPR)+" "+params.get(3).wrap(Priority.CONST_EXPR);
+					line = "create creature from creature "+params.get(0).wrap(Priority.OBJECT)+" "+params.get(1).wrapExpression()+" at "+params.get(2).wrapCoordExpr()+" "+params.get(3).wrap(Priority.CONST_EXPR);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
 				}
 			case SNAPSHOT:

@@ -106,7 +106,7 @@ STATEMENT: {
 	delete OBJECT [DELETE_MODE] EOL
 	set OBJECT properties inner EXPRESSION outer EXPRESSION [calm EXPRESSION] EOL
 	set OBJECT text property text HELP_TEXT category DYK_CATEGORY EOL
-	set OBJECT velocity heading COORD_EXPR speed EXPRESSION EOL
+	set OBJECT velocity heading COORD_EXPR speed EXPRESSION [angular x EXPRESSION y EXPRESSION z EXPRESSION] EOL
 	set OBJECT target COORD_EXPR time EXPRESSION EOL
 	set OBJECT time to EXPRESSION second|seconds EOL
 	set OBJECT radius EXPRESSION EOL
@@ -133,7 +133,7 @@ STATEMENT: {
 	set OBJECT desire maximum CONST_EXPR to EXPRESSION EOL
 	set OBJECT priority EXPRESSION EOL
 	set player EXPRESSION creature to OBJECT EOL
-	teach OBJECT CREATURE_ACTION_LEARNING_TYPE CREATURE_ACTION_SUBTYPE SCRIPT_BOOL EOL
+	teach OBJECT CREATURE_ACTION_LEARNING_TYPE CREATURE_ACTION_SUBTYPE SCRIPT_BOOL [percentage EXPRESSION] EOL
 	teach OBJECT everything EOL
 	teach OBJECT all EOL
 	teach OBJECT all excluding CONST_EXPR EOL
@@ -156,7 +156,7 @@ STATEMENT: {
 	set OBJECT creed properties hand CREATURE_CREED scale EXPRESSION power EXPRESSION time EXPRESSION EOL
 	enable|disable OBJECT auto fighting EOL
 	enable|disable fight exit EOL
-	queue OBJECT fight move FIGHT_MOVE EOL
+	queue OBJECT fight move FIGHT_MOVE [strength EXPRESSION] EOL
 	queue OBJECT fight step CONST_EXPR EOL
 	queue OBJECT fight spell CONST_EXPR EOL
 	set OBJECT name CONST_EXPR EOL
@@ -360,7 +360,7 @@ STATEMENT: {
 	set dual camera to OBJECT OBJECT EOL
 	start hand demo STRING [with pause on trigger] [without hand modify] EOL
 	start jc special CONST_EXPR EOL
-	enable|disable jc special CONST_EXPR on OBJECT EOL
+	enable|disable jc special SCRIPT_JC_SPECIAL on OBJECT [with number EXPRESSION] EOL
 	set camera position COORD_EXPR focus COORD_EXPR lens EXPRESSION EOL
 	move camera position COORD_EXPR focus COORD_EXPR lens EXPRESSION time EXPRESSION EOL
 	set cannon strength EXPRESSION EOL
@@ -624,8 +624,8 @@ OBJECT: {
 	get hit object
 	get object which hit
 	get football pitch in OBJECT
-	cast CONST_EXPR spell on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION
-	cast CONST_EXPR spell at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION
+	cast CONST_EXPR spell on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION [without reaction]
+	cast CONST_EXPR spell at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION [without reaction]
 	get spell CONST_EXPR at COORD_EXPR radius EXPRESSION
 	create special effect CONST_EXPR at COORD_EXPR [time EXPRESSION]
 	create special effect CONST_EXPR on OBJECT [time EXPRESSION]
@@ -851,6 +851,8 @@ CREATURE_ACTION_KNOWN_ABOUT: CONST_EXPR
 VILLAGER_STATES: CONST_EXPR
 
 TRIBE_TYPE: CONST_EXPR
+
+SCRIPT_JC_SPECIAL: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

@@ -10,6 +10,9 @@ public enum Priority {
 	NOT(6),
 	CONDITION(7),
 	
+	EXPRESSION(10),
+	COORD_EXPR(10),
+	
 	ADD0(20),
 	ADD(21),
 	
@@ -24,9 +27,6 @@ public enum Priority {
 	DIV2(25),
 	MOD(24),
 	MOD2(25),
-	
-	EXPRESSION(30),
-	COORD_EXPR(30),
 	
 	CONST_EXPR(40, false),
 	

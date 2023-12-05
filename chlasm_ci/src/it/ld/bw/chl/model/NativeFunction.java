@@ -114,7 +114,7 @@ public enum NativeFunction {
 	/* 65*/ OVERRIDE_STATE_ANIMATION("Object obj, ANIM_LIST animType"),
 	/* 66*/ CREATURE_CREATE_RELATIVE_TO_CREATURE("Object<SCRIPT_OBJECT_TYPE_CREATURE> model, float player, Coord pos, CREATURE_TYPE type, bool dumb", "Object<SCRIPT_OBJECT_TYPE_CREATURE>"),
 	/* 67*/ CREATURE_LEARN_EVERYTHING("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature"),
-	/* 68*/ CREATURE_SET_KNOWS_ACTION("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, CREATURE_ACTION_LEARNING_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float alwaysOne"),
+	/* 68*/ CREATURE_SET_KNOWS_ACTION("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, CREATURE_ACTION_LEARNING_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float percentage"),
 	/* 69*/ CREATURE_SET_AGENDA_PRIORITY("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, float priority"),
 	/* 70*/ CREATURE_TURN_OFF_ALL_DESIRES("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature"),
 	/* 71*/ CREATURE_LEARN_DISTINCTION_ABOUT_ACTIVITY_OBJECT(4),
@@ -167,7 +167,7 @@ public enum NativeFunction {
 	/*118*/ CHANGE_LIGHTNING_PROPERTIES("Object storm, float sheetmin, float sheetmax, float forkmin, float forkmax"),
 	/*119*/ CHANGE_TIME_FADE_PROPERTIES("Object storm, float duration, float fadeTime"),
 	/*120*/ CHANGE_CLOUD_PROPERTIES("Object storm, float numClouds, float blackness, float elevation"),
-	/*121*/ SET_HEADING_AND_SPEED("Object object, Coord position, float speed, float a, float b, float c"),
+	/*121*/ SET_HEADING_AND_SPEED("Object object, Coord heading, float speed, float angularX, float angularY, float angularZ"),
 	/*122*/ START_GAME_SPEED(),
 	/*123*/ END_GAME_SPEED(),
 	/*124*/ BUILD_BUILDING("Coord position, float desire"),
@@ -234,8 +234,8 @@ public enum NativeFunction {
 	/*185*/ IS_OF_TYPE("Object object, SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype", "bool"),
 	/*186*/ CLEAR_HIT_OBJECT(),
 	/*187*/ GAME_THING_HIT("Object object", "bool"),
-	/*188*/ SPELL_AT_THING("MAGIC_TYPE spell, Object target, Coord from, float radius, float duration, float curl, bool alwaysTrue", "Object<MAGIC_TYPE>"),
-	/*189*/ SPELL_AT_POS("MAGIC_TYPE spell, Coord target, Coord from, float radius, float duration, float curl, bool alwaysTrue", "Object<MAGIC_TYPE>"),
+	/*188*/ SPELL_AT_THING("MAGIC_TYPE spell, Object target, Coord from, float radius, float duration, float curl, bool withReaction", "Object<MAGIC_TYPE>"),
+	/*189*/ SPELL_AT_POS("MAGIC_TYPE spell, Coord target, Coord from, float radius, float duration, float curl, bool withReaction", "Object<MAGIC_TYPE>"),
 	/*190*/ CALL_PLAYER_CREATURE("float player", "Object<SCRIPT_OBJECT_TYPE_CREATURE>"),
 	/*191*/ GET_SLOWEST_SPEED("Object flock", "float"),
 	/*192*/ GET_OBJECT_HELD1("", "Object"),
@@ -388,7 +388,7 @@ public enum NativeFunction {
 	/*339*/ CLEAR_ACTOR_MIND(1),
 	/*340*/ ENTER_EXIT_CITADEL(1),
 	/*341*/ START_ANGLE_SOUND2("bool enable"),
-	/*342*/ THING_JC_SPECIAL("bool enable, int feature, Object target, float zero"),
+	/*342*/ THING_JC_SPECIAL("bool enable, SCRIPT_JC_SPECIAL feature, Object target, float partIndex"),
 	/*343*/ MUSIC_PLAYED2("MUSIC_TYPE music", "bool"),
 	/*344*/ UPDATE_SNAPSHOT_PICTURE("ScriptChallengeEnums challengeID, Coord position, Coord focus, float success, float alignment, HELP_TEXT titleStrID, bool takingPicture"),
 	/*345*/ STOP_SCRIPTS_IN_FILES_EXCLUDING("StrPtr sourceFilename, StrPtr scriptName"),
@@ -431,7 +431,7 @@ public enum NativeFunction {
 	/*382*/ OBJECT_ADULT_CAPACITY("Object container", "float"),
 	/*383*/ SET_CREATURE_AUTO_FIGHTING("bool enable, Object<SCRIPT_OBJECT_TYPE_CREATURE> creature"),
 	/*384*/ IS_AUTO_FIGHTING("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature", "bool"),
-	/*385*/ SET_CREATURE_QUEUE_FIGHT_MOVE("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, FIGHT_MOVE move, float zero"),
+	/*385*/ SET_CREATURE_QUEUE_FIGHT_MOVE("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, FIGHT_MOVE move, float strength"),
 	/*386*/ SET_CREATURE_QUEUE_FIGHT_SPELL("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, MAGIC_TYPE spell"),
 	/*387*/ SET_CREATURE_QUEUE_FIGHT_STEP("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature, int step"),
 	/*388*/ GET_CREATURE_FIGHT_ACTION("Object<SCRIPT_OBJECT_TYPE_CREATURE> creature", "FIGHT_ACTION"),
@@ -847,6 +847,10 @@ public enum NativeFunction {
 		FIGHT_MOVE,
 		FIGHT_ACTION,
 		
+		//From ScriptEnumsTwo.h
+		CREATURE_TATTOO_TYPE,
+		SCRIPT_JC_SPECIAL,
+		
 		//Misc
 		MUSIC_TYPE,						//defined in AudioMusic.h
 		AUDIO_SFX_ID,					//various enums in LHSample.h
@@ -856,7 +860,6 @@ public enum NativeFunction {
 		HELP_EVENT_TYPE,				//see enums.txt
 		HELP_TEXT,						//defined in HelpTextEnums.h
 		ScriptChallengeEnums,			//defined in ScriptChallengeEnums.h
-		CREATURE_TATTOO_TYPE,			//defined in ScriptEnumsTwo.h
 		LH_KEY;							//defined in LHKeyBoard.h
 		
 		private static final Map<String, ArgType> map = new HashMap<>();

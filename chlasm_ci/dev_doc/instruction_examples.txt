@@ -223,7 +223,7 @@ set Highlight text property text constant HelpTextEnum category constant HelpTex
 	SYS HIGHLIGHT_PROPERTIES	//[3, 0] (Object object, HELP_TEXT text, DYK_CATEGORY category)
 ___________________________________________
 
-3.1.12 set OBJECT velocity heading COORD_EXPR speed EXPRESSION
+3.1.12 set OBJECT velocity heading COORD_EXPR speed EXPRESSION [angular x EXPRESSION y EXPRESSION z EXPRESSION]
 
 If an object is weather it sets the wind to the velocity specified. Note that strong winds move pretty
 damn fast so be careful! If an object is something with Physics in the game it applies a velocity to
@@ -233,12 +233,12 @@ set Person velocity heading [DirectionPos] speed Velocity
 
 	PUSHF [Person]				//object
 	PUSHF [DirectionPos]
-	SYS GET_POSITION			//[1, 3] (Object object) returns (Coord)
+	SYS GET_POSITION			//heading
 	PUSHF [Velocity]			//speed val
 	PUSHF 0.0
 	PUSHF 0.0
 	PUSHF 0.0
-	SYS SET_HEADING_AND_SPEED	//[8, 0] (Object object, Coord position, float speed, float a, float b, float c)
+	SYS SET_HEADING_AND_SPEED	//[8, 0] (Object object, Coord heading, float speed, float angularX, float angularY, float angularZ)
 ___________________________________________
 
 3.1.13 set OBJECT target COORD_EXPR time EXPRESSION
@@ -558,7 +558,7 @@ set player 1 creature to MyCreature		//#SetupCreatureIsle1.txt:278
 	SYS CREATURE_SET_PLAYER	//[2, 0] (float player, Object creature)
 ___________________________________________
 
-3.2.16 teach OBJECT CREATURE_ACTION_LEARNING_TYPE CREATURE_ACTION_SUBTYPE SCRIPT_BOOL
+3.2.16 teach OBJECT CREATURE_ACTION_LEARNING_TYPE CREATURE_ACTION_SUBTYPE SCRIPT_BOOL [percentage EXPRESSION]
 
 Teach creature a specific lesson. First argument is type of action: INTELLECTUAL, PHYSICAL or MAGIC.
 Second argument is which action, eg: CREATURE_INTELLECTUAL_ACTION_KNOWN_ABOUT_FISH (in Enum.h).
@@ -570,8 +570,8 @@ teach MyCreature INTELLECTUAL CREATURE_ACTION_KNOWN_ABOUT_USE_FIELD SCRIPT_TRUE	
 	PUSHI 0							//typeOfAction
 	PUSHI 1							//action
 	PUSHI 1							//knows
-	PUSHF 1.0						//fixed
-	SYS CREATURE_SET_KNOWS_ACTION	//[5, 0] (Object creature, CREATURE_ACTION_LEARNING_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float alwaysOne)
+	PUSHF 1.0						//percentage
+	SYS CREATURE_SET_KNOWS_ACTION	//[5, 0] (Object creature, CREATURE_ACTION_LEARNING_TYPE typeOfAction, CREATURE_ACTION_SUBTYPE action, SCRIPT_BOOL knows, float percentage)
 ___________________________________________
 
 3.2.17.1 teach OBJECT everything
@@ -799,7 +799,7 @@ Sets if a fight can be exited by interaction.
 Never found (SET_FIGHT_EXIT)
 ___________________________________________
 
-3.2.39 queue OBJECT fight move FIGHT_MOVE
+3.2.39 queue OBJECT fight move FIGHT_MOVE [strength EXPRESSION]
 
 Queues a fight move into the objects fight move list.
 
@@ -807,8 +807,8 @@ queue Guide fight move CTR_HIT_BLOCK
 
 	PUSHF [Guide]						//creature
 	PUSHI 3								//3=CTR_HIT_BLOCK
-	PUSHF 0.0							//fixed
-	SYS SET_CREATURE_QUEUE_FIGHT_MOVE	//[3, 0] (Object creature, FIGHT_MOVE move, float zero)
+	PUSHF 0.0							//strength
+	SYS SET_CREATURE_QUEUE_FIGHT_MOVE	//[3, 0] (Object creature, FIGHT_MOVE move, float strength)
 ___________________________________________
 
 3.2.40 queue OBJECT fight step CONST_EXPR
@@ -3469,7 +3469,7 @@ start jc special SJC_SWITCH_OFF_BOOKMARK		//#followus.txt:293
 	SYS PLAY_JC_SPECIAL	//[1, 0] (int feature)
 ___________________________________________
 
-3.18.30 enable|disable jc special CONST_EXPR on OBJECT
+3.18.30 enable|disable jc special CONST_EXPR on OBJECT [with number EXPRESSION]
 
 Starts one of JC's predefined special features on an object.
 
@@ -3478,8 +3478,8 @@ disable jc special SJC_BLEND_ANGLE on Villager					// Villager turn		//#Creature
 	PUSHB false				//enable
 	PUSHI 8					//feature
 	PUSHF [Villager]		//target
-	PUSHF 0.0				//fixed
-	SYS THING_JC_SPECIAL	//[3, 0] (bool enable, int feature, Object target, float zero)
+	PUSHF 0.0				//partIndex
+	SYS THING_JC_SPECIAL	//[3, 0] (bool enable, int feature, Object target, float partIndex)
 ___________________________________________
 
 3.18.31 set camera position COORD_EXPR focus COORD_EXPR lens EXPRESSION
@@ -5311,7 +5311,7 @@ direction to cast towards. BUT the bolt may fall short or hit targets beyond, as
 the game. Choose a point somewhere nearish the object and cast it at the object and everything should be ok!
 ___________________________________________
 
-9.44.1 cast CONST_EXPR spell on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION
+9.44.1 cast CONST_EXPR spell on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION [without reaction]
 
 This function is used to cast a spell at an object, the parameters are as follows (if one is not used
 just put the value 0 in):
@@ -5332,12 +5332,12 @@ StrengthSpell = cast CREATURE_SPELL_STRONG spell on LCreature from [LCreature] r
 	PUSHF 1.0
 	NEG					//duration
 	PUSHF 0.0			//curl
-	PUSHB true			//fixed
-	SYS SPELL_AT_THING	//[9, 1] (MAGIC_TYPE spell, Object target, Coord from, float radius, float duration, float curl, bool alwaysTrue) returns (Object)
+	PUSHB true			//withReaction (default true)
+	SYS SPELL_AT_THING	//[9, 1] (MAGIC_TYPE spell, Object target, Coord from, float radius, float duration, float curl, bool withReaction) returns (Object)
 	POPF StrengthSpell
 ___________________________________________
 
-9.44.2 cast CONST_EXPR spell at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION
+9.44.2 cast CONST_EXPR spell at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION [without reaction]
 
 This function is used to cast a spell at a position, the parameters are as follows (if one is not used just
 put the value 0 in):
@@ -5369,8 +5369,8 @@ LightningAttack1 = cast SPELL_LIGHTNING_LEVEL_3 spell at [Guide] from [LightPos1
 	PUSHF 5.0			//radius
 	PUSHF 3.0			//time
 	PUSHF 1.0			//curl
-	PUSHB true			//fixed
-	SYS SPELL_AT_POS	//[11, 1] (MAGIC_TYPE spell, Coord target, Coord from, float radius, float duration, float curl, bool alwaysTrue) returns (Object)
+	PUSHB true			//withReaction (default: true)
+	SYS SPELL_AT_POS	//[11, 1] (MAGIC_TYPE spell, Coord target, Coord from, float radius, float duration, float curl, bool withReaction) returns (Object)
 	REF_AND_OFFSET_POP
 ___________________________________________
 
@@ -6622,11 +6622,11 @@ ___________________________________________
 No doc. Trivial.
 ___________________________________________
 
-12.49.9 square root EXPRESSION
+12.49.9 sqrt EXPRESSION
 
 Gets the square root of a number.
 
-square root var
+sqrt var
 
 	PUSHF [var]		//value
 	SQRT

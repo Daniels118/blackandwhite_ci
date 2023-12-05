@@ -1,11 +1,12 @@
 CHL Compiler for Black & White: Creature Isle
-Version 0.2
+Version 0.3
 Developer by Daniele Lombardi (alias Daniels118)
 
 Syntax
   chlasm -chlasm <parameters>
   chlasm -asmchl <parameters>
   chlasm -compile <parameters>
+  chlasm -decompile <parameters>
   chlasm -chlinfo <parameters>
   chlasm -cmp <parameters>
   chlasm -prref <parameters>
@@ -13,14 +14,15 @@ Syntax
   chlasm -help option
 
 Arguments
-  -chlasm  convert CHL file to ASM
-  -asmchl  compile ASM file to CHL binary file
-  -compile compile CHL source files into CHL binary file
-  -chlinfo print information about a CHL file
-  -cmp     compare CHL files ignoring line numbers
-  -prref   analyze the instructions in a CHL file and print a table summary
-  -info    prints information about CHL language and runtime
-  -help    prints the help specific to the selected option (chlasm, asmchl...)
+  -chlasm    convert CHL file to ASM
+  -asmchl    compile ASM file to CHL binary file
+  -compile   compile CHL source files into CHL binary file
+  -decompile decompile CHL binary file into CHL source files
+  -chlinfo   print information about a CHL file
+  -cmp       compare CHL files ignoring line numbers
+  -prref     analyze the instructions in a CHL file and print a table summary
+  -info      prints information about CHL language and runtime
+  -help      prints the help specific to the selected option (chlasm, asmchl...)
 
 Shared arguments
   -v     verbose output

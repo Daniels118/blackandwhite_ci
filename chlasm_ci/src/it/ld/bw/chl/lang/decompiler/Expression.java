@@ -195,6 +195,14 @@ class Expression {
 		return var;
 	}
 	
+	public String wrapExpression() {
+		return wrap(Priority.EXPRESSION);
+	}
+	
+	public String wrapCoordExpr() {
+		return wrap(Priority.COORD_EXPR);
+	}
+	
 	public String wrap(Priority priority) {
 		if (isExpression && this.priority.wrappable) {
 			return this.priority.value <= priority.value ? "("+value+")" : value;

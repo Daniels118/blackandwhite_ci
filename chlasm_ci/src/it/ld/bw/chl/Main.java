@@ -183,8 +183,6 @@ public class Main {
 	private static void decompile(CmdLine cmd) throws Exception {
 		CHLDecompiler decompiler = new CHLDecompiler();
 		decompiler.setVerboseEnabled(verbose);
-		File subtypes = mandatory(cmd.getArgFile("-st"), "-st");
-		decompiler.loadSubtypes(subtypes);
 		List<File> headers = mandatory(cmd.getArgFiles("-h"), "-h");
 		for (File file : headers) {
 			if (file.isDirectory()) {
@@ -207,6 +205,12 @@ public class Main {
 		decompiler.setDefineUnknownEnumsEnabled(cmd.getArgFlag("-de"));
 		decompiler.setRespectLinenoEnabled(cmd.getArgFlag("-rln"));
 		decompiler.setWildModeEnabled(cmd.getArgFlag("-wild"));
+		File subtypes = cmd.getArgFile("-st");
+		if (subtypes == null) {
+			File jar = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+			subtypes = new File(jar.getParentFile(), "headers/subtypes.txt");
+		}
+		decompiler.loadSubtypes(subtypes);
 		//
 		System.out.println("Loading compiled CHL...");
 		CHLFile chl = new CHLFile();
