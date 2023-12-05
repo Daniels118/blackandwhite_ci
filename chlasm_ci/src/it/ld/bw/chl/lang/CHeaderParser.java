@@ -60,7 +60,7 @@ public class CHeaderParser {
 							enumName = parts[1];
 						} else {
 							enumName = "_unknown_" + dstEnums.size();
-							System.out.println("NOTICE: unnamed enum in "+file.getName()+":"+lineno);
+							//System.out.println("NOTICE: unnamed enum in "+file.getName()+":"+lineno);
 						}
 						if (dstEnums.containsKey(enumName)) {
 							throw new ParseError("Redefinition of enum "+enumName, file, lineno);

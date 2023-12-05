@@ -207,7 +207,7 @@ SET_FOCUS_AND_POSITION_FOLLOW		set camera follow OBJECT distance EXPRESSION
 FOCUS_FOLLOW						move camera focus follow OBJECT
 POSITION_FOLLOW						move camera position follow OBJECT
 CAMERA_PROPERTIES					set camera properties distance EXPRESSION speed EXPRESSION angle EXPRESSION enable|disable behind
-RUN_CAMERA_PATH						camera path SCRIPT_PATH
+RUN_CAMERA_PATH						camera path SCRIPT_PATH R_IDENTIFIER
 SHAKE_CAMERA						shake camera at COORD_EXPR radius EXPRESSION amplitude EXPRESSION time EXPRESSION
 UPDATE_DUAL_CAMERA					set dual camera to OBJECT OBJECT
 PLAY_HAND_DEMO						start hand demo STRING [with pause on trigger] [without hand modify]
@@ -432,3 +432,4 @@ SET_CREATURE_DISTANCE_FROM_HOME		set OBJECT distance from home EXPRESSION
 SET_BOOKMARK_ON_OBJECT				enable|disable bookmark on OBJECT
 STOP_DIALOGUE_SOUND					stop dialogue sound
 SET_DOLPHIN_WAIT					set dolphin wait EXPRESSION
+SET_DOLPHIN_MOVE					set OBJECT dolphin move from COORD_EXPR to COORD_EXPR

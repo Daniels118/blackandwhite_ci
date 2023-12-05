@@ -1171,7 +1171,7 @@ public class CHLDecompiler {
 						return new Expression(var);
 					} else {
 						//IDENTIFIER
-						return new Expression(varName);
+						return new Expression(Priority.ATOMIC, varName);
 					}
 				} else {
 					//NUMBER
@@ -1229,14 +1229,14 @@ public class CHLDecompiler {
 					verify(ip, pInstr, OPCode.PUSH, 1, DataType.FLOAT);
 					varName = getVarName((int)pInstr.floatVal, false);
 					varIndex = decompile().toString();
-					return new Expression(varName + "[" + varIndex + "]");
+					return new Expression(Priority.ATOMIC, varName + "[" + varIndex + "]");
 				} else {
 					//&VARIABLE
 					verify(ip, instr, OPCode.REF_PUSH, 1, DataType.VAR);
 					pInstr = prev();	//PUSHF var
 					verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 					varName = getVarName((int)pInstr.intVal);
-					return new Expression("&"+varName);
+					return new Expression(Priority.ATOMIC, "&"+varName);
 				}
 			case REF_ADD_PUSH:
 				if (instr.dataType == DataType.FLOAT) {
@@ -1251,7 +1251,7 @@ public class CHLDecompiler {
 						currentScript.setReference(var.name);
 					}
 					op2 = decompile();
-					return new Expression(varName+"["+op2+"]");
+					return new Expression(Priority.ATOMIC, varName+"["+op2+"]");
 				} else if (instr.dataType == DataType.VAR) {
 					if (instr.flags == 2) {
 						//&IDENTIFIER\[EXPRESSION\]
@@ -1259,7 +1259,7 @@ public class CHLDecompiler {
 						verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 						varName = getVarName(pInstr.intVal, false);
 						op2 = decompile();
-						return new Expression("&"+varName+"["+op2+"]");
+						return new Expression(Priority.ATOMIC, "&"+varName+"["+op2+"]");
 					} else {
 						//REFERENCE\[NUMBER\]
 						pInstr = prev();	//PUSHF index
@@ -1274,7 +1274,7 @@ public class CHLDecompiler {
 							var.ref = true;
 							currentScript.setReference(var.name);
 						}
-						return new Expression(varName+"["+varIndex+"]");
+						return new Expression(Priority.ATOMIC, varName+"["+varIndex+"]");
 					}
 				}
 				break;
@@ -1585,7 +1585,7 @@ public class CHLDecompiler {
 				} else if (oldType.isSpecificObject() && newType.isGenericObject()) {
 					//Ignore generic Object types
 				} else if (oldType != Type.UNKNOWN) {
-					warning("WARNING: type of "+var+" in "+currentScript.getSourceFilename()+":"+lineno
+					notice("NOTICE: type of "+var+" in "+currentScript.getSourceFilename()+":"+lineno
 						+" is ambiguous (found both "+oldType+" and "+newType+")");
 					var.type = Type.UNKNOWN;
 				}
@@ -1674,7 +1674,7 @@ public class CHLDecompiler {
 							} else if (oldType.isSpecificObject() && newType.isGenericObject()) {
 								//Ignore generic Object types
 							} else if (oldType != Type.UNKNOWN) {
-								warning("WARNING: type of parameter "+localIndex+" in "
+								notice("NOTICE: type of parameter "+localIndex+" in "
 										+currentScript.getSourceFilename()+":"+lineno
 										+" is ambiguous (found both "+oldType+" and "+newType+")");
 								scriptParamTypes[localIndex] = Type.UNKNOWN;
@@ -1986,6 +1986,8 @@ public class CHLDecompiler {
 						if (opt != null) {
 							statement.add(new Expression(opt));
 						}
+					} else if ("R_IDENTIFIER".equals(sym.keyword)) {
+						statement.add(getLast(statement));
 					} else {
 						Argument arg = func.args[paramIt.nextIndex()];
 						if (arg.type == ArgType.SCRIPT) {

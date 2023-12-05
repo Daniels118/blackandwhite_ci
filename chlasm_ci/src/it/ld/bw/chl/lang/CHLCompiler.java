@@ -1515,6 +1515,11 @@ public class CHLCompiler implements Compiler {
 					//set OBJECT distance from home EXPRESSION
 					sys(SET_CREATURE_DISTANCE_FROM_HOME);
 					return replace(start, "STATEMENT");
+				} else if (symbol.is("dolphin")) {
+					parse("dolphin move from COORD_EXPR to COORD_EXPR EOL");
+					//set OBJECT dolphin move from COORD_EXPR to COORD_EXPR
+					sys(SET_DOLPHIN_MOVE);
+					return replace(start, "STATEMENT");
 				} else {
 					parse("CONST_EXPR development EOL");
 					//set OBJECT CONST_EXPR development
@@ -3043,8 +3048,8 @@ public class CHLCompiler implements Compiler {
 			sys(SET_FOCUS_AND_POSITION_FOLLOW);
 			return replace(start, "STATEMENT");
 		} else if (symbol.is("path")) {
-			//camera path CONSTANT
-			symbol = parse("path IDENTIFIER EOL")[1];
+			//camera path CONSTANT IDENTIFIER
+			symbol = parse("path IDENTIFIER IDENTIFIER EOL")[1];
 			String pathEnum = challengeName + symbol.token.value;
 			int constVal = getConstant(pathEnum);
 			pushi(constVal);

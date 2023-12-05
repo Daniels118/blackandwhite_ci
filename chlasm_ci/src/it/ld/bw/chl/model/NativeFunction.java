@@ -534,7 +534,7 @@ public enum NativeFunction {
 	/*485*/ CALL_BUILDING_WOODPILE_IN_TOWN("Object anyBuildingInTown", "Object<OBJECT_TYPE_ABODE>"),
 	/*486*/ GET_MOUSE_ACROSS("", "float"),
 	/*487*/ GET_MOUSE_DOWN("", "float"),
-	/*488*/ SET_DOLPHIN_MOVE("float speed, Coord pos1, Coord pos2"),
+	/*488*/ SET_DOLPHIN_MOVE("Object<MOBILE_OBJECT_DOLPHIN> dolphin, Coord startPos, Coord endPos"),
 	/*489*/ MOUSE_DOWN("bool leftButton", "bool"),
 	/*490*/ IN_WIDESCREEN("", "bool"),
 	/*491*/ AFFECTED_BY_SNOW(2),

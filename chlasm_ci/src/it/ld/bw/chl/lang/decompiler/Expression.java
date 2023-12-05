@@ -153,6 +153,11 @@ class Expression {
 		return type.type == ArgType.COORD;
 	}
 	
+	public boolean isConstExpr() {
+		if (type == null) return false;
+		return type.type == ArgType.INT || type.isEnum();
+	}
+	
 	public boolean isScript() {
 		if (type == null) return false;
 		return type.type == ArgType.SCRIPT;
@@ -190,12 +195,8 @@ class Expression {
 		return var;
 	}
 	
-	public String wrap() {
-		return wrap(Priority.HIGH);
-	}
-	
 	public String wrap(Priority priority) {
-		if (isExpression) {
+		if (isExpression && this.priority.wrappable) {
 			return this.priority.value <= priority.value ? "("+value+")" : value;
 		} else {
 			return value;

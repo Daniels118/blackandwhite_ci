@@ -354,7 +354,7 @@ STATEMENT: {
 	set camera properties distance EXPRESSION speed EXPRESSION angle EXPRESSION enable|disable behind EOL
 	set camera to CONSTANT EOL
 	move camera to CONSTANT time EXPRESSION EOL
-	camera path SCRIPT_PATH EOL
+	camera path SCRIPT_PATH R_IDENTIFIER EOL
 	enable|disable camera fixed rotation at COORD_EXPR EOL
 	shake camera at COORD_EXPR radius EXPRESSION amplitude EXPRESSION time EXPRESSION EOL
 	set dual camera to OBJECT OBJECT EOL
@@ -400,6 +400,7 @@ STATEMENT: {
 	enable|disable bookmark on OBJECT EOL
 	stop dialogue sound EOL
 	set dolphin wait EXPRESSION EOL
+	set OBJECT dolphin move from COORD_EXPR to COORD_EXPR EOL
 }
 
 DELETE_MODE: {
@@ -852,6 +853,8 @@ VILLAGER_STATES: CONST_EXPR
 TRIBE_TYPE: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
+
+R_IDENTIFIER: IDENTIFIER
 
 CONSTANT: {
 	IDENTIFIER

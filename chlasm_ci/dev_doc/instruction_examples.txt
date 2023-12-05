@@ -3569,6 +3569,20 @@ set dolphin wait 2.0
 	SYS SET_DOLPHIN_WAIT	//[1, 0] (float time)
 ___________________________________________
 
+3.18.40 set OBJECT dolphin move from COORD_EXPR to COORD_EXPR
+
+?
+
+set Dolphin dolphin move from [pos1] to [pos2]
+
+	PUSHV [Dolphin]			//dolphin
+	PUSHV [pos1]
+	SYS GET_POSITION		//startPos
+	PUSHV [pos2]
+	SYS GET_POSITION		//endPos
+	SYS SET_DOLPHIN_MOVE	//[7, 0] (Object dolphin, Coord startPos, Coord endPos)
+___________________________________________
+
 ### 4 Exceptions
 ___________________________________________
 

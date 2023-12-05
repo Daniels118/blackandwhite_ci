@@ -28,18 +28,23 @@ public enum Priority {
 	EXPRESSION(30),
 	COORD_EXPR(30),
 	
-	CONST_EXPR(40),
+	CONST_EXPR(40, false),
 	
-	OBJECT(50),
+	OBJECT(50, false),
 	
-	ATOMIC(90),
+	ATOMIC(90, false),
 	
-	HIGH(98),
-	HIGHEST(99);
+	HIGHEST(99, false);
 	
 	public final int value;
+	public final boolean wrappable;
 	
 	private Priority(int value) {
+		this(value, true);
+	}
+	
+	private Priority(int value, boolean wrappable) {
 		this.value = value;
+		this.wrappable = wrappable;
 	}
 }
