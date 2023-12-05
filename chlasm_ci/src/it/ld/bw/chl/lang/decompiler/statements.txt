@@ -430,3 +430,5 @@ CALL_BUILDING_WOODPILE_IN_TOWN		get building woodpile in OBJECT
 DELETE_FRAGMENTS_IN_RADIUS			delete fragments at COORD_EXPR radius EXPRESSION
 SET_CREATURE_DISTANCE_FROM_HOME		set OBJECT distance from home EXPRESSION
 SET_BOOKMARK_ON_OBJECT				enable|disable bookmark on OBJECT
+STOP_DIALOGUE_SOUND					stop dialogue sound
+SET_DOLPHIN_WAIT					set dolphin wait EXPRESSION

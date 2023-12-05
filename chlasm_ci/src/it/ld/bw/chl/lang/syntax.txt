@@ -398,6 +398,8 @@ STATEMENT: {
 	delete fragments at COORD_EXPR radius EXPRESSION EOL
 	set OBJECT distance from home EXPRESSION EOL
 	enable|disable bookmark on OBJECT EOL
+	stop dialogue sound EOL
+	set dolphin wait EXPRESSION EOL
 }
 
 DELETE_MODE: {

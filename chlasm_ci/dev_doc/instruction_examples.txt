@@ -2363,6 +2363,15 @@ enable bookmark on MyCreature
 	SYS SET_BOOKMARK_ON_OBJECT	//[2, 0] (bool enable, Object target)
 ___________________________________________
 
+3.8.95 stop dialogue sound
+
+?
+
+stop dialogue sound
+
+	SYS STOP_DIALOGUE_SOUND	//[0, 0] ()
+___________________________________________
+
 3.9.1 attach reaction OBJECT ENUM_REACTION
 
 Creates a reaction centered around an object which moves with the object. The reaction information is
@@ -3548,6 +3557,16 @@ set camera heading follow Dice distance 2.0
 	PUSHV [Dice]					//target
 	PUSHF 2.0						//distance
 	SYS SET_CAMERA_HEADING_FOLLOW	//[2, 0] (Object target, float distance)
+___________________________________________
+
+3.18.39 set dolphin wait EXPRESSION
+
+?
+
+set dolphin wait 2.0
+
+	PUSHF 2.0				//time
+	SYS SET_DOLPHIN_WAIT	//[1, 0] (float time)
 ___________________________________________
 
 ### 4 Exceptions

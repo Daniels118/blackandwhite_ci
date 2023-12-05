@@ -23,7 +23,7 @@ import it.ld.bw.chl.model.NativeFunction.ArgType;
 
 class Expression {
 	public final String value;
-	public final Priority priority;
+	public Priority priority;
 	public Type type;
 	private final Integer intVal;
 	private final Float floatVal;

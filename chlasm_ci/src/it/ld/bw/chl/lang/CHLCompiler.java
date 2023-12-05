@@ -1236,10 +1236,21 @@ public class CHLCompiler implements Compiler {
 			sys(SET_COUNTDOWN_TIMER_DRAW);
 			return replace(start, "STATEMENT");
 		} else if (symbol.is("dolphin")) {
-			parse("dolphin speed EXPRESSION EOL");
-			//set dolphin speed EXPRESSION
-			sys(SET_DOLPHIN_SPEED);
-			return replace(start, "STATEMENT");
+			accept("dolphin");
+			symbol = peek();
+			if (symbol.is("speed")) {
+				parse("speed EXPRESSION EOL");
+				//set dolphin speed EXPRESSION
+				sys(SET_DOLPHIN_SPEED);
+				return replace(start, "STATEMENT");
+			} else if (symbol.is("wait")) {
+				parse("wait EXPRESSION EOL");
+				//set dolphin wait EXPRESSION
+				sys(SET_DOLPHIN_WAIT);
+				return replace(start, "STATEMENT");
+			} else {
+				throw new ParseException("Unexpected token: "+symbol+". Expected speed|wait", file, symbol.token.line, symbol.token.col);
+			}
 		} else {
 			symbol = parseObject(false);
 			if (symbol != null) {
@@ -2481,6 +2492,11 @@ public class CHLCompiler implements Compiler {
 			parse("music EOL");
 			//stop music
 			sys(STOP_MUSIC);
+			return replace(start, "STATEMENT");
+		} else if (symbol.is("dialogue")) {
+			parse("dialogue sound EOL");
+			//stop dialogue sound
+			sys(STOP_DIALOGUE_SOUND);
 			return replace(start, "STATEMENT");
 		} else {
 			parse("SPIRIT_TYPE spirit");

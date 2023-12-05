@@ -487,7 +487,9 @@ public class CHLDecompiler {
 					//Heuristics checks
 					if (heuristicLevel >= 2) {
 						outputEnabled = false;
-						decompile(script);
+						try {
+							decompile(script);
+						} catch (DecompileException e) {}
 						outputEnabled = true;
 					}
 					//Global variables
@@ -1206,7 +1208,7 @@ public class CHLDecompiler {
 							if (instr.intVal != 0) {
 								throw new DecompileException("Expected 0 after PUSHO", currentScript, ip, instr);
 							}
-							return new Expression("0", Type.OBJECT);
+							return new Expression(null, Priority.ATOMIC, Type.OBJECT, 0);
 						case BOOLEAN:
 							return new Expression(instr.boolVal);
 						case VAR:
@@ -1827,7 +1829,8 @@ public class CHLDecompiler {
 						if (params.get(1).intVal() != 0) {
 							throw new DecompileException("Unexpected subtype: "+params.get(1)+". Expected 0", currentScript, ip, instructions.get(ip));
 						}
-						return new Expression("marker at "+params.get(2).wrap(), Priority.OBJECT, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
+						line = "marker at "+params.get(2).wrap(Priority.COORD_EXPR);
+						return new Expression(line, Priority.OBJECT, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_MARKER");
 					}
 				}
 				break;
@@ -1836,10 +1839,10 @@ public class CHLDecompiler {
 				//create [anti] influence on OBJECT [radius EXPRESSION]
 				anti = params.get(3).intVal() != 0;
 				if (anti) {
-					line = "create anti influence on "+params.get(0)+" radius "+params.get(1);
+					line = "create anti influence on "+params.get(0).wrap(Priority.OBJECT)+" radius "+params.get(1).wrap(Priority.EXPRESSION);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
-					line = "create influence on "+params.get(0)+" radius "+params.get(1);
+					line = "create influence on "+params.get(0).wrap(Priority.OBJECT)+" radius "+params.get(1).wrap(Priority.EXPRESSION);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case INFLUENCE_POSITION:
@@ -1847,11 +1850,11 @@ public class CHLDecompiler {
 				anti = params.get(3).intVal() != 0;
 				if (anti) {
 					//create anti influence at position COORD_EXPR [radius EXPRESSION]
-					line = "create anti influence at position "+params.get(0).wrap()+" radius "+params.get(1).wrap();
+					line = "create anti influence at position "+params.get(0).wrap(Priority.COORD_EXPR)+" radius "+params.get(1).wrap(Priority.EXPRESSION);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				} else {
 					//create influence at position COORD_EXPR [radius EXPRESSION]
-					line = "create influence at "+params.get(0).wrap()+" radius "+params.get(1).wrap();
+					line = "create influence at "+params.get(0).wrap(Priority.COORD_EXPR)+" radius "+params.get(1).wrap(Priority.EXPRESSION);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_INFLUENCE_RING");
 				}
 			case CREATURE_CREATE_RELATIVE_TO_CREATURE:
@@ -1859,11 +1862,11 @@ public class CHLDecompiler {
 				boolean dumb = params.get(4).boolVal();
 				if (dumb) {
 					//create dumb creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
-					line = "create dumb creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2).wrap()+" "+params.get(3);
+					line = "create dumb creature from creature "+params.get(0).wrap(Priority.OBJECT)+" "+params.get(1).wrap(Priority.EXPRESSION)+" at "+params.get(2).wrap(Priority.COORD_EXPR)+" "+params.get(3).wrap(Priority.CONST_EXPR);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
 				} else {
 					//create creature from creature OBJECT EXPRESSION at COORD_EXPR CREATURE_TYPE
-					line = "create creature from creature "+params.get(0)+" "+params.get(1)+" at "+params.get(2).wrap()+" "+params.get(3);
+					line = "create creature from creature "+params.get(0).wrap(Priority.OBJECT)+" "+params.get(1).wrap(Priority.EXPRESSION)+" at "+params.get(2).wrap(Priority.COORD_EXPR)+" "+params.get(3).wrap(Priority.CONST_EXPR);
 					return new Expression(line, ArgType.OBJECT, "SCRIPT_OBJECT_TYPE_CREATURE");
 				}
 			case SNAPSHOT:
@@ -1920,7 +1923,8 @@ public class CHLDecompiler {
 		if (symbol.terminal && symbol.terminalType == TerminalType.KEYWORD) {
 			return new Expression(symbol.keyword, func.returnType, func.returnClass);
 		}
-		if (paramIt == null) {
+		boolean mainSymbol = paramIt == null;
+		if (mainSymbol) {
 			paramIt = params.listIterator();
 		}
 		List<Expression> statement = new LinkedList<>();
@@ -2120,36 +2124,34 @@ public class CHLDecompiler {
 		//Build the statement to return
 		if (statement.isEmpty()) {
 			return null;
+		} else if (statement.size() == 1) {
+			return statement.get(0);
 		}
 		ListIterator<Expression> tokens = statement.listIterator();
 		StringBuilder res = new StringBuilder(16 * statement.size());
-		String prevToken = ")";
-		boolean prevIsScript = false;
+		String prevToken = "(";
 		while (tokens.hasNext()) {
 			Expression part = tokens.next();
 			if (part != null) {
-				String token = part.isCoord() ? part.wrap() : part.toString();
+				Priority priority = getPriority(part.type);
+				String token = part.wrap(priority);
 				if (!token.isEmpty()) {
 					char c0 = token.charAt(0);
 					char c1 = prevToken.charAt(prevToken.length() - 1);
-					if (c0 != ']' && (c0 != '(' || c0 == '(' && prevIsScript) && c0 != ')' && c0 != ','
+					if (c0 != ']' && c0 != ')' && c0 != ','
 							&& c1 != '[' && c1 != '(') {
 						res.append(" ");
 					}
 					res.append(token);
 					prevToken = token;
-					prevIsScript = part.isScript();
 				}
 			}
 		}
-		Priority priority = Priority.VOID;
-		if (func.returnType != null) {
-			if (func.returnType.isEnum) {
-				priority = Priority.CONST_EXPR;
-			} else {
-				priority = priorityMap[func.returnType.ordinal()];
-			}
+		if (!mainSymbol) {
+			Expression expr = new Expression(Priority.HIGHEST, res.toString());
+			return expr;
 		}
+		Priority priority = func == NativeFunction.GET_POSITION ? Priority.ATOMIC : getPriority(func.returnType);
 		Expression expr = new Expression(res.toString(), priority, func.returnType, func.returnClass);
 		//Try to guess the specific return type
 		Expression type, object;
@@ -2616,6 +2618,24 @@ public class CHLDecompiler {
 		return var;
 	}
 	
+	
+	private static Priority getPriority(Type type) {
+		if (type == null) {
+			return Priority.VOID;
+		}
+		return getPriority(type.type);
+	}
+	
+	private static Priority getPriority(ArgType type) {
+		if (type != null) {
+			if (type.isEnum) {
+				return Priority.CONST_EXPR;
+			} else {
+				return priorityMap[type.ordinal()];
+			}
+		}
+		return Priority.VOID;
+	}
 	
 	/**Returns the generic of a type. For example CREATURE, FEMALE_CREATURE and DUMB_CREATURE are coalesced to CREATURE.
 	 * @param typename
