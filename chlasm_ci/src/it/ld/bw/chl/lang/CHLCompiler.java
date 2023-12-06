@@ -373,7 +373,7 @@ public class CHLCompiler implements Compiler {
 				chlInits.add(new InitGlobal(DataType.FLOAT, "LHVMA", 0));
 			}
 			//
-			var = new Var(Scope.global, name, varId, size, val);
+			var = new Var(null, name, varId, size, val);
 			globalMap.put(name, var);
 		} else {
 			throw new ParseError("Redeclaration of global var "+name, file, line, col);
@@ -586,7 +586,7 @@ public class CHLCompiler implements Compiler {
 			String name = symbol.token.value;
 			argc++;
 			if (addToLocalVars) {
-				addLocalVar(name, ref);
+				addParameter(name, ref);
 			}
 			symbol = peek();
 			while (!symbol.is(")")) {
@@ -597,7 +597,7 @@ public class CHLCompiler implements Compiler {
 				name = symbol.token.value;
 				argc++;
 				if (addToLocalVars) {
-					addLocalVar(name, ref);
+					addParameter(name, ref);
 				}
 				symbol = peek();
 			}
@@ -653,18 +653,18 @@ public class CHLCompiler implements Compiler {
 	}
 	
 	private Var addLocalVar(String name) throws ParseException {
-		return addLocalVar(name, 1, false);
+		return addLocalVar(name, 1, false, false);
 	}
 	
-	private Var addLocalVar(String name, boolean ref) throws ParseException {
-		return addLocalVar(name, 1, ref);
+	private Var addParameter(String name, boolean ref) throws ParseException {
+		return addLocalVar(name, 1, true, ref);
 	}
 	
 	private Var addLocalVar(String name, int size) throws ParseException {
-		return addLocalVar(name, size, false);
+		return addLocalVar(name, size, false, false);
 	}
 	
-	private Var addLocalVar(String name, int size, boolean ref) throws ParseException {
+	private Var addLocalVar(String name, int size, boolean isArg, boolean ref) throws ParseException {
 		if (localMap.containsKey(name)) {
 			throw new ParseException("Duplicate local variable: "+name, file, line, col);
 		}
@@ -674,7 +674,7 @@ public class CHLCompiler implements Compiler {
 		for (int i = 1; i < size; i++) {
 			scriptVars.add("LHVMA");
 		}
-		Var var = new Var(Scope.local, name, id, size, 0, ref);
+		Var var = new Var(currentScript, name, id, size, 0, isArg, ref);
 		localMap.put(name, var);
 		return var;
 	}

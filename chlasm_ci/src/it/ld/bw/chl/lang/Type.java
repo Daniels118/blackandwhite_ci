@@ -46,8 +46,16 @@ public class Type {
 		return type.isEnum;
 	}
 	
+	public boolean isGeneric() {
+		return isGenericEnum() || isGenericObject();
+	}
+	
 	public boolean isGenericEnum() {
 		return type.isEnum && specificType == null;
+	}
+	
+	public boolean isSpecific() {
+		return isSpecificEnum() || isSpecificObject();
 	}
 	
 	public boolean isSpecificEnum() {

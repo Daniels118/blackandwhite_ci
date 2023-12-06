@@ -1,21 +1,21 @@
 Compile CHL source files into CHL binary file
 
 Syntax
-  chlasm -decompile -h files -i filename -o path [-a files] [-hl value] [-de] [-rln] [-wild] [-st filename]
+  chlasm -decompile -i filename -o path [-a files] [-hl value] [-de] [-rln] [-wild] [-h files] [-st filename]
 
 Arguments
-  -h    C header files or directory
   -i    input CHL file
   -o    output directory
   -a    files for alias definitions
-  -hl   heuristic level (range: 0-2; default: 2)
+  -hl   heuristic level (range: 0-3; default: 2)
   -de   define unknown enum entries
   -rln  try to respect original line numbers
   -wild enable wild mode
+  -h    C header files or directory (default: headers)
   -st   subtypes table (default: headers/subtypes.txt)
 
 Notes
-It's highly recommended that you use the highest heuristic level available; using a lower level improves
-the performances, but may produce inaccurate results. Reference parameters are supported starting from level 2.
+It's highly recommended that you use at least heuristic level 2; using a lower level improves the performances,
+but may produce inaccurate results. Reference parameters are supported starting from level 2.
 
 You can use IsleHeaders.txt as alias definition file.

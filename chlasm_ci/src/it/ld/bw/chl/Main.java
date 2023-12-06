@@ -181,9 +181,14 @@ public class Main {
 	}
 	
 	private static void decompile(CmdLine cmd) throws Exception {
+		File jarDir = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParentFile();
 		CHLDecompiler decompiler = new CHLDecompiler();
 		decompiler.setVerboseEnabled(verbose);
-		List<File> headers = mandatory(cmd.getArgFiles("-h"), "-h");
+		//
+		List<File> headers = cmd.getArgFiles("-h");
+		if (headers.isEmpty()) {
+			headers.add(new File(jarDir, "headers"));
+		}
 		for (File file : headers) {
 			if (file.isDirectory()) {
 				for (File f : file.listFiles()) {
@@ -195,20 +200,23 @@ public class Main {
 				decompiler.addHeader(file);
 			}
 		}
+		//
 		File inp = mandatory(cmd.getArgFile("-i"), "-i");
 		File out = mandatory(cmd.getArgFile("-o"), "-o");
+		//
 		List<File> aliases = cmd.getArgFiles("-a");
 		for (File file : aliases) {
 			decompiler.addAlias(file);
 		}
-		decompiler.setHeuristicLevel((int)cmd.getArgInt("-hl", 2, 0, 2));
+		//
+		decompiler.setHeuristicLevel((int)cmd.getArgInt("-hl", CHLDecompiler.HEURISTIC_DFLT));
 		decompiler.setDefineUnknownEnumsEnabled(cmd.getArgFlag("-de"));
 		decompiler.setRespectLinenoEnabled(cmd.getArgFlag("-rln"));
 		decompiler.setWildModeEnabled(cmd.getArgFlag("-wild"));
+		//
 		File subtypes = cmd.getArgFile("-st");
 		if (subtypes == null) {
-			File jar = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-			subtypes = new File(jar.getParentFile(), "headers/subtypes.txt");
+			subtypes = new File(jarDir, "headers/subtypes.txt");
 		}
 		decompiler.loadSubtypes(subtypes);
 		//

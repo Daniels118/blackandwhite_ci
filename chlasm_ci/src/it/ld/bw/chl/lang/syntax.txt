@@ -137,7 +137,7 @@ STATEMENT: {
 	teach OBJECT everything EOL
 	teach OBJECT all EOL
 	teach OBJECT all excluding CONST_EXPR EOL
-	force OBJECT CONST_EXPR OBJECT [with OBJECT] EOL
+	force OBJECT CREATURE_ACTION OBJECT [with OBJECT] EOL
 	enable|disable OBJECT friends with OBJECT EOL
 	initialise number of constant for OBJECT EOL
 	force action OBJECT finish EOL
@@ -156,8 +156,8 @@ STATEMENT: {
 	set OBJECT creed properties hand CREATURE_CREED scale EXPRESSION power EXPRESSION time EXPRESSION EOL
 	enable|disable OBJECT auto fighting EOL
 	enable|disable fight exit EOL
-	queue OBJECT fight move FIGHT_MOVE [strength EXPRESSION] EOL
-	queue OBJECT fight step CONST_EXPR EOL
+	queue OBJECT fight move CREATURE_ANIMATIONS [strength EXPRESSION] EOL
+	queue OBJECT fight step CREATURE_ANIMATIONS EOL
 	queue OBJECT fight spell CONST_EXPR EOL
 	set OBJECT name CONST_EXPR EOL
 	enable OBJECT auto scale EXPRESSION EOL
@@ -308,7 +308,7 @@ STATEMENT: {
 	
 	make HELP_SPIRIT_TYPE spirit point to OBJECT [in world] EOL
 	make HELP_SPIRIT_TYPE spirit point at COORD_EXPR [in world] EOL
-	make HELP_SPIRIT_TYPE spirit play across EXPRESSION down EXPRESSION CONST_EXPR [speed EXPRESSION] EOL
+	make HELP_SPIRIT_TYPE spirit play across EXPRESSION down EXPRESSION ANIMLIST [speed EXPRESSION] EOL
 	make HELP_SPIRIT_TYPE spirit cling across EXPRESSION down EXPRESSION EOL
 	make HELP_SPIRIT_TYPE spirit fly across EXPRESSION down EXPRESSION EOL
 	make HELP_SPIRIT_TYPE spirit fly across EXPRESSION down EXPRESSION EOL
@@ -359,7 +359,7 @@ STATEMENT: {
 	shake camera at COORD_EXPR radius EXPRESSION amplitude EXPRESSION time EXPRESSION EOL
 	set dual camera to OBJECT OBJECT EOL
 	start hand demo STRING [with pause on trigger] [without hand modify] EOL
-	start jc special CONST_EXPR EOL
+	start jc special SCRIPT_JC_SPECIAL EOL
 	enable|disable jc special SCRIPT_JC_SPECIAL on OBJECT [with number EXPRESSION] EOL
 	set camera position COORD_EXPR focus COORD_EXPR lens EXPRESSION EOL
 	move camera position COORD_EXPR focus COORD_EXPR lens EXPRESSION time EXPRESSION EOL
@@ -371,9 +371,9 @@ STATEMENT: {
 	set gun OBJECT angle EXPRESSION pitch EXPRESSION EOL
 	enable countdown timer up|down with EXPRESSION seconds EOL
 	disable countdown timer EOL
-	set countdown timer draw CONST_EXPR EOL
+	set countdown timer draw SCRIPT_COUNTDOWN_DRAW EOL
 	enable|disable villager sound EOL
-	make HELP_SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR in world [speed EXPRESSION] EOL
+	make HELP_SPIRIT_TYPE spirit play ANIMLIST at COORD_EXPR in world [speed EXPRESSION] EOL
 	enable|disable OBJECT immune to spells EOL
 	set dolphin speed EXPRESSION EOL
 	enable|disable right hand only for OBJECT EOL
@@ -386,7 +386,7 @@ STATEMENT: {
 	enable|disable OBJECT can drop EOL
 	draw OBJECT lightbulb EXPRESSION EOL
 	enable|disable OBJECT can learn CREATURE_ACTION_LEARNING_TYPE EOL
-	force OBJECT VILLAGER_STATES OBJECT at COORD_EXPR EOL
+	force OBJECT ANIM_LIST OBJECT at COORD_EXPR EOL
 	queue OBJECT fight spell MAGIC_TYPE EOL
 	clear OBJECT fight queue EOL
 	enable|disable fight camera exit EOL
@@ -498,7 +498,7 @@ CONDITION: {
 	COORD_EXPR clicked radius EXPRESSION
 	hand demo played
 	hand demo trigger
-	jc special CONST_EXPR played
+	jc special SCRIPT_JC_SPECIAL played
 	OBJECT played
 	OBJECT music played
 	music MUSIC_TYPE played
@@ -627,9 +627,9 @@ OBJECT: {
 	cast CONST_EXPR spell on OBJECT from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION [without reaction]
 	cast CONST_EXPR spell at COORD_EXPR from COORD_EXPR radius EXPRESSION time EXPRESSION curl EXPRESSION [without reaction]
 	get spell CONST_EXPR at COORD_EXPR radius EXPRESSION
-	create special effect CONST_EXPR at COORD_EXPR [time EXPRESSION]
-	create special effect CONST_EXPR on OBJECT [time EXPRESSION]
-	create alex special effect CONST_EXPR at COORD_EXPR
+	create special effect SPOT_VISUAL_TYPE at COORD_EXPR [time EXPRESSION]
+	create special effect SPOT_VISUAL_TYPE on OBJECT [time EXPRESSION]
+	create alex special effect ENUM_SPOT_VISUAL_ALEX at COORD_EXPR
 	attach OBJECT to OBJECT [as leader]
 	detach [OBJECT] from OBJECT
 	get spell icon CONST_EXPR in OBJECT
@@ -834,9 +834,15 @@ AUDIO_SFX_BANK_TYPE: CONST_EXPR
 
 CREATURE_TATTOO_TYPE: CONST_EXPR
 
+CREATURE_ANIMATIONS: CONST_EXPR
+
+CREATURE_ACTION: CONST_EXPR
+
 CREATURE_ACTION_LEARNING_TYPE: CONST_EXPR
 
 CREATURE_ACTION_SUBTYPE: CONST_EXPR
+
+CREATURE_ACTION_KNOWN_ABOUT: CONST_EXPR
 
 SCRIPT_BOOL: CONST_EXPR
 
@@ -846,13 +852,19 @@ ANIM_LIST: CONST_EXPR
 
 LH_KEY: CONST_EXPR
 
-CREATURE_ACTION_KNOWN_ABOUT: CONST_EXPR
-
 VILLAGER_STATES: CONST_EXPR
 
 TRIBE_TYPE: CONST_EXPR
 
 SCRIPT_JC_SPECIAL: CONST_EXPR
+
+SCRIPT_COUNTDOWN_DRAW: CONST_EXPR
+
+SPOT_VISUAL_TYPE: CONST_EXPR
+
+ENUM_SPOT_VISUAL_ALEX: CONST_EXPR
+
+ANIMLIST: CONST_EXPR
 
 SCRIPT_NAME: IDENTIFIER
 

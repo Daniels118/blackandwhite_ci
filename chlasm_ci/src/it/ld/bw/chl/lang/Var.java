@@ -15,26 +15,40 @@
  */
 package it.ld.bw.chl.lang;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import it.ld.bw.chl.model.Script;
+
 public class Var {
+	public final Script script;
 	public final Scope scope;
 	public final String name;
 	public final int index;
 	public int size;			//CI introduced arrays
 	public final float val;		//CI introduced default value
+	public final boolean isArg;
 	public boolean ref;
+	
 	public Type type;			//Guessed type
 	
-	public Var(Scope scope, String name, int index, int size, float val) {
-		this(scope, name, index, size, val, false);
+	//For advanced type guessing
+	public final Set<Var> assignedFrom = new HashSet<>();
+	public final Set<Var> assignedTo = new HashSet<>();
+	
+	public Var(Script script, String name, int index, int size, float val) {
+		this(script, name, index, size, val, false, false);
 	}
 	
-	public Var(Scope scope, String name, int index, int size, float val, boolean ref) {
+	public Var(Script script, String name, int index, int size, float val, boolean isArg, boolean ref) {
 		if (size <= 0) throw new IllegalArgumentException("Invalid variable size: "+size);
-		this.scope = scope;
+		this.script = script;
+		this.scope = script == null ? Scope.global : Scope.global;
 		this.name = name;
 		this.index = index;
 		this.size = size;
 		this.val = val;
+		this.isArg = isArg;
 		this.ref = ref;
 	}
 	
@@ -44,6 +58,6 @@ public class Var {
 	
 	@Override
 	public String toString() {
-		return scope + " variable " + name;
+		return script == null ? "global variable "+name : "variable "+script.getName()+"."+name;
 	}
 }

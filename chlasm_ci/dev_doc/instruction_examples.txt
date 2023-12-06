@@ -596,7 +596,7 @@ Teaches the creature every lesson excluding the type defined.
 Never found
 ___________________________________________
 
-3.2.19 force OBJECT CONST_EXPR OBJECT [with OBJECT]
+3.2.19 force OBJECT CREATURE_ACTION OBJECT [with OBJECT]
 
 Forces the creature to stop what he is doing and do a particular action.
 Second argument is which action to perform, eg: POINT_AT (see CREATURE_ACTION in CreatureEnum.h).
@@ -609,7 +609,7 @@ force MyCreature CREATURE_HURL TinyStone with Trainer
 	PUSHI 15				//CREATURE_HURL
 	PUSHF [TinyStone]
 	PUSHF [Trainer]			//with object
-	SYS CREATURE_DO_ACTION	//[4, 0] (Object creature, CREATURE_ACTION, Object target, Object withObject)
+	SYS CREATURE_DO_ACTION	//[4, 0] (Object creature, CREATURE_ACTION action, Object target, Object withObject)
 
 force MyCreature CREATURE_LOOK_AT_CAMERA MyCreature
 
@@ -617,7 +617,7 @@ force MyCreature CREATURE_LOOK_AT_CAMERA MyCreature
 	PUSHI 82				82=CREATURE_LOOK_AT_CAMERA
 	PUSHF [MyCreature]
 	PUSHO 0					//Using no object
-	SYS CREATURE_DO_ACTION	//[4, 0] (Object creature, CREATURE_ACTION, Object target, Object withObject)
+	SYS CREATURE_DO_ACTION	//[4, 0] (Object creature, CREATURE_ACTION action, Object target, Object withObject)
 ___________________________________________
 
 3.2.20 force OBJECT CONST_EXPR OBJECT
@@ -799,7 +799,7 @@ Sets if a fight can be exited by interaction.
 Never found (SET_FIGHT_EXIT)
 ___________________________________________
 
-3.2.39 queue OBJECT fight move FIGHT_MOVE [strength EXPRESSION]
+3.2.39 queue OBJECT fight move CREATURE_ANIMATIONS [strength EXPRESSION]
 
 Queues a fight move into the objects fight move list.
 
@@ -808,10 +808,10 @@ queue Guide fight move CTR_HIT_BLOCK
 	PUSHF [Guide]						//creature
 	PUSHI 3								//3=CTR_HIT_BLOCK
 	PUSHF 0.0							//strength
-	SYS SET_CREATURE_QUEUE_FIGHT_MOVE	//[3, 0] (Object creature, FIGHT_MOVE move, float strength)
+	SYS SET_CREATURE_QUEUE_FIGHT_MOVE	//[3, 0] (Object creature, CREATURE_ANIMATIONS move, float strength)
 ___________________________________________
 
-3.2.40 queue OBJECT fight step CONST_EXPR
+3.2.40 queue OBJECT fight step CREATURE_ACTION
 
 Queues a fight step into the objects fight move list.
 
@@ -819,7 +819,7 @@ queue Kampfkreatur fight step CTR_FIGHT_SPECIAL_MOVE
 
 	PUSHV [Kampfkreatur]
 	PUSHI 5
-	SYS SET_CREATURE_QUEUE_FIGHT_STEP	//[2, 0] (Object creature, int step)
+	SYS SET_CREATURE_QUEUE_FIGHT_STEP	//[2, 0] (Object creature, CREATURE_ANIMATIONS step)
 ___________________________________________
 
 3.2.41 queue OBJECT fight spell MAGIC_TYPE
@@ -2242,14 +2242,14 @@ disable countdown timer
 	SYS END_COUNTDOWN_TIMER	//[0, 0] ()
 ___________________________________________
 
-3.8.84 set countdown timer draw CONST_EXPR
+3.8.84 set countdown timer draw SCRIPT_COUNTDOWN_DRAW
 
 ?
 
 set countdown timer draw SCRIPT_COUNTDOWN_DRAW_BOTTOM_RIGHT
 
 	PUSHI 4
-	SYS SET_COUNTDOWN_TIMER_DRAW	//[1, 0] (int drawPos)
+	SYS SET_COUNTDOWN_TIMER_DRAW	//[1, 0] (SCRIPT_COUNTDOWN_DRAW drawPos)
 ___________________________________________
 
 3.8.85 enable|disable villager sound
@@ -2262,7 +2262,7 @@ disable villager sound
 	SYS SET_VILLAGER_SOUND	//[1, 0] (bool enable)
 ___________________________________________
 
-3.8.86 make SPIRIT_TYPE spirit play CONST_EXPR at COORD_EXPR in world [speed EXPRESSION]
+3.8.86 make SPIRIT_TYPE spirit play ANIMLIST at COORD_EXPR in world [speed EXPRESSION]
 
 ?
 
@@ -2272,7 +2272,7 @@ make good spirit play ANIM_BLOW at hand position in world
 	PUSHI 73						//animation
 	SYS GET_HAND_POSITION			//position
 	PUSHF 1.0						//speed (default 1)
-	SYS PLAY_SPIRIT_ANIM_IN_WORLD	//[6, 0] (HELP_SPIRIT_TYPE spirit, int animation, Coord position, float speed)
+	SYS PLAY_SPIRIT_ANIM_IN_WORLD	//[6, 0] (HELP_SPIRIT_TYPE spirit, ANIMLIST animation, Coord position, float speed)
 ___________________________________________
 
 3.8.87 clear hit land object
@@ -2305,7 +2305,7 @@ enable MyCreature can drop
 	SYS SET_CREATURE_CAN_DROP	//[2, 0] (bool enable, Object creature)
 ___________________________________________
 
-3.8.90 force OBJECT VILLAGER_STATES OBJECT at COORD_EXPR
+3.8.90 force OBJECT ANIM_LIST OBJECT at COORD_EXPR
 
 ?
 
@@ -2316,7 +2316,7 @@ force Defender VILLAGER_STATE_FOOTBALL_WAIT_FOR_KICK_OFF FSBall at [FSBall]
 	PUSHV [FSBall]
 	PUSHV [FSBall]
 	SYS GET_POSITION	//[1, 3] (Object object) returns (Coord)
-	SYS DO_ACTION_AT_POS	//[6, 0] (Object villager, VILLAGER_STATES action, Object ball, Coord position)
+	SYS DO_ACTION_AT_POS	//[6, 0] (Object villager, ANIM_LIST action, Object ball, Coord position)
 ___________________________________________
 
 3.8.91 enable|disable fight camera exit
@@ -2854,7 +2854,7 @@ make evil spirit point at [Highlight] in world		//#SwapCreatures.txt:63
 	SYS SPIRIT_POINT_POS	//[5, 0] (HELP_SPIRIT_TYPE spirit, Coord position, bool inWorld)
 ___________________________________________
 
-3.16.1.3 make HELP_SPIRIT_TYPE spirit play across EXPRESSION down EXPRESSION CONST_EXPR [speed EXPRESSION]
+3.16.1.3 make HELP_SPIRIT_TYPE spirit play across EXPRESSION down EXPRESSION ANIMLIST [speed EXPRESSION]
 
 The specified spirit type will play an animation at the set position, (percentage x across the screen,
 and percentage y down the screen) at an optionally defined speed percentage
@@ -2865,7 +2865,7 @@ make good spirit play across 0.3 down 0.8 ANIM_DANCE		//#cheatscommandos.txt:290
 	PUSHF 0.8				//down
 	PUSHI 47				//animation
 	PUSHF 1.0				//speed (default: 1)
-	SYS PLAY_SPIRIT_ANIM	//[5, 0] (int spirit, float across, float down, int animation, float speed)
+	SYS PLAY_SPIRIT_ANIM	//[5, 0] (int spirit, float across, float down, ANIMLIST animation, float speed)
 ___________________________________________
 
 3.16.1.4 make HELP_SPIRIT_TYPE spirit cling across EXPRESSION down EXPRESSION
@@ -3459,17 +3459,17 @@ start hand demo "rotate" with pause on trigger		//#HandDemos.txt:18
 	SYS PLAY_HAND_DEMO	//[3, 0] (StrPtr string, bool withPause, bool withoutHandModify)
 ___________________________________________
 
-3.18.29 start jc special CONST_EXPR
+3.18.29 start jc special SCRIPT_JC_SPECIAL
 
 Starts one of JC's predefined special features.
 
 start jc special SJC_SWITCH_OFF_BOOKMARK		//#followus.txt:293
 
 	PUSHI 15			//SJC_SWITCH_OFF_BOOKMARK
-	SYS PLAY_JC_SPECIAL	//[1, 0] (int feature)
+	SYS PLAY_JC_SPECIAL	//[1, 0] (SCRIPT_JC_SPECIAL feature)
 ___________________________________________
 
-3.18.30 enable|disable jc special CONST_EXPR on OBJECT [with number EXPRESSION]
+3.18.30 enable|disable jc special SCRIPT_JC_SPECIAL on OBJECT [with number EXPRESSION]
 
 Starts one of JC's predefined special features on an object.
 
@@ -3479,7 +3479,7 @@ disable jc special SJC_BLEND_ANGLE on Villager					// Villager turn		//#Creature
 	PUSHI 8					//feature
 	PUSHF [Villager]		//target
 	PUSHF 0.0				//partIndex
-	SYS THING_JC_SPECIAL	//[3, 0] (bool enable, int feature, Object target, float partIndex)
+	SYS THING_JC_SPECIAL	//[3, 0] (bool enable, SCRIPT_JC_SPECIAL feature, Object target, float partIndex)
 ___________________________________________
 
 3.18.31 set camera position COORD_EXPR focus COORD_EXPR lens EXPRESSION
@@ -3872,7 +3872,7 @@ hand demo trigger					//#HandDemos.txt:21
 	SYS HAND_DEMO_TRIGGER	//[0, 1] () returns (bool)
 ___________________________________________
 
-6.17 jc special CONST_EXPR played
+6.17 jc special SCRIPT_JC_SPECIAL played
 
 Checks to see if a specific jc special is running.
 
@@ -5388,7 +5388,7 @@ CPShield = get spell SPELL_PHYSICAL_SHIELD at [HutPos] radius 5		//#Land2ShieldC
 	POPF CPShield
 ___________________________________________
 
-9.45.1 create special effect CONST_EXPR at COORD_EXPR [time EXPRESSION]
+9.45.1 create special effect SPOT_VISUAL_TYPE at COORD_EXPR [time EXPRESSION]
 
 Creates an in game special effect at a position with a duration (default 1).
 
@@ -5398,11 +5398,11 @@ S1Effect = create special effect SPOT_VISUAL_COMMAND_SUCCEED at [NewCreature]		/
 	PUSHF [NewCreature]
 	SYS GET_POSITION			//position
 	PUSHF 1.0					//duration
-	SYS SPECIAL_EFFECT_POSITION	//[5, 1] (int effect, Coord position, float duration) returns (Object)
+	SYS SPECIAL_EFFECT_POSITION	//[5, 1] (SPOT_VISUAL_TYPE effect, Coord position, float duration) returns (Object)
 	POPF S1Effect
 ___________________________________________
 
-9.45.2 create special effect CONST_EXPR on OBJECT [time EXPRESSION]
+9.45.2 create special effect SPOT_VISUAL_TYPE on OBJECT [time EXPRESSION]
 
 Creates an in game special effect on an object with a duration (default 1).
 
@@ -5412,11 +5412,11 @@ SFX=create special effect SPOT_VISUAL_HIGHLIGHT_ON_OBJECT on GateKey1 time -1		/
 	PUSHF [GateKey1]			//target
 	PUSHF 1.0
 	NEG							//duration
-	SYS SPECIAL_EFFECT_OBJECT	//[3, 1] (int effect, Object target, float duration) returns (Object)
+	SYS SPECIAL_EFFECT_OBJECT	//[3, 1] (SPOT_VISUAL_TYPE effect, Object target, float duration) returns (Object)
 	POPF SFX
 ___________________________________________
 
-9.45.3 create alex special effect CONST_EXPR at COORD_EXPR
+9.45.3 create alex special effect ENUM_SPOT_VISUAL_ALEX at COORD_EXPR
 
 ?
 
@@ -5429,7 +5429,7 @@ Epiceffekt = create alex special effect SPOT_VISUAL_ALEX_HULAHOOP at [Tempelpos]
 	PUSHI 0								//effect
 	PUSHV [Tempelpos]
 	SYS GET_POSITION					//position
-	SYS ALEX_SPECIAL_EFFECT_POSITION	//[4, 1] (int effect, Coord position) returns (Object)
+	SYS ALEX_SPECIAL_EFFECT_POSITION	//[4, 1] (ENUM_SPOT_VISUAL_ALEX effect, Coord position) returns (Object)
 	REF_AND_OFFSET_POP
 ___________________________________________
 
