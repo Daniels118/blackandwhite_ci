@@ -50,7 +50,6 @@ import it.ld.bw.chl.exceptions.InvalidVariableIdException;
 import it.ld.bw.chl.exceptions.ParseException;
 import it.ld.bw.chl.exceptions.ScriptNotFoundException;
 import it.ld.bw.chl.lang.CHeaderParser;
-import it.ld.bw.chl.lang.Scope;
 import it.ld.bw.chl.lang.Symbol;
 import it.ld.bw.chl.lang.Syntax;
 import it.ld.bw.chl.lang.Type;
@@ -522,27 +521,12 @@ public class CHLDecompiler {
 		for (int fileIndex = 0; fileIndex < sources.size(); fileIndex++) {
 			String sourceFilename = sources.get(fileIndex);
 			File sourceFile = renamedSources[fileIndex];	//Use the renamed file as output
-			boolean requiredScriptsAlreadyWritten = false;
 			requiredScripts.clear();
 			info("Writing "+sourceFile.getName());
 			try (Writer str = new BufferedWriter(new FileWriter(sourceFile, ASCII));) {
 				writer = str;
 				lineno = 1;
 				writeHeader();
-				//Write the required "define script" statements
-				if (!requiredScripts.isEmpty()) {	//In case a previous scan already produced it
-					trace("Writing required \"define script\" statements");
-					for (String name : requiredScripts) {
-						try {
-							Script requiredScript = chl.getScriptsSection().getScript(name);
-							writeln("define "+requiredScript.getSignature());
-						} catch (ScriptNotFoundException e) {
-							throw new DecompileException(e.getMessage());
-						}
-					}
-					writeln("");
-					requiredScriptsAlreadyWritten = true;
-				}
 				//Write all scripts in this source file
 				while (script.getSourceFilename().equals(sourceFilename)) {
 					currentScript = script;
@@ -575,7 +559,7 @@ public class CHLDecompiler {
 					script = scriptIt.next();
 				}
 			}
-			if (!requiredScripts.isEmpty() && !requiredScriptsAlreadyWritten && outputDisabled == 0) {
+			if (!requiredScripts.isEmpty() && outputDisabled == 0) {
 				insertRequiredDefinitions(sourceFile);
 			}
 		}
@@ -640,13 +624,12 @@ public class CHLDecompiler {
 			List<String> header = new LinkedList<>();
 			//Copy everything before first script
 			String line = reader.readLine();
-			while (!line.startsWith("begin ")) {
+			while (line != null && !line.startsWith("begin ")) {
 				header.add(line);
 				line = reader.readLine();
 			}
 			//Try to make room for new statements
-			int requiredSpace = 0;
-			if (!requiredScripts.isEmpty()) requiredSpace += requiredScripts.size() + 1;
+			int requiredSpace = requiredScripts.size() + 1;
 			for (int i = 0; i < requiredSpace; i++) {
 				if (header.isEmpty()) break;
 				if (!getLast(header).isBlank()) break;
@@ -656,6 +639,7 @@ public class CHLDecompiler {
 			for (String h : header) {
 				writeln(h);
 			}
+			writeln("");
 			//Insert required scripts
 			for (String name : requiredScripts) {
 				try {

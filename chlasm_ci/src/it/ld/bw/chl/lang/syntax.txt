@@ -756,7 +756,7 @@ EXPRESSION: {
 	get HELP_EVENT_TYPE events per second
 	get time since HELP_EVENT_TYPE event
 	get HELP_EVENT_TYPE total event|events
-	square root EXPRESSION
+	sqrt EXPRESSION
 	tan EXPRESSION
 	sin EXPRESSION
 	cos EXPRESSION

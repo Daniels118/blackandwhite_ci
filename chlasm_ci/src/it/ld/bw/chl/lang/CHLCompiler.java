@@ -2353,8 +2353,8 @@ public class CHLCompiler implements Compiler {
 			} else if (symbol.is("spell")) {
 				parse("spell CONST_EXPR EOL");
 				//queue OBJECT fight spell CONST_EXPR
-				throw new ParseException("Statement not implemented", file, line, col);
-				//return replace(start, "STATEMENT");
+				sys(SET_CREATURE_QUEUE_FIGHT_SPELL);
+				return replace(start, "STATEMENT");
 			} else {
 				throw new ParseException("Unexpected token: "+symbol+". Expected: move|step|spell", lastParseException, file, symbol.token.line, symbol.token.col);
 			}
@@ -3044,7 +3044,7 @@ public class CHLCompiler implements Compiler {
 		} else if (symbol.is("path")) {
 			//camera path CONSTANT IDENTIFIER
 			symbol = parse("path IDENTIFIER IDENTIFIER EOL")[1];
-			String pathEnum = challengeName + symbol.token.value;
+			String pathEnum = symbol.token.value;
 			int constVal = getConstant(pathEnum);
 			pushi(constVal);
 			sys(RUN_CAMERA_PATH);
@@ -3371,10 +3371,11 @@ public class CHLCompiler implements Compiler {
 			return replace(start, "CINEMA");
 		} else if (symbol.is("camera")) {
 			//begin camera STATEMENTS end camera
-			if (inCameraBlock) {
+			if (inCameraBlock || inDialogueBlock) {
 				throw new ParseError("Already in camera block", file, line, col);
 			}
 			inCameraBlock = true;
+			inDialogueBlock = true;
 			parse("camera EOL");
 			final int lblRetry2 = getIp();
 			sys(START_DIALOGUE);
@@ -3391,6 +3392,7 @@ public class CHLCompiler implements Compiler {
 			sys(END_CAMERA_CONTROL);
 			sys(END_DIALOGUE);
 			inCameraBlock = false;
+			inDialogueBlock = false;
 			return replace(start, "begin camera");
 		} else if (symbol.is("dialogue")) {
 			//begin dialogue STATEMENTS end dialogue
@@ -3857,7 +3859,7 @@ public class CHLCompiler implements Compiler {
 							sys(GET_SACRIFICE_TOTAL);
 							return replace(start, "EXPRESSION");
 						} else if (symbol.is("spell")) {
-							parse("spell MAGIC_TYPE skill");
+							parse("spell CONST_EXPR skill");
 							//get OBJECT spell MAGIC_TYPE skill
 							sys(GET_CREATURE_SPELL_SKILL);
 							return replace(start, "EXPRESSION");
@@ -4264,6 +4266,7 @@ public class CHLCompiler implements Compiler {
 					//return replace(start, "CONDITION");
 				}
 			} else if (symbol.is("creature")) {
+				accept("creature");
 				symbol = peek();
 				if (symbol.is("help")) {
 					parse("help on");
@@ -4271,7 +4274,7 @@ public class CHLCompiler implements Compiler {
 					sys(CREATURE_HELP_ON);
 					return replace(start, "CONDITION");
 				} else {
-					parse("creature CONST_EXPR is available");
+					parse("CONST_EXPR is available");
 					//creature CONST_EXPR is available
 					sys(IS_CREATURE_AVAILABLE);
 					return replace(start, "CONDITION");
@@ -4594,7 +4597,7 @@ public class CHLCompiler implements Compiler {
 					sys(IS_FIGHTING);
 					return replace(start, "CONDITION");
 				} else if (symbol.is("knows")) {
-					parse("knows action CREATURE_ACTION_KNOWN_ABOUT");
+					parse("knows action CONST_EXPR");
 					//OBJECT knows action CREATURE_ACTION_KNOWN_ABOUT
 					sys(GET_CREATURE_KNOWS_ACTION);
 					return replace(start, "CONDITION");
@@ -4986,8 +4989,15 @@ public class CHLCompiler implements Compiler {
 					sys(CREATE_MIST);
 					return replace(start, "OBJECT");
 				} else if (symbol.is("with")) {
-					parse("with angle EXPRESSION and scale EXPRESSION CONST_EXPR CONST_EXPR at COORD_EXPR");
 					//create with angle EXPRESSION and scale EXPRESSION CONST_EXPR CONST_EXPR at COORD_EXPR
+					parse("with angle EXPRESSION and scale EXPRESSION CONST_EXPR");
+					symbol = peek();
+					if (symbol.is("at")) {
+						pushi(DEFAULT_SUBTYPE_NAME);
+					} else {
+						parseConstExpr(true);
+					}
+					parse("at COORD_EXPR");
 					sys(CREATE_WITH_ANGLE_AND_SCALE);
 					return replace(start, "OBJECT");
 				} else if (symbol.is("timer")) {
@@ -5085,7 +5095,7 @@ public class CHLCompiler implements Compiler {
 						return replace(start, "OBJECT");
 					} else if (symbol.is("town")) {
 						//create player EXPRESSION town at COORD_EXPR type TRIBE_TYPE
-						parse("town at COORD_EXPR type TRIBE_TYPE");
+						parse("town at COORD_EXPR type CONST_EXPR");
 						sys(GAME_CREATE_TOWN);
 						return replace(start, "OBJECT");
 					} else {
@@ -5298,11 +5308,6 @@ public class CHLCompiler implements Compiler {
 				//state of OBJECT
 				sys(GET_OBJECT_STATE);
 				return replace(start, "CONST_EXPR");
-			} else if (symbol.is("extra")) {
-				parse("extra position EXPRESSION of OBJECT");
-				//extra position EXPRESSION of OBJECT
-				sys(GET_OBJECT_EP);
-				return replace(start, "CONST_EXPR");
 			} else if (symbol.is("(")) {
 				parse("( CONST_EXPR )");
 				//(CONST_EXPR)
@@ -5512,6 +5517,11 @@ public class CHLCompiler implements Compiler {
 			parse("landing position of OBJECT velocity heading COORD_EXPR speed EXPRESSION");
 			//landing position of OBJECT velocity heading COORD_EXPR speed EXPRESSION
 			sys(GET_LANDING_POS);
+			return replace(start, "COORD_EXPR");
+		} else if (symbol.is("extra")) {
+			parse("extra position EXPRESSION of OBJECT");
+			//extra position EXPRESSION of OBJECT
+			sys(GET_OBJECT_EP);
 			return replace(start, "COORD_EXPR");
 		} else if (symbol.is("-")) {
 			parse("- COORD_EXPR");

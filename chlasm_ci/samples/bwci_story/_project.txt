@@ -1,3 +1,52 @@
 # Black & White: Creature Isle challenge project
 
-TODO
+# How to use this file:
+# 1) copy into this folder all the source files taken from B&W CI;
+# 2) open a command prompt, cd into this directory, and run the following command:
+#    chlasm -compile -p _project.txt -o _challenge.chl
+
+headers_path ../../headers
+header AllMeshes.h
+header AudioMusic.h
+header AudioSFX.h
+header CameraPosEnum.h
+header CreatureEnum.h
+header CreatureSpec.h
+header Enum.h
+header GStates.h
+header HelpDudeAnim.h
+header HelpTextEnums.h
+header HitRegions.h
+header LHKeyBoard.h
+header LHSample.h
+header ScriptChallengeEnums.h
+header ScriptEnums.h
+header ScriptEnumstwo.h
+
+info_path ../../headers
+info InfoScript1.txt
+info _constants.txt
+
+define UNK1		1
+define UNK4		4
+define UNK16	16
+define UNK10	10
+define UNK17	17
+define UNK5		5
+define UNK11	11
+define UNK0		0
+define UNK2		2
+define UNK7		7
+define UNK15	15
+define UNK14	14
+define UNK8		8
+define UNK18	18
+define UNK9		9
+define UNK3		3
+define UNK12	12
+define UNK6		6
+
+source_path .
+
+### Source files ###
+sourcelist _challenges.txt
