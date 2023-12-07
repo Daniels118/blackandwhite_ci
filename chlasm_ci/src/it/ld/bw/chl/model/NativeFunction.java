@@ -503,7 +503,7 @@ public enum NativeFunction {
 	/*454*/ IS_KEEPING_OLD_CREATURE("", "bool"),
 	/*455*/ CURRENT_PROFILE_HAS_CREATURE("", "bool"),
 	/*456*/ THING_PLAY_ANIM("Object object, ANIM_LIST animation, float loop"),
-	/*457*/ SET_SCRIPT_STATE_WITH_PARAMS("Object obj, int state, Coord pos, float fVal, float ulong0, float ulong1"),
+	/*457*/ SET_SCRIPT_STATE_WITH_PARAMS("Object obj, VILLAGER_STATES state, Coord pos, float fVal, float ulong0, float ulong1"),
 	/*458*/ START_COUNTDOWN_TIMER("bool up, float wait"),
 	/*459*/ END_COUNTDOWN_TIMER(),
 	/*460*/ SET_COUNTDOWN_TIMER_DRAW("SCRIPT_COUNTDOWN_DRAW drawPos"),
