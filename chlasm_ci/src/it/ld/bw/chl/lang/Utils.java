@@ -103,8 +103,10 @@ public final class Utils {
 			return ((Double)v).floatValue();
 		} else if (v instanceof Integer) {
 			return ((Integer)v).floatValue();
+		} else if (v instanceof Float) {
+			return ((Float)v).floatValue();
 		} else {
-			throw new IllegalArgumentException("Invalid numeric object: "+v);
+			throw new IllegalArgumentException("Invalid numeric object: "+v.getClass()+" "+v);
 		}
 	}
 	
@@ -113,8 +115,10 @@ public final class Utils {
 			return ((Double)v).intValue();
 		} else if (v instanceof Integer) {
 			return ((Integer)v).intValue();
+		} else if (v instanceof Float) {
+			return ((Float)v).intValue();
 		} else {
-			throw new IllegalArgumentException("Invalid numeric object: "+v);
+			throw new IllegalArgumentException("Invalid numeric object: "+v.getClass()+" "+v);
 		}
 	}
 	
