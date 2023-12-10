@@ -67,6 +67,7 @@ public class CHLCompiler implements Compiler {
 	private boolean ignoreMissingScriptsEnabled = false;
 	private boolean sharedStringsEnabled = true;
 	private boolean staticArrayCheckEnabled = true;
+	private boolean extendedSyntaxEnabled = false;
 	
 	private PrintStream out;
 	private boolean verboseEnabled;
@@ -90,6 +91,8 @@ public class CHLCompiler implements Compiler {
 	private boolean inCinemaBlock;
 	private boolean inCameraBlock;
 	private boolean inDialogueBlock;
+	private boolean dontRequireEol = false;
+	private boolean implicitVarDecl = false;
 	
 	private ParseException lastParseException = null;
 	
@@ -165,6 +168,14 @@ public class CHLCompiler implements Compiler {
 
 	public void setStaticArrayCheckEnabled(boolean staticArrayCheckEnabled) {
 		this.staticArrayCheckEnabled = staticArrayCheckEnabled;
+	}
+
+	public boolean isExtendedSyntaxEnabled() {
+		return extendedSyntaxEnabled;
+	}
+
+	public void setExtendedSyntaxEnabled(boolean extendedSyntaxEnabled) {
+		this.extendedSyntaxEnabled = extendedSyntaxEnabled;
 	}
 
 	/**Finalize the CHL file. No more files can be parsed after finalization.
@@ -285,6 +296,7 @@ public class CHLCompiler implements Compiler {
 			sourceFilename = file.getName();
 			info("compiling "+sourceFilename+"...");
 			CHLLexer lexer = new CHLLexer();
+			lexer.setExtendedSyntaxEnabled(extendedSyntaxEnabled);
 			List<Token> tokens = lexer.tokenize(file);
 			parse(tokens);
 		} finally {
@@ -414,10 +426,10 @@ public class CHLCompiler implements Compiler {
 				val = symbol.token.floatVal();
 				accept(TokenType.EOL);
 			} else if (symbol.is("[")) {
-				//global IDENTIFIER\[NUMBER\]
+				//global IDENTIFIER\[CONSTANT\]
 				accept("[");
-				symbol = accept(TokenType.NUMBER);
-				count = symbol.token.intVal();
+				symbol = acceptAny(TokenType.NUMBER, TokenType.IDENTIFIER);
+				count = getConstant(symbol);
 				accept("]");
 				accept(TokenType.EOL);
 			} else {
@@ -498,6 +510,10 @@ public class CHLCompiler implements Compiler {
 			if (symbol.is("(")) {
 				argc = parseArguments(true);
 			}
+			if (extendedSyntaxEnabled && script.getScriptType() == ScriptType.FUNCTION) {
+				addParameter("_retval", true);
+				argc++;
+			}
 			script.setParameterCount(argc);
 			define(scriptType, name, argc);
 			//Start the exception handler and load parameter values from the stack
@@ -508,6 +524,9 @@ public class CHLCompiler implements Compiler {
 				popf(var);
 			}
 			//
+			if (extendedSyntaxEnabled) {
+				addLocalVar("_returned");
+			}
 			symbol = peek();
 			if (!symbol.is("start")) {
 				parseLocals();
@@ -526,11 +545,15 @@ public class CHLCompiler implements Compiler {
 			jmp_lblEnd.intVal = lblEnd;
 			//
 			try {
-				parse("end script");
+				if (extendedSyntaxEnabled && script.getScriptType() == ScriptType.FUNCTION) {
+					parse("end function");
+				} else {
+					parse("end script");
+				}
 				end();
 			} catch (ParseException e) {
 				symbol = peek();
-				throw new ParseException("Unrecognized statement", lastParseException, file, symbol.token.line, symbol.token.col);
+				throw new ParseException("Unrecognized statement", file, symbol.token.line, symbol.token.col);
 			}
 			symbol = accept(TokenType.IDENTIFIER);
 			if (!symbol.token.value.equals(name)) {
@@ -569,6 +592,8 @@ public class CHLCompiler implements Compiler {
 			return replace(start, "multiplayer help script");
 		} else if (symbol.is("script")) {
 			return replace(start, "script");
+		} else if (extendedSyntaxEnabled && symbol.is("function")) {
+			return replace(start, "function");
 		} else {
 			throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
 		}
@@ -674,6 +699,9 @@ public class CHLCompiler implements Compiler {
 		for (int i = 1; i < size; i++) {
 			scriptVars.add("LHVMA");
 		}
+		if (ref) {
+			currentScript.setReference(name);
+		}
 		Var var = new Var(currentScript, name, id, size, 0, isArg, ref);
 		localMap.put(name, var);
 		return var;
@@ -700,10 +728,10 @@ public class CHLCompiler implements Compiler {
 				addLocalVar(name);
 				popf(name);
 			} else if (symbol.is("[")) {
-				//IDENTIFIER[NUMBER]
+				//IDENTIFIER[CONSTANT]
 				accept("[");
-				symbol = accept(TokenType.NUMBER);
-				int size = symbol.token.intVal();
+				symbol = acceptAny(TokenType.NUMBER, TokenType.IDENTIFIER);
+				int size = getConstant(symbol);
 				accept("]");
 				accept(TokenType.EOL);
 				addLocalVar(name, size);
@@ -847,9 +875,67 @@ public class CHLCompiler implements Compiler {
 			} else {
 				return parseAssignment();
 			}
+		} else if (extendedSyntaxEnabled) {
+			if (symbol.is("return")) {
+				return parseReturn();
+			} else if (symbol.is("for")) {
+				return parseFor();
+			}
 		}
 		lastParseException = new ParseException("Unexpected token: "+symbol+". Expected STATEMENT", lastParseException, file, line, col);
 		return null;
+	}
+	
+	private SymbolInstance parseFor() throws ParseException {
+		final int start = it.nextIndex();
+		List<Instruction> iterStatement = new LinkedList<>();
+		//for STATEMENT ; CONDITION ; STATEMENT
+		dontRequireEol = true;
+		implicitVarDecl = true;
+		parse("for STATEMENT ;");	//Init statement
+		implicitVarDecl = false;
+		dontRequireEol = false;
+		int lblCheckCond = getIp();
+		parse("CONDITION ;");		//Iteration condition
+		Instruction jz_lblEndFor = jz();
+		final int pos = instructions.size();
+		parseStatement();			//Post iteration statement
+		//
+		while (instructions.size() > pos) {
+			Instruction instr = instructions.remove(instructions.size() - 1);
+			iterStatement.add(0, instr);
+		}
+		//STATEMENTS
+		parseStatements();
+		instructions.addAll(iterStatement);
+		parse("end for EOL");
+		jmp(lblCheckCond);
+		int lblEndFor = getIp();
+		jz_lblEndFor.intVal = lblEndFor;
+		return replace(start, "FOR");
+	}
+	
+	private SymbolInstance parseReturn() throws ParseException {
+		final int start = it.nextIndex();
+		accept("return");
+		pushvVal("_retval");
+		pushf(0);
+		SymbolInstance symbol = parseExpression(false);
+		if (symbol != null) {
+			//Leave the value on the stack
+		} else {
+			symbol = parseObject(false);
+			if (symbol != null) {
+				//Leave the object on the stack
+			} else {
+				symbol = peek();
+				throw new ParseException("Unexpected token: "+symbol+". Expected EXPRESSION|OBJECT", file, symbol.token.line, symbol.token.col);
+			}
+		}
+		ref_and_offset_pop();
+		accept(TokenType.EOL);
+		//TODO should "jump" to the end of function (handling the exception stack)
+		return replace(start, "STATEMENT");
 	}
 	
 	private SymbolInstance parseObjectPlay() throws ParseException {
@@ -2897,6 +2983,7 @@ public class CHLCompiler implements Compiler {
 				if (checkAhead("with number")) {
 					//say [single line] STRING with number EXPRESSION [SAY_MODE] [by OBJECT]
 					parse("with number EXPRESSION");
+					symbol = peek();
 					if (symbol.is("with")) {
 						parse("with interaction");
 						pushi(1);
@@ -3139,6 +3226,9 @@ public class CHLCompiler implements Compiler {
 				ref_and_offset_push();
 			} else {
 				//IDENTIFIER
+				if (implicitVarDecl && !localMap.containsKey(varName) && !globalMap.containsKey(varName)) {
+					addLocalVar(varName);
+				}
 				pushf(0);
 				pushvAddr(varName);
 				ref_and_offset_push();
@@ -4044,6 +4134,26 @@ public class CHLCompiler implements Compiler {
 					pushi(property);
 					parse("of OBJECT");
 					sys(GET_PROPERTY);
+					return replace(start, "EXPRESSION");
+				} else if (extendedSyntaxEnabled && symbol.is("(")) {
+					//IDENTIFIER(PARAMETERS)
+					SymbolInstance id1 = accept(TokenType.IDENTIFIER);
+					String scriptName = id1.token.value;
+					Script script = scriptDefinitions.get(scriptName);
+					if (script == null) {
+						throw new ParseException("Undefined function: "+scriptName, lastParseException, file, symbol.token.line, symbol.token.col);
+					} else if (script.getScriptType() != ScriptType.FUNCTION) {
+						throw new ParseException("Script "+scriptName+" is not a function", lastParseException, file, symbol.token.line, symbol.token.col);
+					}
+					int argc = parseParameters();
+					pushvAddr("_returned");
+					ref_push();
+					argc++;
+					if (argc != script.getParameterCount()) {
+						throw new ParseException("Script "+scriptName+" expects "+script.getParameterCount()+" parameters", lastParseException, file, symbol.token.line, symbol.token.col);
+					}
+					call(scriptName, argc);
+					pushvVal("_returned");
 					return replace(start, "EXPRESSION");
 				} else {
 					//IDENTIFIER
@@ -5645,15 +5755,13 @@ public class CHLCompiler implements Compiler {
 			var = globalMap.get(name);
 		}
 		if (var == null) {
-			lastParseException = new ParseException("Undefined variable: "+name, file, line, col);
-			throw lastParseException;
+			throw new ParseError("Undefined variable: "+name, file, line, col);
 		} else {
 			lastParseException = null;
 		}
 		if (index < 0 || (index >= var.size && !var.ref)) {
 			if (staticArrayCheckEnabled) {
-				lastParseException = new ParseException("Index "+index+" out of bounds for "+name+"["+var.size+"]", file, line, col);
-				throw lastParseException;
+				throw new ParseError("Index "+index+" out of bounds for "+name+"["+var.size+"]", file, line, col);
 			} else {
 				warning("WARNING: Index "+index+" out of bounds for "+name+"["+var.size+"] in "+file.getName()+":"+line+":"+col);
 			}
@@ -5815,6 +5923,8 @@ public class CHLCompiler implements Compiler {
 				r[i] = parseObject(true);
 			} else if ("CONDITION".equals(symbol)) {
 				r[i] = parseCondition(true);
+			} else if ("STATEMENT".equals(symbol)) {
+				r[i] = parseStatement();
 			} else if ("IDENTIFIER".equals(symbol)) {
 				r[i] = accept(TokenType.IDENTIFIER);
 			} else if ("VARIABLE".equals(symbol)) {
@@ -5861,12 +5971,16 @@ public class CHLCompiler implements Compiler {
 			} else if ("STRING".equals(symbol)) {
 				r[i] = parseString();
 			} else if ("EOL".equals(symbol)) {
-				SymbolInstance sInst = next(false);
-				if (!sInst.is(TokenType.EOL)) {
-					lastParseException = new ParseException("Unexpected token: "+sInst+". Expected: EOL", lastParseException, file, sInst.token.line, sInst.token.col);
-					throw lastParseException;
+				if (dontRequireEol) {
+					r[i] = null;
+				} else {
+					SymbolInstance sInst = next(false);
+					if (!sInst.is(TokenType.EOL)) {
+						lastParseException = new ParseException("Unexpected token: "+sInst+". Expected: EOL", lastParseException, file, sInst.token.line, sInst.token.col);
+						throw lastParseException;
+					}
+					r[i] = sInst;
 				}
-				r[i] = sInst;
 			} else if ("SPIRIT_TYPE".equals(symbol)) {
 				r[i] = parseSpiritType();
 			} else if ("PLAYING_SIDE".equals(symbol)) {
@@ -6014,11 +6128,15 @@ public class CHLCompiler implements Compiler {
 	}
 	
 	private SymbolInstance accept(TokenType type) throws ParseException {
-		SymbolInstance symbol = next(type != TokenType.EOL);
-		if (symbol.token.type != type) {
-			throw new ParseException("Unexpected token: "+symbol+". Expected: "+type, file, symbol.token.line, symbol.token.col);
+		if (type == TokenType.EOL && dontRequireEol) {
+			return null;
+		} else {
+			SymbolInstance symbol = next(type != TokenType.EOL);
+			if (symbol.token.type != type) {
+				throw new ParseException("Unexpected token: "+symbol+". Expected: "+type, file, symbol.token.line, symbol.token.col);
+			}
+			return symbol;
 		}
-		return symbol;
 	}
 	
 	private SymbolInstance replace(final int index, String symbol) {

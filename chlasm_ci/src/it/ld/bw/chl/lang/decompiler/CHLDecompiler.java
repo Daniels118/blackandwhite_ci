@@ -1402,7 +1402,7 @@ public class CHLDecompiler {
 				} else {
 					//&VARIABLE
 					verify(ip, instr, OPCode.REF_PUSH, 1, DataType.VAR);
-					pInstr = prev();	//PUSHF var
+					pInstr = prev();	//PUSHV var
 					verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 					VarWithIndex vari = getVar(pInstr.intVal);
 					return new Expression("&"+vari, vari.var);

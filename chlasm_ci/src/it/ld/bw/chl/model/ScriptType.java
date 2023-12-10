@@ -23,7 +23,8 @@ public enum ScriptType {
 	CHALLENGE_HELP(4, "challenge help script"),
 	TEMPLE_HELP(8, "temple help script"),
 	TEMPLE_SPECIAL(16, "temple special script"),
-	MULTIPLAYER_HELP(64, "multiplayer help script");
+	MULTIPLAYER_HELP(64, "multiplayer help script"),
+	FUNCTION(1, "function");							//Custom
 	
 	public final int code;
 	public final String keyword;

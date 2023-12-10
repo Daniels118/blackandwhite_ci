@@ -35,7 +35,16 @@ public class CHLLexer {
 		DEFAULT, IDENTIFIER, NUMBER, STRING, COMMENT, BLOCK_COMMENT, BLANK
 	}
 	
+	private boolean extendedSyntaxEnabled;
 	private int tabSize = 4;
+	
+	public boolean isExtendedSyntaxEnabled() {
+		return extendedSyntaxEnabled;
+	}
+	
+	public void setExtendedSyntaxEnabled(boolean extendedSyntaxEnabled) {
+		this.extendedSyntaxEnabled = extendedSyntaxEnabled;
+	}
 	
 	public int getTabSize() {
 		return tabSize;
@@ -202,6 +211,9 @@ public class CHLLexer {
 							col += tabSize - (col - 1) % tabSize - 1;
 						} else if (c == '\r') {
 							//NOP
+						} else if (extendedSyntaxEnabled && c == ';') {
+							add(tokens, new Token(line, col, TokenType.KEYWORD, c));
+							buffer.setLength(0);
 						} else if (c == EOF) {
 							//NOP
 						} else {

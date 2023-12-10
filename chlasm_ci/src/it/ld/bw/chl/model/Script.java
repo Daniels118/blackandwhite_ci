@@ -17,11 +17,13 @@ package it.ld.bw.chl.model;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Set;
 
 import it.ld.bw.chl.exceptions.InvalidVariableIdException;
 import it.ld.utils.EndianDataInputStream;
@@ -41,7 +43,8 @@ public class Script extends Section {
 	private int parameterCount;
 	private int scriptID;
 	
-	private boolean[] references;
+	/**Which parameters are reference to global variables*/
+	private Set<String> references = new HashSet<>();
 	
 	private Map<String, Integer> localsMap = null;
 	private int lastInstructionAddress = -1;
@@ -102,13 +105,13 @@ public class Script extends Section {
 	public void setReference(String varName) throws IllegalArgumentException {
 		int i = getLocalVarIndex(varName);
 		if (i < 0) throw new IllegalArgumentException("Variable "+varName+" is not a parameter of script "+this.name);
-		references[i] = true;
+		references.add(varName);
 	}
 	
 	public boolean isReference(String varName) throws IllegalArgumentException {
 		int i = getLocalVarIndex(varName);
 		if (i < 0) throw new IllegalArgumentException("Variable "+varName+" is not a parameter of script "+this.name);
-		return references[i];
+		return references.contains(varName);
 	}
 	
 	public List<String> getVariablesWithoutParameters() {
@@ -134,7 +137,6 @@ public class Script extends Section {
 	
 	public void setParameterCount(int parameterCount) {
 		this.parameterCount = parameterCount;
-		this.references = new boolean[parameterCount];
 	}
 	
 	public int getScriptID() {
@@ -178,8 +180,6 @@ public class Script extends Section {
 		instructionAddress = str.readInt();
 		parameterCount = str.readInt();
 		scriptID = str.readInt();
-		//
-		this.references = new boolean[parameterCount];
 	}
 	
 	@Override
@@ -236,7 +236,8 @@ public class Script extends Section {
 		if (parameterCount > 0) {
 			String[] argNames = new String[parameterCount];
 			for (int i = 0; i < parameterCount; i++) {
-				argNames[i] = (references[i] ? "*" : "") + variables.get(i);
+				String argName = variables.get(i);
+				argNames[i] = (references.contains(argName) ? "*" : "") + argName;
 			}
 			res += "(" + String.join(", ", argNames) + ")";
 		}
