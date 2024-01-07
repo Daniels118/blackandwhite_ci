@@ -4,11 +4,15 @@ This is a project under development which aims to build a set of tools to write 
 
 ## Current status
 
-A tool to capable of converting CHL files to assembler language and viceversa has been made and works perfectly.
+The tool is capable of:
+- compile script into a CHL binary file
+- decompile a CHL binary file into source scripts
+- convert a CHL binary file to assembly language
+- convert assembly sources into a CHL binary file
 
 ## Next steps
 
-Implement a decompiler for the Challenge Language.
+TBD
 
 ## License
 
