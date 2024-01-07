@@ -23,12 +23,15 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import it.ld.bw.chl.exceptions.ParseError;
 import it.ld.bw.chl.exceptions.ParseException;
@@ -45,8 +48,6 @@ import it.ld.bw.chl.model.ScriptType;
 import static it.ld.bw.chl.lang.Utils.*;
 
 import static it.ld.bw.chl.model.NativeFunction.*;
-
-//TODO add in camera/dialogue block check for statements that require it
 
 public class CHLCompiler implements Compiler {
 	private static final String DEFAULT_SOUNDBANK_NAME = "AUDIO_SFX_BANK_TYPE_IN_GAME";
@@ -68,6 +69,8 @@ public class CHLCompiler implements Compiler {
 	private boolean sharedStringsEnabled = true;
 	private boolean staticArrayCheckEnabled = true;
 	private boolean extendedSyntaxEnabled = false;
+	private boolean returnEnabled = false;
+	private boolean debugEnabled = false;
 	
 	private PrintStream out;
 	private boolean verboseEnabled;
@@ -97,6 +100,9 @@ public class CHLCompiler implements Compiler {
 	private ParseException lastParseException = null;
 	
 	private List<Integer> strptrInstructions = new LinkedList<>();	//TODO use to compile to intermediate obj file
+	
+	private Map<String, String> properties = new HashMap<>();
+	private Set<String> sourceDirs = new HashSet<>();
 	
 	public CHLCompiler() {
 		this(System.out);
@@ -173,9 +179,25 @@ public class CHLCompiler implements Compiler {
 	public boolean isExtendedSyntaxEnabled() {
 		return extendedSyntaxEnabled;
 	}
-
+	
 	public void setExtendedSyntaxEnabled(boolean extendedSyntaxEnabled) {
 		this.extendedSyntaxEnabled = extendedSyntaxEnabled;
+	}
+	
+	public boolean isReturnEnabled() {
+		return returnEnabled;
+	}
+	
+	public void setReturnEnabled(boolean returnEnabled) {
+		this.returnEnabled = returnEnabled;
+	}
+	
+	public boolean isDebugEnabled() {
+		return debugEnabled;
+	}
+	
+	public void setDebugEnabled(boolean debugEnabled) {
+		this.debugEnabled = debugEnabled;
 	}
 
 	/**Finalize the CHL file. No more files can be parsed after finalization.
@@ -191,6 +213,12 @@ public class CHLCompiler implements Compiler {
 			}
 			//Data section
 			info("building data section...");
+			for (Entry<String, String> p : properties.entrySet()) {
+				storeStringData(p.getKey() + "=" + p.getValue());
+			}
+			if (!sourceDirs.isEmpty()) {
+				storeStringData("source_dirs=" + String.join(";", sourceDirs));
+			}
 			dataBuffer.flip();
 			chl.getDataSection().setData(new byte[dataBuffer.limit()]);
 			dataBuffer.get(chl.getDataSection().getData());
@@ -299,6 +327,12 @@ public class CHLCompiler implements Compiler {
 			lexer.setExtendedSyntaxEnabled(extendedSyntaxEnabled);
 			List<Token> tokens = lexer.tokenize(file);
 			parse(tokens);
+			if (debugEnabled) {
+				String dir = file.getAbsoluteFile().getParentFile().getAbsolutePath();
+				sourceDirs.add(dir);
+				long hash = crc32(file);
+				properties.put("crc32["+sourceFilename+"]", String.valueOf(hash));
+			}
 		} finally {
 			file = null;
 			sourceFilename = null;
@@ -510,7 +544,7 @@ public class CHLCompiler implements Compiler {
 			if (symbol.is("(")) {
 				argc = parseArguments(true);
 			}
-			if (extendedSyntaxEnabled && script.getScriptType() == ScriptType.FUNCTION) {
+			if (returnEnabled && script.getScriptType() == ScriptType.FUNCTION) {
 				addParameter("_retval", true);
 				argc++;
 			}
@@ -524,7 +558,7 @@ public class CHLCompiler implements Compiler {
 				popf(var);
 			}
 			//
-			if (extendedSyntaxEnabled) {
+			if (returnEnabled) {
 				addLocalVar("_returned");
 			}
 			symbol = peek();
@@ -545,7 +579,7 @@ public class CHLCompiler implements Compiler {
 			jmp_lblEnd.intVal = lblEnd;
 			//
 			try {
-				if (extendedSyntaxEnabled && script.getScriptType() == ScriptType.FUNCTION) {
+				if (returnEnabled && script.getScriptType() == ScriptType.FUNCTION) {
 					parse("end function");
 				} else {
 					parse("end script");
@@ -592,7 +626,7 @@ public class CHLCompiler implements Compiler {
 			return replace(start, "multiplayer help script");
 		} else if (symbol.is("script")) {
 			return replace(start, "script");
-		} else if (extendedSyntaxEnabled && symbol.is("function")) {
+		} else if (returnEnabled && symbol.is("function")) {
 			return replace(start, "function");
 		} else {
 			throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
@@ -876,10 +910,12 @@ public class CHLCompiler implements Compiler {
 				return parseAssignment();
 			}
 		} else if (extendedSyntaxEnabled) {
+			if (symbol.is("for")) {
+				return parseFor();
+			}
+		} else if (returnEnabled) {
 			if (symbol.is("return")) {
 				return parseReturn();
-			} else if (symbol.is("for")) {
-				return parseFor();
 			}
 		}
 		lastParseException = new ParseException("Unexpected token: "+symbol+". Expected STATEMENT", lastParseException, file, line, col);
@@ -4135,7 +4171,7 @@ public class CHLCompiler implements Compiler {
 					parse("of OBJECT");
 					sys(GET_PROPERTY);
 					return replace(start, "EXPRESSION");
-				} else if (extendedSyntaxEnabled && symbol.is("(")) {
+				} else if (returnEnabled && symbol.is("(")) {
 					//IDENTIFIER(PARAMETERS)
 					SymbolInstance id1 = accept(TokenType.IDENTIFIER);
 					String scriptName = id1.token.value;

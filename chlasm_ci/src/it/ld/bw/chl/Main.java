@@ -197,6 +197,8 @@ public class Main {
 		compiler.setSharedStringsEnabled(!cmd.getArgFlag("-noshr"));
 		compiler.setStaticArrayCheckEnabled(!cmd.getArgFlag("-nosac"));
 		compiler.setExtendedSyntaxEnabled(cmd.getArgFlag("-ext"));
+		compiler.setReturnEnabled(cmd.getArgFlag("-ret"));
+		compiler.setDebugEnabled(cmd.getArgFlag("-dbg"));
 		//
 		CHLFile chl = compiler.compile(project);
 		System.out.println("Writing compiled CHL...");

@@ -484,9 +484,9 @@ public class ASMWriter {
 					}
 				}
 				if (printSourceLinenoEnabled
-						&& instr.lineNumber > 0
+						/*&& instr.lineNumber > 0
 						&& instr.lineNumber != prevSrcLine
-						&& instr.opcode != OPCode.JZ && instr.opcode != OPCode.EXCEPT) {
+						&& instr.opcode != OPCode.JZ && instr.opcode != OPCode.EXCEPT*/) {
 					str.write("\t\t//#" + script.getSourceFilename() + ":" + instr.lineNumber);
 					prevSrcLine = instr.lineNumber;
 				}

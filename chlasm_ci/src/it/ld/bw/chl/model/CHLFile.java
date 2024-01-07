@@ -39,8 +39,8 @@ public class CHLFile {
 	private AutoStartScripts autoStartScripts = new AutoStartScripts();
 	private Scripts scriptsSection = new Scripts(this);
 	private DataSection data = new DataSection();
-	private NullSection nullSection = new NullSection(4100);	//<- since CI
-	private InitGlobals initGlobals = new InitGlobals();		//<- since CI
+	private NullSection nullSection = new NullSection(4100);	//struct {DWORD count; struct {DWORD, DWORD} items[512];}
+	private InitGlobals initGlobals = new InitGlobals();
 	
 	public Header getHeader() {
 		return header;

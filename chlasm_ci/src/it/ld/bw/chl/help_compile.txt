@@ -19,4 +19,6 @@ Shared options
   -oasm  output ASM file (merged)
   -noshr disable shared strings
   -nosac disable Static Array index Check
-  -ext   enable extended syntax
+  -ext   enable additional flow control structures
+  -ret   enable return value from scripts
+  -dbg   add debug informations

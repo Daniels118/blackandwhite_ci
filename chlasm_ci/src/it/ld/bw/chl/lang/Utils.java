@@ -16,11 +16,15 @@
 package it.ld.bw.chl.lang;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.ListIterator;
+
+import java.util.zip.CRC32;
 
 public final class Utils {
 	private static final char[] ILLEGAL_CHARACTERS = {'/', '\n', '\r', '\t', '\0', '\f', '`', '?', '*', '\\', '<', '>', '|', '\"', ':'};
@@ -187,5 +191,12 @@ public final class Utils {
 			}
 		}
 		return null;
+	}
+	
+	public static long crc32(File file) throws IOException {
+		byte[] data = Files.readAllBytes(file.toPath());
+        CRC32 checksum = new CRC32();
+        checksum.update(data);
+        return checksum.getValue();
 	}
 }
