@@ -286,8 +286,27 @@ public class CHLFile {
 	public boolean validate(PrintStream out) {
 		boolean res = true;
 		//Code
+		boolean isleControlFound = false;
+		boolean helpForCreatureJustText = false;
 		List<Instruction> instructions = code.getItems();
 		for (Script script : scriptsSection.getItems()) {
+			if ("IsleControl".equals(script.getName())) {
+				isleControlFound = true;
+				if (script.getScriptType() != ScriptType.SCRIPT) {
+					out.println("WARNING: script HelpForCreatureJustText should be of type 'script'");
+				}
+				if (script.getParameterCount() != 0) {
+					out.println("WARNING: script IsleControl should have no parameters");
+				}
+			} else if ("HelpForCreatureJustText".equals(script.getName())) {
+				helpForCreatureJustText = true;
+				if (script.getScriptType() != ScriptType.HELP) {
+					out.println("WARNING: script HelpForCreatureJustText should be of type 'help script'");
+				}
+				if (script.getParameterCount() != 1) {
+					out.println("WARNING: script HelpForCreatureJustText should have 1 parameter");
+				}
+			}
 			for (int i = script.getInstructionAddress(); i < instructions.size(); i++) {
 				Instruction instr = instructions.get(i);
 				try {
@@ -307,6 +326,16 @@ public class CHLFile {
 		} catch (Exception e) {
 			res = false;
 			out.println("Autostart scripts: " + e.getMessage());
+		}
+		//IsleControl
+		if (!isleControlFound) {
+			res = false;
+			out.println("WARNING: script IsleControl() not found");
+		}
+		//HelpForCreatureJustText
+		if (!helpForCreatureJustText) {
+			//res = false;
+			out.println("NOTICE: help script HelpForCreatureJustText(WhichText) not found");
 		}
 		return res;
 	}

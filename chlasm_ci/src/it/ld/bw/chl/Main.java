@@ -201,6 +201,7 @@ public class Main {
 		compiler.setDebugEnabled(cmd.getArgFlag("-dbg"));
 		//
 		CHLFile chl = compiler.compile(project);
+		chl.validate(System.out);
 		System.out.println("Writing compiled CHL...");
 		chl.write(out);
 		if (outAsm != null) {

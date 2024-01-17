@@ -52,10 +52,15 @@ public abstract class Struct {
 	 * @throws IOException
 	 */
 	protected static String readZString(EndianDataInputStream str) throws IOException {
-		byte[] buf = new byte[255];
+		byte[] buf = new byte[256];
 		int l = 0;
 		byte b = str.readByte();
 		while (b != 0) {
+			if (l >= buf.length) {
+				byte[] newBuf = new byte[buf.length * 2];
+				System.arraycopy(buf, 0, newBuf, 0, l);
+				buf = newBuf;
+			}
 			buf[l++] = b;
 			b = str.readByte();
 		}

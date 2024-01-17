@@ -70,6 +70,9 @@ public class AutoStartScripts extends Section {
 			} else if (script.getParameterCount() != 0) {
 				String msg = "Script " + script.getName() + " expects some arguments, cannot be used as autorun script";
 				throw new InvalidAutorunScriptException(msg, script);
+			} else if ("IsleControl".equals(script.getName())) {
+				String msg = "Script IsleControl is called by game code, must not be used as autorun script";
+				throw new InvalidAutorunScriptException(msg, script);
 			}
 		}
 	}

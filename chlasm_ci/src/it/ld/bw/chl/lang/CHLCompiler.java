@@ -99,10 +99,9 @@ public class CHLCompiler implements Compiler {
 	
 	private ParseException lastParseException = null;
 	
-	private List<Integer> strptrInstructions = new LinkedList<>();	//TODO use to compile to intermediate obj file
-	
 	private Map<String, String> properties = new HashMap<>();
 	private Set<String> sourceDirs = new HashSet<>();
+	private List<Integer> strptrInstructions = new LinkedList<>();	//TODO use to compile to intermediate obj file
 	
 	public CHLCompiler() {
 		this(System.out);
@@ -331,7 +330,20 @@ public class CHLCompiler implements Compiler {
 				String dir = file.getAbsoluteFile().getParentFile().getAbsolutePath();
 				sourceDirs.add(dir);
 				long hash = crc32(file);
-				properties.put("crc32["+sourceFilename+"]", String.valueOf(hash));
+				properties.put("crc32["+sourceFilename+"]", String.format("%08X", hash));
+				//String instructions
+				StringBuffer buf = new StringBuffer(strptrInstructions.size() * 5);
+				if (!strptrInstructions.isEmpty()) {
+					Iterator<Integer> it = strptrInstructions.iterator();
+					int instr = it.next();
+					buf.append(String.valueOf(instr));
+					while (it.hasNext()) {
+						instr = it.next();
+						buf.append(",");
+						buf.append(String.valueOf(instr));
+					}
+				}
+				properties.put("string_instructions", buf.toString());
 			}
 		} finally {
 			file = null;
