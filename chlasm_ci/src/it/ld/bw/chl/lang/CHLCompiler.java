@@ -5803,7 +5803,7 @@ public class CHLCompiler implements Compiler {
 			var = globalMap.get(name);
 		}
 		if (var == null) {
-			throw new ParseError("Undefined variable: "+name, file, line, col);
+			throw new ParseException("Undefined variable: "+name, file, line, col);
 		} else {
 			lastParseException = null;
 		}

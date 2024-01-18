@@ -24,7 +24,11 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import it.ld.utils.EndianDataInputStream;
 import it.ld.utils.EndianDataOutputStream;
@@ -32,6 +36,15 @@ import it.ld.utils.EndianDataOutputStream;
 
 public class CHLFile {
 	public static boolean traceEnabled = false;
+	
+	private static final Map<String, String[]> defaultScripts = new HashMap<>();
+	
+	static {
+		defaultScripts.put("IsleControl", new String[] {});
+		defaultScripts.put("HelpForCreatureJustText", new String[] {"WhichText"});
+		defaultScripts.put("CitadelWorldRoomHelp", null);
+		defaultScripts.put("CitadelSaveGameRoomHelp", null);
+	}
 	
 	private Header header = new Header();
 	private GlobalVariables globalVariables = new GlobalVariables();
@@ -286,25 +299,14 @@ public class CHLFile {
 	public boolean validate(PrintStream out) {
 		boolean res = true;
 		//Code
-		boolean isleControlFound = false;
-		boolean helpForCreatureJustText = false;
+		Set<String> missingScripts = new HashSet<>(defaultScripts.keySet());
 		List<Instruction> instructions = code.getItems();
 		for (Script script : scriptsSection.getItems()) {
-			if ("IsleControl".equals(script.getName())) {
-				isleControlFound = true;
-				if (script.getScriptType() != ScriptType.SCRIPT) {
-					out.println("WARNING: script HelpForCreatureJustText should be of type 'script'");
-				}
-				if (script.getParameterCount() != 0) {
-					out.println("WARNING: script IsleControl should have no parameters");
-				}
-			} else if ("HelpForCreatureJustText".equals(script.getName())) {
-				helpForCreatureJustText = true;
-				if (script.getScriptType() != ScriptType.HELP) {
-					out.println("WARNING: script HelpForCreatureJustText should be of type 'help script'");
-				}
-				if (script.getParameterCount() != 1) {
-					out.println("WARNING: script HelpForCreatureJustText should have 1 parameter");
+			if (defaultScripts.containsKey(script.getName())) {
+				missingScripts.remove(script.getName());
+				String[] requiredParameters = defaultScripts.get(script.getName());
+				if (requiredParameters != null && script.getParameterCount() != requiredParameters.length) {
+					out.println("WARNING: script " + script.getName() + " should have " + requiredParameters.length + " parameters");
 				}
 			}
 			for (int i = script.getInstructionAddress(); i < instructions.size(); i++) {
@@ -327,15 +329,11 @@ public class CHLFile {
 			res = false;
 			out.println("Autostart scripts: " + e.getMessage());
 		}
-		//IsleControl
-		if (!isleControlFound) {
-			res = false;
-			out.println("WARNING: script IsleControl() not found");
-		}
-		//HelpForCreatureJustText
-		if (!helpForCreatureJustText) {
-			//res = false;
-			out.println("NOTICE: help script HelpForCreatureJustText(WhichText) not found");
+		//Missing default scripts
+		for (String name : missingScripts) {
+			String[] requiredParameters = defaultScripts.get(name);
+			String args = requiredParameters != null ? "(" + String.join(", ", requiredParameters) + ")" : "";
+			out.println("NOTICE: script " + name + args + " not found");
 		}
 		return res;
 	}
