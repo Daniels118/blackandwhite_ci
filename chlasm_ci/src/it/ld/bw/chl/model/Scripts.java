@@ -15,7 +15,6 @@
  */
 package it.ld.bw.chl.model;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,42 +23,21 @@ import it.ld.bw.chl.exceptions.ScriptNotFoundException;
 import it.ld.utils.EndianDataInputStream;
 
 public class Scripts extends StructArray<Script> {
-	private boolean scriptsFinalized = false;
-	private Map<Integer, Script> entrypointScripts;
+	private CHLFile chl;
+	
+	private Map<String, Script> scriptsMap = new HashMap<>();
+	private Map<Integer, Script> entrypointScripts = new HashMap<>();
 	
 	public Scripts(CHLFile chl) {
-		
-	}
-	
-	public void finalizeScripts() {
-		if (!scriptsFinalized) {
-			int[] entrypoints = new int[items.size()];
-			int i = 0;
-			for (Script script : items) {
-				entrypoints[i++] = script.getInstructionAddress();
-			}
-			Arrays.sort(entrypoints);
-			//
-			for (i = 0; i < entrypoints.length - 1; i++) {
-				int entrypoint = entrypoints[i];
-				int nextEntrypoint = entrypoints[i + 1];
-				Script script = getScriptFromEntrypoint(entrypoint);
-				script.setLastInstructionAddress(nextEntrypoint - 1);
-			}
-			Script script = getScriptFromEntrypoint(entrypoints[entrypoints.length - 1]);
-			script.setLastInstructionAddress(Integer.MAX_VALUE);
-			scriptsFinalized = true;
-		}
+		this.chl = chl;
 	}
 	
 	public Script getScriptFromInstruction(int instruction) {
-		finalizeScripts();
-		for (Script script : items) {
-			if (instruction >= script.getInstructionAddress() && instruction <= script.getLastInstructionAddress()) {
-				return script;
-			}
+		for (int i = entrypointScripts.size(); i < items.size(); i++) {
+			Script script = items.get(i);
+			entrypointScripts.put(script.getInstructionAddress(), script);
 		}
-		return null;
+		return entrypointScripts.get(instruction);
 	}
 	
 	public Script getScriptFromEntrypoint(int ip) {
@@ -78,9 +56,13 @@ public class Scripts extends StructArray<Script> {
 	}
 	
 	@Override
+	public Script createItem() {
+		return new Script(chl);
+	}
+	
+	@Override
 	public void read(EndianDataInputStream str) throws Exception {
 		super.read(str);
-		this.finalizeScripts();
 	}
 	
 	public Script getScript(int scriptID) throws InvalidScriptIdException {
@@ -91,9 +73,13 @@ public class Scripts extends StructArray<Script> {
 	}
 	
 	public Script getScript(String scriptName) throws ScriptNotFoundException {
-		for (Script script : items) {
-			if (scriptName.equals(script.getName())) return script;
+		//Fast "running-cache" algorithm
+		for (int i = scriptsMap.size(); i < items.size(); i++) {
+			Script script = items.get(i);
+			scriptsMap.put(script.getName(), script);
 		}
+		Script script = scriptsMap.get(scriptName);
+		if (script != null) return script;
 		throw new ScriptNotFoundException(scriptName);
 	}
 	

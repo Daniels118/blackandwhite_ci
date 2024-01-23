@@ -150,8 +150,8 @@ public enum NativeFunction {
 	/*101*/ MOVE_CAMERA_TO_FACE_OBJECT("Object target, float distance, float time"),
 	/*102*/ GET_MOON_PERCENTAGE("", "float"),
 	/*103*/ POPULATE_CONTAINER("Object obj, float quantity, SCRIPT_OBJECT_TYPE type, SCRIPT_OBJECT_SUBTYPE subtype"),
-	/*104*/ ADD_REFERENCE(1, 1),
-	/*105*/ REMOVE_REFERENCE(1, 1),
+	/*104*/ ADD_REFERENCE(1, 1),	//Used by POP impl
+	/*105*/ REMOVE_REFERENCE(1, 1),	//Used by POP impl
 	/*106*/ SET_GAME_TIME("float time"),
 	/*107*/ GET_GAME_TIME("", "float"),
 	/*108*/ GET_REAL_TIME("", "float"),

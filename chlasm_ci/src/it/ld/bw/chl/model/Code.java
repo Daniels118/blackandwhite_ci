@@ -22,20 +22,18 @@ public class Code extends StructArray<Instruction> {
 	
 	private final CHLFile chl;
 	
-	private Script script = null;
-	
 	public Code(CHLFile chl) {
 		this.chl = chl;
 	}
-
+	
 	@Override
 	public Class<Instruction> getItemClass() {
 		return Instruction.class;
 	}
 	
 	@Override
-	public int getLength() {
-		return 4 + items.size() * Instruction.LENGTH;
+	public Instruction createItem() {
+		return new Instruction();
 	}
 	
 	@Override
@@ -43,19 +41,7 @@ public class Code extends StructArray<Instruction> {
 		Instruction instr = super.readItem(str, index);
 		//
 		if (traceEnabled) {
-			if (script == null
-					|| index < script.getInstructionAddress()
-					|| index > script.getLastInstructionAddress()) {
-				if (script != null) {
-					System.out.println();
-				}
-				script = chl.getScriptsSection().getScriptFromInstruction(index);
-				System.out.println(script);
-				for (String name : script.getVariablesWithoutParameters()) {
-					System.out.println("local "+name);
-				}
-			}
-			System.out.print(instr.toString(chl, script, null));
+			System.out.print(instr.toString(chl, null, null));
 			if (instr.opcode == OPCode.SYS) {
 				NativeFunction f = NativeFunction.fromCode(instr.intVal);
 				System.out.print("\t//" + f.getInfoString());

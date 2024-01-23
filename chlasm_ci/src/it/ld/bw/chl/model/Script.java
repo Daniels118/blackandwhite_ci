@@ -29,7 +29,9 @@ import it.ld.bw.chl.exceptions.InvalidVariableIdException;
 import it.ld.utils.EndianDataInputStream;
 import it.ld.utils.EndianDataOutputStream;
 
-public class Script extends Section {
+public class Script extends Struct {
+	private CHLFile chl;
+	
 	private String name;
 	private String sourceFilename;
 	private ScriptType scriptType;
@@ -38,7 +40,7 @@ public class Script extends Section {
 	/**Parameters + local variables*/
 	private List<String> variables = new LinkedList<String>();
 	/**Index of the first instruction in the instructions array*/
-	private int instructionAddress;
+	private int instructionAddress = -1;
 	/**How many local variables are parameters*/
 	private int parameterCount;
 	private int scriptID;
@@ -48,6 +50,18 @@ public class Script extends Section {
 	
 	private Map<String, Integer> localsMap = null;
 	private int lastInstructionAddress = -1;
+	
+	public Script(CHLFile chl) {
+		this.chl = chl;
+	}
+	
+	public CHLFile getChl() {
+		return chl;
+	}
+	
+	public void setChl(CHLFile chl) {
+		this.chl = chl;
+	}
 	
 	public String getName() {
 		return name;
@@ -149,25 +163,15 @@ public class Script extends Section {
 	
 	public int getLastInstructionAddress() {
 		if (lastInstructionAddress < instructionAddress) {
-			throw new RuntimeException("Scripts section must be finalized in order to call getLastInstructionAddress");
+			ArrayList<Instruction> instructions = chl.code.getItems();
+			for (int i = instructionAddress; i < instructions.size(); i++) {
+				if (instructions.get(i).opcode == OPCode.END) {
+					lastInstructionAddress = i;
+					break;
+				}
+			}
 		}
 		return lastInstructionAddress;
-	}
-
-	public void setLastInstructionAddress(int lastInstructionAddress) {
-		this.lastInstructionAddress = lastInstructionAddress;
-	}
-
-	@Override
-	public int getLength() {
-		return 	  name.length() + 1
-				+ sourceFilename.length() + 1
-				+ 4 //scriptType
-				+ 4 //varOffset
-				+ getZStringArraySize(variables)
-				+ 4 //instructionAddress
-				+ 4 //parameterCount
-				+ 4;//scriptID
 	}
 	
 	@Override
@@ -215,7 +219,7 @@ public class Script extends Section {
 		if (!isGlobalVar(varId)) {
 			throw new InvalidVariableIdException(varId);
 		}
-		return chl.getGlobalVariables().getNames().get(varId - 1);
+		return chl.globalVars.getNames().get(varId - 1);
 	}
 	
 	public String getVar(CHLFile chl, int varId) {

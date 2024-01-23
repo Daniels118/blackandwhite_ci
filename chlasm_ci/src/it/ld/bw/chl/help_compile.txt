@@ -16,9 +16,10 @@ Arguments
   -inputfile  Parses a script list held within a file. You can have more than one FileNameToLookForParsingName
 
 Shared options
+  -clean clean all object files before compiling
   -oasm  output ASM file (merged)
   -noshr disable shared strings
   -nosac disable Static Array index Check
   -ext   enable additional flow control structures
-  -ret   enable return value from scripts
+  -ret   enable return value from scripts (experimental)
   -dbg   add debug informations

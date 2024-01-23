@@ -37,7 +37,7 @@ import it.ld.bw.chl.model.NativeFunction;
 import it.ld.bw.chl.model.OPCode;
 import it.ld.bw.chl.model.Script;
 import it.ld.bw.chl.model.CHLFile;
-import it.ld.bw.chl.model.DataSection.Const;
+import it.ld.bw.chl.model.DataSection.StringData;
 import it.ld.bw.chl.model.DataType;
 import it.ld.bw.chl.model.ILabel;
 import it.ld.bw.chl.model.InitGlobal;
@@ -131,8 +131,8 @@ public class ASMWriter {
 		Path path = outdir.toPath();
 		//
 		prepareInitGlobalMap(chl);
-		List<Const> constants = chl.getDataSection().analyze();
-		Map<Integer, Const> constMap = mapConstants(constants);
+		List<StringData> constants = chl.data.getStrings();
+		Map<Integer, StringData> constMap = mapConstants(constants);
 		List<String> sources = chl.getSourceFilenames();
 		Map<Integer, Label> labels = getLabels(chl);
 		//
@@ -178,8 +178,8 @@ public class ASMWriter {
 	
 	public void writeMerged(CHLFile chl, File file) throws IOException, CompileException {
 		prepareInitGlobalMap(chl);
-		List<Const> constants = chl.getDataSection().analyze();
-		Map<Integer, Const> constMap = mapConstants(constants);
+		List<StringData> constants = chl.data.getStrings();
+		Map<Integer, StringData> constMap = mapConstants(constants);
 		Map<Integer, Label> labels = getLabels(chl);
 		try (Writer str = new BufferedWriter(new FileWriter(file));) {
 			writeHeader(chl, str);
@@ -191,15 +191,15 @@ public class ASMWriter {
 	
 	private void prepareInitGlobalMap(CHLFile chl) {
 		initMap = new HashMap<>();
-		for (InitGlobal init : chl.getInitGlobals().getItems()) {
+		for (InitGlobal init : chl.initGlobals.getItems()) {
 			initMap.put(init.getName(), init);
 		}
 	}
 	
 	private Map<Integer, Label> getLabels(CHLFile chl) {
 		Map<Integer, Label> labels = new HashMap<>();
-		List<Script> scripts = chl.getScriptsSection().getItems();
-		List<Instruction> instructions = chl.getCode().getItems();
+		List<Script> scripts = chl.scripts.getItems();
+		List<Instruction> instructions = chl.code.getItems();
 		for (Script script : scripts) {
 			int labelCount = 0;
 			String scriptName = script.getName();
@@ -233,23 +233,22 @@ public class ASMWriter {
 		return labels;
 	}
 	
-	private Map<Integer, Const> mapConstants(List<Const> constants) {
-		Map<Integer, Const> constMap = new HashMap<Integer, Const>();
-		for (Const c : constants) {
+	private Map<Integer, StringData> mapConstants(List<StringData> constants) {
+		Map<Integer, StringData> constMap = new HashMap<Integer, StringData>();
+		for (StringData c : constants) {
 			constMap.put(c.offset, c);
 		}
 		return constMap;
 	}
 	
 	private void writeHeader(CHLFile chl, Writer str) throws IOException {
-		str.write("//LHVM Challenge ASM version "+chl.getHeader().getVersion()+"\r\n");
+		str.write("//LHVM Challenge ASM version "+chl.header.getVersion()+"\r\n");
 		str.write("\r\n");
 	}
 	
-	private void writeData(CHLFile chl, Writer str, List<Const> constants) throws IOException {
+	private void writeData(CHLFile chl, Writer str, List<StringData> constants) throws IOException {
 		str.write(".DATA\r\n");
-		if (printBinInfoEnabled) str.write(String.format("//offset: 0x%1$08X\r\n", chl.getDataSection().getOffset()));
-		for (Const c : constants) {
+		for (StringData c : constants) {
 			str.write(c.getDeclaration() + "\r\n");
 		}
 		str.write("\r\n");
@@ -257,7 +256,7 @@ public class ASMWriter {
 	
 	private void writeGlobals(CHLFile chl, Writer str, int start, int end) throws IOException {
 		str.write(".GLOBALS");
-		ListIterator<String> it = chl.getGlobalVariables().getNames().subList(start, end).listIterator();
+		ListIterator<String> it = chl.globalVars.getNames().subList(start, end).listIterator();
 		String name0 = null;
 		InitGlobal init = null;
 		int size = 1;
@@ -292,12 +291,10 @@ public class ASMWriter {
 		str.write("\r\n");
 	}
 	
-	private void writeScripts(CHLFile chl, Writer str, Map<Integer, Label> labels, Map<Integer, Const> constMap) throws IOException, CompileException {
-		if (printBinInfoEnabled) str.write(String.format("//offset: 0x%1$08X\r\n", chl.getScriptsSection().getOffset()));
-		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
+	private void writeScripts(CHLFile chl, Writer str, Map<Integer, Label> labels, Map<Integer, StringData> constMap) throws IOException, CompileException {
 		int firstGlobal = 0;
 		String prevSourceFilename = "";
-		List<Script> scripts = chl.getScriptsSection().getItems();
+		List<Script> scripts = chl.scripts.getItems();
 		for (Script script : scripts) {
 			if (!script.getSourceFilename().equals(prevSourceFilename)) {
 				str.write("\r\n");
@@ -316,11 +313,10 @@ public class ASMWriter {
 		str.write("\r\n");
 	}
 	
-	private void writeScripts(CHLFile chl, Writer str, String sourceFilename, Map<Integer, Label> labels, Map<Integer, Const> constMap) throws IOException, CompileException {
-		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
+	private void writeScripts(CHLFile chl, Writer str, String sourceFilename, Map<Integer, Label> labels, Map<Integer, StringData> constMap) throws IOException, CompileException {
 		int firstGlobal = 0;
 		Script script = null;
-		ListIterator<Script> it = chl.getScriptsSection().getItems().listIterator();
+		ListIterator<Script> it = chl.scripts.getItems().listIterator();
 		while (it.hasNext()) {
 			script = it.next();
 			if (script.getSourceFilename().equals(sourceFilename)) {
@@ -344,12 +340,12 @@ public class ASMWriter {
 		}
 	}
 	
-	private void writeScript(CHLFile chl, Writer str, Script script, Map<Integer, Label> labels, Map<Integer, Const> constMap) throws IOException, CompileException {
+	private void writeScript(CHLFile chl, Writer str, Script script, Map<Integer, Label> labels, Map<Integer, StringData> constMap) throws IOException, CompileException {
 		if (printSourceLineEnabled) {
 			setSourceFile(script.getSourceFilename());
 		}
 		Stack<String> comments = new Stack<>();
-		List<Instruction> instructions = chl.getCode().getItems();
+		List<Instruction> instructions = chl.code.getItems();
 		final int firstInstruction = script.getInstructionAddress();
 		Instruction instr;
 		//Script comments
@@ -507,9 +503,9 @@ public class ASMWriter {
 	
 	private void writeAutoStartScripts(CHLFile chl, Writer str) throws IOException, CompileException {
 		str.write(".AUTORUN\r\n");
-		for (int scriptID : chl.getAutoStartScripts().getScripts()) {
+		for (int scriptID : chl.autoStartScripts.getScripts()) {
 			try {
-				Script script = chl.getScriptsSection().getScript(scriptID);
+				Script script = chl.scripts.getScript(scriptID);
 				str.write("run script "+script.getName()+"\r\n");
 			} catch (InvalidScriptIdException e) {
 				String msg = "Invalid autorun script id: " + scriptID;

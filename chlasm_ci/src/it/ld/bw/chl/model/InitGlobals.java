@@ -7,6 +7,11 @@ public class InitGlobals extends StructArray<InitGlobal> {
 	}
 	
 	@Override
+	public InitGlobal createItem() {
+		return new InitGlobal();
+	}
+	
+	@Override
 	public String toString() {
 		return items.toString();
 	}

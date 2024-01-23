@@ -155,10 +155,12 @@ public class Main {
 	}
 	
 	private static void compile(CmdLine cmd) throws Exception {
-		CHLCompiler compiler = new CHLCompiler();
-		compiler.setVerboseEnabled(verbose);
+		Make make = new Make();
+		CHLCompiler.Options compilerOptions = make.getCompilerOptions();
+		CHLLinker.Options linkerOptions = make.getLinkerOptions();
+		compilerOptions.verbose = verbose;
+		linkerOptions.verbose = verbose;
 		Project project;
-		File out = null;
 		if (cmd.getArgFlag("-path")) {
 			//Original command syntax
 			project = new Project();
@@ -169,9 +171,10 @@ public class Main {
 				}
 			}
 			File scriptpath = new File(path, mandatory(cmd.getArgVal("-scriptpath"), "-scriptpath"));
+			project.sourcePath = scriptpath.toPath();
 			for (String inputfileName : mandatory(cmd.getArgVals("-inputfile"), "-inputfile")) {
 				if (inputfileName.endsWith(".chl")) {
-					out = new File(scriptpath, inputfileName);
+					project.output = new File(scriptpath, inputfileName);
 				} else {
 					File inputfile = new File(scriptpath, inputfileName);
 					try (BufferedReader reader = new BufferedReader(new FileReader(inputfile));) {
@@ -184,26 +187,26 @@ public class Main {
 					}
 				}
 			}
-			if (out == null) {
+			if (project.output == null) {
 				throw new RuntimeException("A chl output file as last parameter is mandatory");
 			}
 		} else {
 			//Our syntax
 			File prj = mandatory(cmd.getArgFile("-p"), "-p");
 			project = Project.load(prj);
-			out = mandatory(cmd.getArgFile("-o"), "-o");
+			project.output = cmd.getArgFile("-o", project.output);
 		}
 		File outAsm = cmd.getArgFile("-oasm");
-		compiler.setSharedStringsEnabled(!cmd.getArgFlag("-noshr"));
-		compiler.setStaticArrayCheckEnabled(!cmd.getArgFlag("-nosac"));
-		compiler.setExtendedSyntaxEnabled(cmd.getArgFlag("-ext"));
-		compiler.setReturnEnabled(cmd.getArgFlag("-ret"));
-		compiler.setDebugEnabled(cmd.getArgFlag("-dbg"));
+		compilerOptions.sharedStrings = !cmd.getArgFlag("-noshr");
+		linkerOptions.sharedStrings = compilerOptions.sharedStrings;
+		compilerOptions.staticArrayCheck = !cmd.getArgFlag("-nosac");
+		compilerOptions.extendedSyntax = cmd.getArgFlag("-ext");
+		compilerOptions.returnEnabled = cmd.getArgFlag("-ret");
+		compilerOptions.debug = cmd.getArgFlag("-dbg");
+		linkerOptions.debug = compilerOptions.debug;
+		project.clean |= cmd.getArgFlag("-clean");
 		//
-		CHLFile chl = compiler.compile(project);
-		chl.validate(System.out);
-		System.out.println("Writing compiled CHL...");
-		chl.write(out);
+		CHLFile chl = make.make(project);
 		if (outAsm != null) {
 			System.out.println("Writing ASM sources...");
 			ASMWriter writer = new ASMWriter();

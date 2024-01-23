@@ -15,12 +15,11 @@
  */
 package it.ld.bw.chl.lang;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,13 +34,15 @@ import java.util.Set;
 
 import it.ld.bw.chl.exceptions.ParseError;
 import it.ld.bw.chl.exceptions.ParseException;
+import it.ld.bw.chl.exceptions.ScriptNotFoundException;
 import it.ld.bw.chl.model.CHLFile;
 import it.ld.bw.chl.model.DataType;
 import it.ld.bw.chl.model.Header;
 import it.ld.bw.chl.model.InitGlobal;
 import it.ld.bw.chl.model.Instruction;
 import it.ld.bw.chl.model.NativeFunction;
-import it.ld.bw.chl.model.OPCodeFlag;
+import it.ld.bw.chl.model.OPCodeMode;
+import it.ld.bw.chl.model.ObjectCode;
 import it.ld.bw.chl.model.Script;
 import it.ld.bw.chl.model.ScriptType;
 
@@ -49,13 +50,12 @@ import static it.ld.bw.chl.lang.Utils.*;
 
 import static it.ld.bw.chl.model.NativeFunction.*;
 
-public class CHLCompiler implements Compiler {
+public class CHLCompiler {
 	private static final String DEFAULT_SOUNDBANK_NAME = "AUDIO_SFX_BANK_TYPE_IN_GAME";
 	private static final String DEFAULT_SUBTYPE_NAME = "SCRIPT_FIND_TYPE_ANY";
 	
 	private static final Charset ASCII = Charset.forName("windows-1252");
 	private static final int INITIAL_BUFFER_SIZE = 16 * 1024;
-	private static final int MAX_BUFFER_SIZE = 2 * 1024 * 1024;
 	
 	private File file;
 	private String sourceFilename;
@@ -64,31 +64,24 @@ public class CHLCompiler implements Compiler {
 	private int line;
 	private int col;
 	
-	private boolean optimizeAssignmentEnabled = false;
-	private boolean ignoreMissingScriptsEnabled = false;
-	private boolean sharedStringsEnabled = true;
-	private boolean staticArrayCheckEnabled = true;
-	private boolean extendedSyntaxEnabled = false;
-	private boolean returnEnabled = false;
-	private boolean debugEnabled = false;
+	private Options options = new Options();
 	
 	private PrintStream out;
-	private boolean verboseEnabled;
 	
-	private final CHLFile chl = new CHLFile();
+	private ObjectCode objcode = new ObjectCode();
+	private CHLFile chl;
 	private Script currentScript;
-	private final List<Instruction> instructions;
-	private boolean sealed = false;
-	private LinkedHashMap<String, Integer> strings = new LinkedHashMap<>();
-	private ByteBuffer dataBuffer = ByteBuffer.allocate(INITIAL_BUFFER_SIZE);
-	private final List<InitGlobal> initGlobals;
-	private Map<String, Integer> constants = new HashMap<>();
-	private LinkedHashMap<String, Var> localMap = new LinkedHashMap<>();
-	private Map<String, Integer> localConst = new HashMap<>();
-	private LinkedHashMap<String, Var> globalMap = new LinkedHashMap<>();
-	private Map<String, Script> scriptDefinitions = new HashMap<>();
-	private LinkedHashMap<String, ScriptToResolve> autoruns = new LinkedHashMap<>();
-	private List<ScriptToResolve> calls = new LinkedList<>();
+	private List<Instruction> instructions;
+	private List<InitGlobal> initGlobals;
+	private ByteArrayOutputStream dataBuffer = new ByteArrayOutputStream(INITIAL_BUFFER_SIZE);
+	private final LinkedHashMap<String, Integer> strings = new LinkedHashMap<>();
+	private final Map<String, Integer> constants = new HashMap<>();
+	private final LinkedHashMap<String, Var> localMap = new LinkedHashMap<>();
+	private final Map<String, Integer> localConst = new HashMap<>();
+	private final LinkedHashMap<String, Var> globalMap = new LinkedHashMap<>();
+	private final Map<String, Script> scriptDefinitions = new HashMap<>();
+	private final LinkedHashMap<String, ScriptToResolve> autoruns = new LinkedHashMap<>();
+	private final List<ScriptToResolve> calls = new LinkedList<>();
 	private String challengeName;
 	private Integer challengeId;
 	private boolean inCinemaBlock;
@@ -101,7 +94,6 @@ public class CHLCompiler implements Compiler {
 	
 	private Map<String, String> properties = new HashMap<>();
 	private Set<String> sourceDirs = new HashSet<>();
-	private List<Integer> strptrInstructions = new LinkedList<>();	//TODO use to compile to intermediate obj file
 	
 	public CHLCompiler() {
 		this(System.out);
@@ -109,22 +101,14 @@ public class CHLCompiler implements Compiler {
 	
 	public CHLCompiler(PrintStream outStream) {
 		this.out = outStream;
-		dataBuffer.order(ByteOrder.LITTLE_ENDIAN);
-		chl.getHeader().setVersion(Header.BWCI);
-		instructions = chl.getCode().getItems();
-		/* This will help the disassembler when guessing string values, because it increases the pointer
-		 * of the first string (low values are too common and would lead to a lot of bad guessing) */
-		//storeStringData("Compiled with CHL Compiler developed by Daniele Lombardi");
-		initGlobals = chl.getInitGlobals().getItems();
-		initGlobals.add(new InitGlobal("Null variable", 0));
 	}
 	
-	public boolean isVerboseEnabled() {
-		return verboseEnabled;
+	public Options getOptions() {
+		return options;
 	}
 	
-	public void setVerboseEnabled(boolean verboseEnabled) {
-		this.verboseEnabled = verboseEnabled;
+	public void setOptions(Options options) {
+		this.options = options;
 	}
 	
 	private void warning(String s) {
@@ -132,140 +116,15 @@ public class CHLCompiler implements Compiler {
 	}
 	
 	private void notice(String s) {
-		if (verboseEnabled) {
+		if (options.verbose) {
 			out.println(s);
 		}
 	}
 	
 	private void info(String s) {
-		if (verboseEnabled) {
+		if (options.verbose) {
 			out.println(s);
 		}
-	}
-	
-	public boolean isOptimizeAssignmentEnabled() {
-		return optimizeAssignmentEnabled;
-	}
-	
-	public void setOptimizeAssignmentEnabled(boolean optimizeAssignmentEnabled) {
-		this.optimizeAssignmentEnabled = optimizeAssignmentEnabled;
-	}
-	
-	public boolean isIgnoreMissingScriptsEnabled() {
-		return ignoreMissingScriptsEnabled;
-	}
-	
-	public void setIgnoreMissingScriptsEnabled(boolean ignoreMissingScriptsEnabled) {
-		this.ignoreMissingScriptsEnabled = ignoreMissingScriptsEnabled;
-	}
-	
-	public boolean isSharedStringsEnabled() {
-		return sharedStringsEnabled;
-	}
-	
-	public void setSharedStringsEnabled(boolean sharedStringsEnabled) {
-		this.sharedStringsEnabled = sharedStringsEnabled;
-	}
-	
-	public boolean isStaticArrayCheckEnabled() {
-		return staticArrayCheckEnabled;
-	}
-
-	public void setStaticArrayCheckEnabled(boolean staticArrayCheckEnabled) {
-		this.staticArrayCheckEnabled = staticArrayCheckEnabled;
-	}
-
-	public boolean isExtendedSyntaxEnabled() {
-		return extendedSyntaxEnabled;
-	}
-	
-	public void setExtendedSyntaxEnabled(boolean extendedSyntaxEnabled) {
-		this.extendedSyntaxEnabled = extendedSyntaxEnabled;
-	}
-	
-	public boolean isReturnEnabled() {
-		return returnEnabled;
-	}
-	
-	public void setReturnEnabled(boolean returnEnabled) {
-		this.returnEnabled = returnEnabled;
-	}
-	
-	public boolean isDebugEnabled() {
-		return debugEnabled;
-	}
-	
-	public void setDebugEnabled(boolean debugEnabled) {
-		this.debugEnabled = debugEnabled;
-	}
-
-	/**Finalize the CHL file. No more files can be parsed after finalization.
-	 * @throws ParseException
-	 */
-	public CHLFile seal() throws ParseException {
-		if (!sealed) {
-			info("building...");
-			//Script map
-			Map<String, Script> scriptMap = new HashMap<>();
-			for (Script script : chl.getScriptsSection().getItems()) {
-				scriptMap.put(script.getName(), script);
-			}
-			//Data section
-			info("building data section...");
-			for (Entry<String, String> p : properties.entrySet()) {
-				storeStringData(p.getKey() + "=" + p.getValue());
-			}
-			if (!sourceDirs.isEmpty()) {
-				storeStringData("source_dirs=" + String.join(";", sourceDirs));
-			}
-			dataBuffer.flip();
-			chl.getDataSection().setData(new byte[dataBuffer.limit()]);
-			dataBuffer.get(chl.getDataSection().getData());
-			//call and start
-			info("resolving call and start instructions...");
-			for (ScriptToResolve call : calls) {
-				Script script = scriptMap.get(call.name);
-				if (script == null) {
-					if (ignoreMissingScriptsEnabled) {
-						warning("ERROR: script not found: "+call.name+" at "+call.file+":"+call.line);
-					} else {
-						throw new ParseException("Script not found: "+call.name, call.file, call.line, 1);
-					}
-				} else {
-					if (script.getParameterCount() != call.argc) {
-						throw new ParseException("Parameters count doesn't match script declaration", call.file, call.line, 1);
-					}
-					call.instr.intVal = script.getScriptID();
-				}
-			}
-			//Auto start scripts
-			info("resolving autorun scripts...");
-			for (ScriptToResolve call : autoruns.values()) {
-				Script script = scriptMap.get(call.name);
-				if (script == null) {
-					throw new ParseException("Script not found: "+call.name, call.file, call.line, 1);
-				}
-				if (script.getParameterCount() > 0) {
-					throw new ParseException("Script with parameters not valid for autorun: "+call.name, call.file, call.line, 1);
-				}
-				chl.getAutoStartScripts().getScripts().add(script.getScriptID());
-			}
-			//
-			sealed = true;
-			info("done.");
-		}
-		return chl;
-	}
-	
-	/**Be aware that this implicitly seals the CHL file. No more files can be parsed.
-	 * @return
-	 * @throws ParseException
-	 */
-	public CHLFile getCHLFile() throws ParseException {
-		if (!sealed) {
-			seal();
-		}
-		return chl;
 	}
 	
 	private void convertToNodes(List<Token> tokens) throws ParseException {
@@ -286,6 +145,14 @@ public class CHLCompiler implements Compiler {
 		symbols.add(SymbolInstance.EOF);
 	}
 	
+	public Map<String, Integer> getDefinedConstants() {
+		return constants;
+	}
+	
+	public void addConstants(Map<String, Integer> constants) {
+		this.constants.putAll(constants);
+	}
+	
 	public void loadHeader(File headerFile) throws FileNotFoundException, IOException, ParseException {
 		info("loading "+headerFile.getName()+"...");
 		CHeaderParser parser = new CHeaderParser();
@@ -298,52 +165,92 @@ public class CHLCompiler implements Compiler {
 		parser.parse(infoFile, constants);
 	}
 	
-	public CHLFile compile(Project project) throws IOException, ParseException {
-		constants.putAll(project.constants);
-		for (File file : project.cHeaders) {
-			loadHeader(file);
+	public ObjectCode compile(File file) throws IOException, ParseException {
+		//Reinit
+		objcode = new ObjectCode();
+		chl = objcode.getChl();
+		chl.header.setVersion(Header.BWCI);
+		chl.taskVars.minItems = 0;	//Avoid wasting space
+		currentScript = null;
+		instructions = chl.code.getItems();
+		strings.clear();
+		dataBuffer.reset();
+		initGlobals = chl.initGlobals.getItems();
+		initGlobals.add(new InitGlobal("Null variable", 0));
+		localMap.clear();
+		localConst.clear();
+		globalMap.clear();
+		scriptDefinitions.clear();
+		autoruns.clear();
+		calls.clear();
+		challengeName = null;
+		challengeId = null;
+		inCinemaBlock = false;
+		inCameraBlock = false;
+		inDialogueBlock = false;
+		dontRequireEol = false;
+		implicitVarDecl = false;
+		lastParseException = null;
+		properties = new HashMap<>();
+		sourceDirs = new HashSet<>();
+		//
+		parse(file);
+		//Finalize data section
+		info("building data section...");
+		if (options.debug) {
+			for (Entry<String, String> p : properties.entrySet()) {
+				storeStringData(p.getKey() + "=" + p.getValue());
+			}
+			if (!sourceDirs.isEmpty()) {
+				storeStringData("source_dirs=" + String.join(";", sourceDirs));
+			}
 		}
-		for (File file : project.infoFiles) {
-			loadInfo(file);
+		chl.data.setData(dataBuffer.toByteArray());
+		//Resolve call and start instructions
+		info("resolving call and start instructions...");
+		for (ScriptToResolve call : calls) {
+			try {
+				Script script = chl.scripts.getScript(call.name);
+				if (script.getParameterCount() != call.argc) {
+					throw new ParseException("The number of parameters doesn't match script declaration", call.file, call.line, 1);
+				}
+				call.instr.intVal = script.getScriptID();
+			} catch (ScriptNotFoundException e) {
+				call.instr.intVal = -objcode.getExternalScriptId(call.name, call.argc);
+			}
 		}
-		return compile(project.sources);
+		//Resolve auto start scripts
+		info("resolving autorun scripts...");
+		for (ScriptToResolve call : autoruns.values()) {
+			try {
+				Script script = chl.scripts.getScript(call.name);
+				if (script.getParameterCount() > 0) {
+					throw new ParseException("Script with parameters not valid for autorun: "+call.name, call.file, call.line, 1);
+				}
+				chl.autoStartScripts.getScripts().add(script.getScriptID());
+			} catch (ScriptNotFoundException e) {
+				int id = -objcode.getExternalScriptId(call.name, call.argc);
+				chl.autoStartScripts.getScripts().add(id);
+			}
+		}
+		//
+		return objcode;
 	}
 	
-	public CHLFile compile(List<File> files) throws IOException, ParseException {
-		for (File file : files) {
-			parse(file);
-		}
-		seal();
-		return getCHLFile();
-	}
-	
-	public void parse(File file) throws ParseException, IOException {
+	private void parse(File file) throws ParseException, IOException {
 		try {
 			this.file = file;
 			sourceFilename = file.getName();
 			info("compiling "+sourceFilename+"...");
 			CHLLexer lexer = new CHLLexer();
-			lexer.setExtendedSyntaxEnabled(extendedSyntaxEnabled);
+			lexer.setExtendedSyntaxEnabled(options.extendedSyntax);
 			List<Token> tokens = lexer.tokenize(file);
 			parse(tokens);
-			if (debugEnabled) {
+			if (options.debug) {
 				String dir = file.getAbsoluteFile().getParentFile().getAbsolutePath();
 				sourceDirs.add(dir);
 				long hash = crc32(file);
 				properties.put("crc32["+sourceFilename+"]", String.format("%08X", hash));
-				//String instructions
-				StringBuffer buf = new StringBuffer(strptrInstructions.size() * 5);
-				if (!strptrInstructions.isEmpty()) {
-					Iterator<Integer> it = strptrInstructions.iterator();
-					int instr = it.next();
-					buf.append(String.valueOf(instr));
-					while (it.hasNext()) {
-						instr = it.next();
-						buf.append(",");
-						buf.append(String.valueOf(instr));
-					}
-				}
-				properties.put("string_instructions", buf.toString());
 			}
 		} finally {
 			file = null;
@@ -351,10 +258,7 @@ public class CHLCompiler implements Compiler {
 		}
 	}
 	
-	public void parse(List<Token> tokens) throws ParseException, IllegalStateException {
-		if (sealed) {
-			throw new IllegalStateException("CHL file already sealed");
-		}
+	private void parse(List<Token> tokens) throws ParseException, IllegalStateException {
 		convertToNodes(tokens);
 		challengeName = null;
 		challengeId = null;
@@ -421,7 +325,7 @@ public class CHLCompiler implements Compiler {
 	private void declareGlobalVar(String name, int size, float val) {
 		Var var = globalMap.get(name);
 		if (var == null) {
-			List<String> chlVars = chl.getGlobalVariables().getNames();
+			List<String> chlVars = chl.globalVars.getNames();
 			List<InitGlobal> chlInits = initGlobals;
 			chlVars.add(name);
 			chlInits.add(new InitGlobal(DataType.FLOAT, name, val));
@@ -494,7 +398,7 @@ public class CHLCompiler implements Compiler {
 				throw new ParseError("Redefinition of script "+name, file, line, col);
 			}
 		} else {
-			def = new Script();
+			def = new Script(chl);
 			def.setScriptType(type);
 			def.setName(name);
 			def.setParameterCount(parameterCount);
@@ -526,7 +430,7 @@ public class CHLCompiler implements Compiler {
 		//run script IDENTIFIER
 		SymbolInstance symbol = parse("run script IDENTIFIER EOL")[2];
 		String name = symbol.token.value;
-		ScriptToResolve toResolve = new ScriptToResolve(file, line, -1, null, name, 0);
+		ScriptToResolve toResolve = new ScriptToResolve(file, line, null, name, 0);
 		if (autoruns.put(name, toResolve) != null) {
 			throw new ParseException("Duplicate autorun definition: "+name, file, symbol.token.line, symbol.token.col);
 		}
@@ -538,10 +442,10 @@ public class CHLCompiler implements Compiler {
 		localMap.clear();
 		localConst.clear();
 		try {
-			Script script = new Script();
+			final Script script = new Script(chl);
 			currentScript = script;
-			script.setScriptID(chl.getScriptsSection().getItems().size() + 1);
-			script.setGlobalCount(chl.getGlobalVariables().getNames().size());
+			script.setScriptID(chl.scripts.getItems().size() + 1);
+			script.setGlobalCount(chl.globalVars.getNames().size());
 			script.setSourceFilename(sourceFilename);
 			script.setInstructionAddress(getIp());
 			accept("begin");
@@ -556,7 +460,7 @@ public class CHLCompiler implements Compiler {
 			if (symbol.is("(")) {
 				argc = parseArguments(true);
 			}
-			if (returnEnabled && script.getScriptType() == ScriptType.FUNCTION) {
+			if (options.returnEnabled && script.getScriptType() == ScriptType.FUNCTION) {
 				addParameter("_retval", true);
 				argc++;
 			}
@@ -570,7 +474,7 @@ public class CHLCompiler implements Compiler {
 				popf(var);
 			}
 			//
-			if (returnEnabled) {
+			if (options.returnEnabled) {
 				addLocalVar("_returned");
 			}
 			symbol = peek();
@@ -579,7 +483,7 @@ public class CHLCompiler implements Compiler {
 			}
 			parse("start EOL");
 			free();
-			chl.getScriptsSection().getItems().add(script);
+			chl.scripts.getItems().add(script);
 			//STATEMENTS
 			parseStatements();
 			//EXCEPTIONS
@@ -591,7 +495,7 @@ public class CHLCompiler implements Compiler {
 			jmp_lblEnd.intVal = lblEnd;
 			//
 			try {
-				if (returnEnabled && script.getScriptType() == ScriptType.FUNCTION) {
+				if (options.returnEnabled && script.getScriptType() == ScriptType.FUNCTION) {
 					parse("end function");
 				} else {
 					parse("end script");
@@ -638,7 +542,7 @@ public class CHLCompiler implements Compiler {
 			return replace(start, "multiplayer help script");
 		} else if (symbol.is("script")) {
 			return replace(start, "script");
-		} else if (returnEnabled && symbol.is("function")) {
+		} else if (options.returnEnabled && symbol.is("function")) {
 			return replace(start, "function");
 		} else {
 			throw new ParseException("Unexpected token: "+symbol, file, symbol.token.line, symbol.token.col);
@@ -738,6 +642,8 @@ public class CHLCompiler implements Compiler {
 	private Var addLocalVar(String name, int size, boolean isArg, boolean ref) throws ParseException {
 		if (localMap.containsKey(name)) {
 			throw new ParseException("Duplicate local variable: "+name, file, line, col);
+		} else if (globalMap.containsKey(name)) {
+			throw new ParseException("A global variable with the same name exists: "+name, file, line, col);
 		}
 		List<String> scriptVars = currentScript.getVariables();
 		scriptVars.add(name);
@@ -921,11 +827,11 @@ public class CHLCompiler implements Compiler {
 			} else {
 				return parseAssignment();
 			}
-		} else if (extendedSyntaxEnabled) {
+		} else if (options.extendedSyntax) {
 			if (symbol.is("for")) {
 				return parseFor();
 			}
-		} else if (returnEnabled) {
+		} else if (options.returnEnabled) {
 			if (symbol.is("return")) {
 				return parseReturn();
 			}
@@ -2759,7 +2665,7 @@ public class CHLCompiler implements Compiler {
 		SymbolInstance script = parse("[success EXPRESSION] [alignment EXPRESSION] CONST_EXPR IDENTIFIER")[5];
 		String scriptName = script.token.value;
 		int strptr = storeStringData(scriptName);
-		strptrInstructions.add(getIp());
+		objcode.getStringInstructions().add(getIp());
 		pushi(strptr);
 		int argc = 0;
 		SymbolInstance symbol = peek();
@@ -2790,7 +2696,7 @@ public class CHLCompiler implements Compiler {
 			SymbolInstance script = parse("CONST_EXPR [success EXPRESSION] [alignment EXPRESSION] CONST_EXPR IDENTIFIER")[6];
 			String scriptName = script.token.value;
 			int strptr = storeStringData(scriptName);
-			strptrInstructions.add(getIp());
+			objcode.getStringInstructions().add(getIp());
 			pushi(strptr);
 			int argc = 0;
 			symbol = peek();
@@ -3403,7 +3309,6 @@ public class CHLCompiler implements Compiler {
 	
 	private SymbolInstance parseBegin() throws ParseException {
 		final int start = it.nextIndex();
-		//TODO verify the real need of handling exceptions in begin blocks
 		accept("begin");
 		SymbolInstance symbol = peek();
 		if (symbol.is("loop")) {
@@ -4183,7 +4088,7 @@ public class CHLCompiler implements Compiler {
 					parse("of OBJECT");
 					sys(GET_PROPERTY);
 					return replace(start, "EXPRESSION");
-				} else if (returnEnabled && symbol.is("(")) {
+				} else if (options.returnEnabled && symbol.is("(")) {
 					//IDENTIFIER(PARAMETERS)
 					SymbolInstance id1 = accept(TokenType.IDENTIFIER);
 					String scriptName = id1.token.value;
@@ -5803,12 +5708,15 @@ public class CHLCompiler implements Compiler {
 			var = globalMap.get(name);
 		}
 		if (var == null) {
+			if (!name.equals(name.toUpperCase())) {
+				return -objcode.getExternalVarId(name, index);
+			}
 			throw new ParseException("Undefined variable: "+name, file, line, col);
 		} else {
 			lastParseException = null;
 		}
 		if (index < 0 || (index >= var.size && !var.ref)) {
-			if (staticArrayCheckEnabled) {
+			if (options.staticArrayCheck) {
 				throw new ParseError("Index "+index+" out of bounds for "+name+"["+var.size+"]", file, line, col);
 			} else {
 				warning("WARNING: Index "+index+" out of bounds for "+name+"["+var.size+"] in "+file.getName()+":"+line+":"+col);
@@ -5924,20 +5832,16 @@ public class CHLCompiler implements Compiler {
 	
 	private int storeStringData(String value) throws ParseError {
 		int strptr = strings.getOrDefault(value, -1);
-		if (!sharedStringsEnabled || strptr < 0) {
+		if (!options.sharedStrings || strptr < 0) {
 			byte[] data = value.getBytes(ASCII);
-			if (dataBuffer.remaining() < data.length + 1) {
-				int capacity = dataBuffer.capacity() * 2;
-				if (capacity > MAX_BUFFER_SIZE) {
-					throw new ParseError("Data exceeds "+MAX_BUFFER_SIZE+" bytes limit", file, line);
-				}
-				info("Data buffer full, increasing capacity to " + capacity);
-				dataBuffer = resize(dataBuffer, capacity);
-			}
-			strptr = dataBuffer.position();
+			strptr = dataBuffer.size();
 			strings.put(value, strptr);
-			dataBuffer.put(data);
-			dataBuffer.put((byte)0);
+			try {
+				dataBuffer.write(data);
+			} catch (IOException e) {
+				throw new ParseError(e, file, line);
+			}
+			dataBuffer.write((byte)0);
 		}
 		return strptr;
 	}
@@ -5950,7 +5854,7 @@ public class CHLCompiler implements Compiler {
 		String value = sInst.token.stringVal();
 		int strptr = storeStringData(value);
 		//STRING
-		strptrInstructions.add(getIp());
+		objcode.getStringInstructions().add(getIp());
 		pushi(strptr);
 		return sInst;
 	}
@@ -6246,7 +6150,7 @@ public class CHLCompiler implements Compiler {
 	private void jz(int dstIp) {
 		int ip = getIp();
 		Instruction instruction = Instruction.fromKeyword("JZ");
-		if (dstIp > ip) instruction.flags = OPCodeFlag.FORWARD;
+		if (dstIp > ip) instruction.mode = OPCodeMode.FORWARD;
 		instruction.intVal = dstIp;
 		instruction.lineNumber = line;
 		instructions.add(instruction);
@@ -6254,7 +6158,7 @@ public class CHLCompiler implements Compiler {
 	
 	private Instruction jz() {
 		Instruction instruction = Instruction.fromKeyword("JZ");
-		instruction.flags = OPCodeFlag.FORWARD;
+		instruction.mode = OPCodeMode.FORWARD;
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 		return instruction;
@@ -6319,7 +6223,7 @@ public class CHLCompiler implements Compiler {
 	
 	private void pushvVal(String variable, int index) throws ParseException {
 		Instruction instruction = Instruction.fromKeyword("PUSHV");
-		instruction.flags = OPCodeFlag.REF;
+		instruction.mode = OPCodeMode.REF;
 		instruction.intVal = getVarId(variable, index);
 		instruction.lineNumber = line;
 		instructions.add(instruction);
@@ -6345,7 +6249,7 @@ public class CHLCompiler implements Compiler {
 	
 	private void popf(String variable) throws ParseException {
 		Instruction instruction = Instruction.fromKeyword("POPF");
-		instruction.flags = OPCodeFlag.REF;
+		instruction.mode = OPCodeMode.REF;
 		instruction.intVal = getVarId(variable);
 		instruction.lineNumber = line;
 		instructions.add(instruction);
@@ -6491,7 +6395,7 @@ public class CHLCompiler implements Compiler {
 	private Instruction jmp(int dstIp) {
 		int ip = getIp();
 		Instruction instruction = Instruction.fromKeyword("JMP");
-		if (dstIp > ip) instruction.flags = OPCodeFlag.FORWARD;
+		if (dstIp > ip) instruction.mode = OPCodeMode.FORWARD;
 		instruction.intVal = dstIp;
 		instruction.lineNumber = line;
 		instructions.add(instruction);
@@ -6500,7 +6404,7 @@ public class CHLCompiler implements Compiler {
 	
 	private Instruction jmp() {
 		Instruction instruction = Instruction.fromKeyword("JMP");
-		instruction.flags = OPCodeFlag.FORWARD;
+		instruction.mode = OPCodeMode.FORWARD;
 		instruction.lineNumber = line;
 		instructions.add(instruction);
 		return instruction;
@@ -6550,20 +6454,18 @@ public class CHLCompiler implements Compiler {
 	}
 	
 	private void call(String scriptname, int argc) {
-		final int ip = getIp();
 		Instruction instruction = Instruction.fromKeyword("CALL");
 		instruction.lineNumber = line;
 		instructions.add(instruction);
-		ScriptToResolve call = new ScriptToResolve(file, line, ip, instruction, scriptname, argc);
+		ScriptToResolve call = new ScriptToResolve(file, line, instruction, scriptname, argc);
 		calls.add(call);
 	}
 	
 	private void start(String scriptname, int argc) {
-		final int ip = getIp();
 		Instruction instruction = Instruction.fromKeyword("START");
 		instruction.lineNumber = line;
 		instructions.add(instruction);
-		ScriptToResolve call = new ScriptToResolve(file, line, ip, instruction, scriptname, argc);
+		ScriptToResolve call = new ScriptToResolve(file, line, instruction, scriptname, argc);
 		calls.add(call);
 	}
 	
@@ -6720,18 +6622,26 @@ public class CHLCompiler implements Compiler {
 	private static class ScriptToResolve {
 		public final File file;
 		public final int line;
-		public final int ip;	//TODO use to compile to intermediate obj file
 		public final Instruction instr;
 		public final String name;
 		public final int argc;
 		
-		public ScriptToResolve(File file, int line, int ip, Instruction instr, String name, int argc) {
+		public ScriptToResolve(File file, int line, Instruction instr, String name, int argc) {
 			this.file = file;
 			this.line = line;
-			this.ip = ip;
 			this.instr = instr;
 			this.name = name;
 			this.argc = argc;
 		}
+	}
+	
+	
+	public static class Options {
+		public boolean sharedStrings = true;
+		public boolean staticArrayCheck = true;
+		public boolean extendedSyntax = false;
+		public boolean returnEnabled = false;
+		public boolean debug = false;
+		public boolean verbose = false;
 	}
 }

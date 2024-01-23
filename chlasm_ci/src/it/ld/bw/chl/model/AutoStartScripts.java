@@ -23,7 +23,7 @@ import it.ld.bw.chl.exceptions.InvalidScriptIdException;
 import it.ld.utils.EndianDataInputStream;
 import it.ld.utils.EndianDataOutputStream;
 
-public class AutoStartScripts extends Section {
+public class AutoStartScripts extends Struct {
 	private List<Integer> scripts = new ArrayList<Integer>();
 	
 	public List<Integer> getScripts() {
@@ -32,11 +32,6 @@ public class AutoStartScripts extends Section {
 	
 	public void setScripts(List<Integer> scripts) {
 		this.scripts = scripts;
-	}
-	
-	@Override
-	public int getLength() {
-		return 4 + scripts.size() * 4;
 	}
 	
 	@Override
@@ -64,7 +59,7 @@ public class AutoStartScripts extends Section {
 	
 	public void validate(CHLFile chl) throws InvalidScriptIdException, InvalidAutorunScriptException {
 		for (int scriptID : scripts) {
-			Script script = chl.getScriptsSection().getScript(scriptID);
+			Script script = chl.scripts.getScript(scriptID);
 			if (script == null) {
 				throw new InvalidScriptIdException(scriptID);
 			} else if (script.getParameterCount() != 0) {

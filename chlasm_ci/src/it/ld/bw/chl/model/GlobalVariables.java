@@ -17,21 +17,55 @@ package it.ld.bw.chl.model;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import it.ld.bw.chl.exceptions.InvalidVariableIdException;
 import it.ld.utils.EndianDataInputStream;
 import it.ld.utils.EndianDataOutputStream;
 
-public class GlobalVariables extends Section {
+public class GlobalVariables extends Struct {
 	private List<String> names = new ArrayList<String>();
 	
-	@Override
-	public int getLength() {
-		return getZStringArraySize(names);
-	}
-
+	private Map<String, Integer> varsMap = new HashMap<>();
+	
 	public List<String> getNames() {
 		return names;
+	}
+	
+	public void setNames(List<String> names) {
+		this.names = names;
+	}
+	
+	public int getVarId(String name) {
+		//Fast "running-cache" algorithm
+		for (int i = varsMap.size(); i < names.size(); i++) {
+			String tName = names.get(i);
+			varsMap.put(tName, i + 1);
+		}
+		Integer id = varsMap.get(name);
+		if (id != null) return id;
+		return -1;
+	}
+	
+	public boolean isArray(int varId) throws InvalidVariableIdException {
+		if (varId < 1 || varId > names.size()) {
+			throw new InvalidVariableIdException(varId);
+		}
+		if (varId == names.size()) return false;
+		return "LHVMA".equals(names.get(varId));
+	}
+	
+	public int getVarSize(int varId) {
+		if (varId < 1 || varId > names.size()) {
+			throw new InvalidVariableIdException(varId);
+		}
+		int size = 1;
+		for (int i = varId; i < names.size() && "LHVMA".equals(names.get(i)); i++) {
+			size++;
+		}
+		return size;
 	}
 	
 	@Override

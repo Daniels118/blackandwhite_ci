@@ -44,12 +44,16 @@ public class CmdLine {
 	}
 	
 	public File getArgFile(String name) {
-		return getArgFile(name, null);
+		return getArgFile(name, (File)null);
 	}
 	
 	public File getArgFile(String name, String def) {
+		return getArgFile(name, new File(def));
+	}
+	
+	public File getArgFile(String name, File def) {
 		String v = getArgVal(name, null);
-		if (v == null) return def == null ? null : new File(def);
+		if (v == null) return def == null ? null : def;
 		return new File(v);
 	}
 	

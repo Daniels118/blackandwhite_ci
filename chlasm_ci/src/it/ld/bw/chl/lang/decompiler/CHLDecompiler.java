@@ -65,7 +65,7 @@ import it.ld.bw.chl.model.NativeFunction.ArgType;
 import it.ld.bw.chl.model.NativeFunction.Argument;
 import it.ld.bw.chl.model.NativeFunction.Context;
 import it.ld.bw.chl.model.OPCode;
-import it.ld.bw.chl.model.OPCodeFlag;
+import it.ld.bw.chl.model.OPCodeMode;
 import it.ld.bw.chl.model.Script;
 
 public class CHLDecompiler {
@@ -416,7 +416,7 @@ public class CHLDecompiler {
 		}
 		definedScripts.clear();
 		globalMap.clear();
-		instructions = chl.getCode().getItems();
+		instructions = chl.code.getItems();
 		lastTracedIp = -1;
 		currentScript = null;
 		mapGlobalVars();
@@ -457,7 +457,7 @@ public class CHLDecompiler {
 				//
 				str.write(dir + sourceFilename + "\r\n");	//It's important to use the name with any trailing spaces
 			}
-			if (!chl.getAutoStartScripts().getScripts().isEmpty()) {
+			if (!chl.autoStartScripts.getScripts().isEmpty()) {
 				str.write("_autorun.txt\r\n");
 			}
 		}
@@ -473,7 +473,7 @@ public class CHLDecompiler {
 			}
 		}
 		//Write autorun scripts
-		if (!chl.getAutoStartScripts().getScripts().isEmpty()) {
+		if (!chl.autoStartScripts.getScripts().isEmpty()) {
 			info("Writing _autorun.txt");
 			File file = path.resolve("_autorun.txt").toFile();
 			try (FileWriter str = new FileWriter(file, ASCII);) {
@@ -484,7 +484,6 @@ public class CHLDecompiler {
 			}
 		}
 		//Write source files
-		chl.getScriptsSection().finalizeScripts();	//Required to initialize the last instruction index of each script
 		if (heuristicLevel >= 3) {
 			out.println("Running first scan...");
 			outputDisabled++;
@@ -516,7 +515,7 @@ public class CHLDecompiler {
 	
 	private void writeSourceFiles(List<String> sources, File[] renamedSources) throws IOException, DecompileException {
 		int lastGlobal = 0;
-		ListIterator<Script> scriptIt = chl.getScriptsSection().getItems().listIterator();
+		ListIterator<Script> scriptIt = chl.scripts.getItems().listIterator();
 		Script script = scriptIt.next();
 		for (int fileIndex = 0; fileIndex < sources.size(); fileIndex++) {
 			String sourceFilename = sources.get(fileIndex);
@@ -643,7 +642,7 @@ public class CHLDecompiler {
 			//Insert required scripts
 			for (String name : requiredScripts) {
 				try {
-					Script script = chl.getScriptsSection().getScript(name);
+					Script script = chl.scripts.getScript(name);
 					writeln("define "+script.getSignature());
 				} catch (ScriptNotFoundException e) {
 					throw new DecompileException(e.getMessage());
@@ -660,7 +659,7 @@ public class CHLDecompiler {
 	}
 	
 	private void mapGlobalVars() {
-		List<InitGlobal> initGlobals = chl.getInitGlobals().getItems();
+		List<InitGlobal> initGlobals = chl.initGlobals.getItems();
 		Map<String, Float> initMap = new HashMap<>();
 		for (InitGlobal init : initGlobals) {
 			String name = init.getName();
@@ -669,7 +668,7 @@ public class CHLDecompiler {
 			}
 		}
 		//
-		List<String> globalNames = chl.getGlobalVariables().getNames();
+		List<String> globalNames = chl.globalVars.getNames();
 		List<Var> globalVars = new ArrayList<>(globalNames.size());
 		Var var = null;
 		int index = 0;
@@ -697,7 +696,7 @@ public class CHLDecompiler {
 	
 	private void writeHeader() throws IOException {
 		if (!respectLinenoEnabled) {
-			writeln("//LHVM Challenge source version "+chl.getHeader().getVersion());
+			writeln("//LHVM Challenge source version "+chl.header.getVersion());
 			writeln("//Decompiled with CHLASM tool by Daniels118");
 			writeln("");
 		}
@@ -712,11 +711,11 @@ public class CHLDecompiler {
 	}
 	
 	private void writeAutoStartScripts() throws IOException, DecompileException {
-		List<Integer> scripts = chl.getAutoStartScripts().getScripts();
+		List<Integer> scripts = chl.autoStartScripts.getScripts();
 		for (int i = scripts.size() - 1; i >= 0; i--) {
 			int scriptID = scripts.get(i);
 			try {
-				Script script = chl.getScriptsSection().getScript(scriptID);
+				Script script = chl.scripts.getScript(scriptID);
 				writeln("run script "+script.getName());
 			} catch (InvalidScriptIdException e) {
 				String msg = "Invalid autorun script id: " + scriptID;
@@ -727,7 +726,7 @@ public class CHLDecompiler {
 	}
 	
 	private void writeGlobals(int start, int end) throws IOException {
-		List<String> names = chl.getGlobalVariables().getNames().subList(start, end);
+		List<String> names = chl.globalVars.getNames().subList(start, end);
 		for (String name : names) {
 			if (!"LHVMA".equals(name)) {
 				Var var = globalMap.get(name);
@@ -811,7 +810,7 @@ public class CHLDecompiler {
 			for (int i = 0; i < localVars.size(); i++) {
 				Var var = localVars.get(i);
 				if (i < script.getParameterCount()) {								//parameter
-					accept(OPCode.POP, OPCodeFlag.REF, DataType.FLOAT, var.index);
+					accept(OPCode.POP, OPCodeMode.REF, DataType.FLOAT, var.index);
 				} else if (var.isArray()) {											//array
 					writeln("\t"+var.name+"["+var.size+"]");
 				} else {															//atomic var
@@ -821,7 +820,7 @@ public class CHLDecompiler {
 				}
 			}
 			//START
-			accept(OPCode.ENDEXCEPT, OPCodeFlag.FREE, DataType.INT, 0);
+			accept(OPCode.ENDEXCEPT, OPCodeMode.FREE, DataType.INT, 0);
 			writeln("start");
 			//
 			tabs = "\t";
@@ -945,7 +944,7 @@ public class CHLDecompiler {
 	
 	private Expression decompileLocalVarAssignment(Var var) throws DecompileException {
 		int start = ip;
-		Instruction popf = find(OPCode.POP, OPCodeFlag.REF, DataType.FLOAT, var.index);
+		Instruction popf = find(OPCode.POP, OPCodeMode.REF, DataType.FLOAT, var.index);
 		if (popf == null) {
 			gotoAddress(start);
 			return new Expression(var.name+"[1]");
@@ -1108,7 +1107,7 @@ public class CHLDecompiler {
 					} else if (func == NativeFunction.SET_PROPERTY) {
 						op2 = decompile();
 						pInstr = peek(-1);
-						if (pInstr.opcode == OPCode.POP && pInstr.flags == 1) {
+						if (pInstr.opcode == OPCode.POP && pInstr.mode == 1) {
 							//PROPERTY of VARIABLE = EXPRESSION
 							pInstr = prev();	//POPI
 							verify(ip, pInstr, OPCode.POP, 1, DataType.INT);
@@ -1156,7 +1155,7 @@ public class CHLDecompiler {
 			case CALL:
 				//run [background] script IDENTIFIER[(parameters)]
 				try {
-					Script script = chl.getScriptsSection().getScript(instr.intVal);
+					Script script = chl.scripts.getScript(instr.intVal);
 					//If the script hasnt been defined yet, add it to the required "define script..."
 					if (!definedScripts.contains(script.getName())) {
 						requiredScripts.add(script.getName());
@@ -1358,7 +1357,7 @@ public class CHLDecompiler {
 											return new Expression(alias, Priority.ATOMIC, Type.INT, instr.intVal);
 										}
 									} else if (type.type == ArgType.STRPTR) {
-										String string = chl.getDataSection().getString(instr.intVal);
+										String string = chl.data.getString(instr.intVal);
 										return new Expression(escape(string), Priority.ATOMIC, Type.STRPTR, instr.intVal);
 									}
 								}
@@ -1389,9 +1388,9 @@ public class CHLDecompiler {
 				}
 				break;
 			case REF_PUSH:
-				if (instr.flags == 2) {
+				if (instr.mode == 2) {
 					//IDENTIFIER\[EXPRESSION\]
-					verify(ip, instr, OPCode.REF_PUSH, OPCodeFlag.REF, DataType.VAR);
+					verify(ip, instr, OPCode.REF_PUSH, OPCodeMode.REF, DataType.VAR);
 					pInstr = prev();	//ADDF
 					verify(ip, pInstr, OPCode.ADD, 1, DataType.FLOAT);
 					pInstr = prev();	//PUSHF var
@@ -1411,7 +1410,7 @@ public class CHLDecompiler {
 				if (instr.dataType == DataType.FLOAT) {
 					//REFERENCE\[EXPRESSION\]
 					pInstr = prev();	//PUSHV [var]
-					verify(ip, pInstr, OPCode.PUSH, OPCodeFlag.REF, DataType.VAR);
+					verify(ip, pInstr, OPCode.PUSH, OPCodeMode.REF, DataType.VAR);
 					VarWithIndex vari = getVar(pInstr.intVal);
 					Var var = vari.var;
 					if (!var.ref) {
@@ -1422,7 +1421,7 @@ public class CHLDecompiler {
 					op2 = decompile();
 					return new Expression(vari.var.name+"["+op2+"]", vari.var);
 				} else if (instr.dataType == DataType.VAR) {
-					if (instr.flags == 2) {
+					if (instr.mode == 2) {
 						//&IDENTIFIER\[EXPRESSION\]
 						pInstr = prev();	//PUSHV var
 						verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
@@ -1435,7 +1434,7 @@ public class CHLDecompiler {
 						verify(ip, pInstr, OPCode.PUSH, 1, DataType.FLOAT);
 						varIndex = String.valueOf((int)pInstr.floatVal);
 						pInstr = prev();	//PUSHV [var]
-						verify(ip, pInstr, OPCode.PUSH, OPCodeFlag.REF, DataType.VAR);
+						verify(ip, pInstr, OPCode.PUSH, OPCodeMode.REF, DataType.VAR);
 						VarWithIndex vari = getVar(pInstr.intVal);
 						Var var = vari.var;
 						if (!var.ref) {
@@ -1455,13 +1454,13 @@ public class CHLDecompiler {
 				tmpConstants = new HashSet<>(requiredConstants);
 				op2 = decompile();
 				pInstr = peek(-1);
-				if (pInstr.opcode == OPCode.POP && pInstr.flags == 1) {
+				if (pInstr.opcode == OPCode.POP && pInstr.mode == 1) {
 					//IDENTIFIER = EXPRESSION
 					//IDENTIFIER\[EXPRESSION\] = EXPRESSION
 					pInstr = prev();	//POPI
 					verify(ip, pInstr, OPCode.POP, 1, DataType.INT);
 					pInstr = prev();	//REF_AND_OFFSET_PUSH
-					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.VAR);
+					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeMode.REF, DataType.VAR);
 					pInstr = prev();	//PUSHV var
 					verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 					VarWithIndex vari = getVar(pInstr.intVal);
@@ -1481,11 +1480,11 @@ public class CHLDecompiler {
 					setVarType(var, op2);
 					String assignee = var.isArray() ? var.name+"["+varIndex+"]" : var.name;
 					return new Expression(assignee + " = " + op2);
-				} else if (pInstr.opcode == OPCode.REF_AND_OFFSET_PUSH && pInstr.flags == OPCodeFlag.REF) {
+				} else if (pInstr.opcode == OPCode.REF_AND_OFFSET_PUSH && pInstr.mode == OPCodeMode.REF) {
 					//IDENTIFIER += EXPRESSION
 					//IDENTIFIER\[EXPRESSION\] += EXPRESSION
 					pInstr = prev();	//REF_AND_OFFSET_PUSH
-					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeFlag.REF, DataType.VAR);
+					verify(ip, pInstr, OPCode.REF_AND_OFFSET_PUSH, OPCodeMode.REF, DataType.VAR);
 					pInstr = prev();	//PUSHV var
 					verify(ip, pInstr, OPCode.PUSH, 1, DataType.VAR);
 					VarWithIndex vari = getVar(pInstr.intVal);
@@ -1510,7 +1509,7 @@ public class CHLDecompiler {
 					//
 					final int jmpExceptionHandlerEndIp = instr.intVal - 1;
 					Instruction jmpExceptionHandlerEnd = instructions.get(jmpExceptionHandlerEndIp);
-					verify(jmpExceptionHandlerEndIp, jmpExceptionHandlerEnd, OPCode.JMP, OPCodeFlag.FORWARD, DataType.INT);
+					verify(jmpExceptionHandlerEndIp, jmpExceptionHandlerEnd, OPCode.JMP, OPCodeMode.FORWARD, DataType.INT);
 					final int exceptionHandlerEndIp = jmpExceptionHandlerEnd.intVal;
 					//
 					final int brkexceptIp = instr.intVal - 2;
@@ -1550,7 +1549,7 @@ public class CHLDecompiler {
 							final int endThenIp = instr.intVal - 1;
 							int jmpSkipCaseIp = endThenIp;
 							Instruction jmpSkipCase = instructions.get(jmpSkipCaseIp);
-							if (jmpSkipCase.flags == OPCodeFlag.FORWARD) {
+							if (jmpSkipCase.mode == OPCodeMode.FORWARD) {
 								//if CONDITION
 								while (jmpSkipCase.opcode == OPCode.JMP && jmpSkipCase.isForward() && jmpSkipCase.intVal > jmpSkipCaseIp + 1) {
 									jmpSkipCaseIp = jmpSkipCase.intVal;
@@ -1610,7 +1609,7 @@ public class CHLDecompiler {
 					//while CONDITION
 					next();				//Skip EXCEPT
 					Instruction jz = findEndOfStatement();
-					verify(ip, jz, OPCode.JZ, OPCodeFlag.FORWARD, DataType.INT);
+					verify(ip, jz, OPCode.JZ, OPCodeMode.FORWARD, DataType.INT);
 					nextStatementIndex = ip + 1;
 					int endWhileIp = jz.intVal;
 					prev();				//Go before JZ
@@ -1644,7 +1643,7 @@ public class CHLDecompiler {
 				if (instr.intVal == 0) {
 					pInstr = peek(-1);	//PUSHC 0
 					if (pInstr.opcode == OPCode.PUSH
-							&& pInstr.flags == 1
+							&& pInstr.mode == 1
 							&& pInstr.dataType == DataType.COORDS
 							&& pInstr.floatVal == 0f) {
 						prev();				//PUSHC 0
@@ -1692,7 +1691,7 @@ public class CHLDecompiler {
 			case ABS:
 				op1 = decompile();
 				return new Expression("abs " + op1.wrapExpression());
-			case LINE:
+			case NOP:
 				break;	//Never found
 			case END:
 				return END_SCRIPT;
@@ -1782,7 +1781,7 @@ public class CHLDecompiler {
 							decompile();
 						}
 						int strptr = decompile().intVal();
-						String calledScriptName = chl.getDataSection().getString(strptr);
+						String calledScriptName = chl.data.getString(strptr);
 						calledScriptParamTypes = scriptsParamTypes.get(calledScriptName);
 						gotoAddress(pos);
 					}
@@ -2175,7 +2174,7 @@ public class CHLDecompiler {
 						if (arg.type == ArgType.SCRIPT) {
 							Expression param = paramIt.next();
 							int strptr = param.intVal();
-							String string = chl.getDataSection().getString(strptr);
+							String string = chl.data.getString(strptr);
 							statement.add(new Expression(string));
 						} else if (arg.type == ArgType.SCRIPT_OBJECT_TYPE) {
 							Expression param = paramIt.next();
@@ -2392,7 +2391,7 @@ public class CHLDecompiler {
 		Expression param = params.next();
 		if (arg.type == ArgType.STRPTR && param.isNumber()) {
 			int strptr = param.intVal();
-			String string = chl.getDataSection().getString(strptr);
+			String string = chl.data.getString(strptr);
 			return new Expression(escape(string));
 		} else if (arg.type.isEnum && param.isNumber() && param.intVal() != null) {
 			return getConstExpr(arg.type, param);
@@ -2514,7 +2513,7 @@ public class CHLDecompiler {
 			}
 		} else if (instr.opcode == OPCode.CALL) {
 			try {
-				Script script = chl.getScriptsSection().getScript(instr.intVal);
+				Script script = chl.scripts.getScript(instr.intVal);
 				for (int i = 0; i < script.getParameterCount(); i++) {
 					pop();
 				}
@@ -2599,7 +2598,7 @@ public class CHLDecompiler {
 			}
 		} else if (instr.opcode == OPCode.CALL) {
 			try {
-				Script script = chl.getScriptsSection().getScript(instr.intVal);
+				Script script = chl.scripts.getScript(instr.intVal);
 				for (int i = 0; i < script.getParameterCount(); i++) {
 					push(ArgType.UNKNOWN);
 				}
@@ -2673,7 +2672,7 @@ public class CHLDecompiler {
 	
 	private void verify(int index, Instruction instr, OPCode opcode, int flags, DataType type) throws DecompileException {
 		if (instr.opcode != opcode
-				|| (instr.flags != flags && flags != -1)
+				|| (instr.mode != flags && flags != -1)
 				|| (instr.dataType != type && type != null)) {
 			throw new DecompileException("Expected "+opcode, currentScript, index, instr);
 		}
@@ -2683,18 +2682,18 @@ public class CHLDecompiler {
 		verify(index, instr, OPCode.SYS, 1, null, func.ordinal());
 	}
 	
-	private void verify(int index, Instruction instr, OPCode opcode, int flags, DataType type, int arg) throws DecompileException {
+	private void verify(int index, Instruction instr, OPCode opcode, int mode, DataType type, int arg) throws DecompileException {
 		if (instr.opcode != opcode
-				|| (instr.flags != flags && flags != -1)
+				|| (instr.mode != mode && mode != -1)
 				|| (instr.dataType != type && type != null)
 				|| instr.intVal != arg) {
 			throw new DecompileException("Expected "+opcode, currentScript, index, instr);
 		}
 	}
 	
-	private void verify(int index, Instruction instr, OPCode opcode, int flags, DataType type, float arg) throws DecompileException {
+	private void verify(int index, Instruction instr, OPCode opcode, int mode, DataType type, float arg) throws DecompileException {
 		if (instr.opcode != opcode
-				|| instr.flags != flags
+				|| instr.mode != mode
 				|| (instr.dataType != type && type != null)
 				|| instr.floatVal != arg) {
 			throw new DecompileException("Expected "+opcode, currentScript, index, instr);
@@ -2709,9 +2708,9 @@ public class CHLDecompiler {
 		return instr;
 	}
 	
-	private Instruction find(OPCode opcode, int flags, DataType type, int arg) throws DecompileException {
+	private Instruction find(OPCode opcode, int mode, DataType type, int arg) throws DecompileException {
 		Instruction instr = next();
-		while (instr.opcode != opcode || instr.flags != flags || instr.dataType != type || instr.intVal != arg) {
+		while (instr.opcode != opcode || instr.mode != mode || instr.dataType != type || instr.intVal != arg) {
 			if (instr.opcode == OPCode.END) {
 				return null;
 			}
@@ -2772,7 +2771,7 @@ public class CHLDecompiler {
 			names = currentScript.getVariables();
 		} else {
 			id--;
-			names = chl.getGlobalVariables().getNames();
+			names = chl.globalVars.getNames();
 		}
 		if (id < 0) {
 			throw new InvalidVariableIdException(id);

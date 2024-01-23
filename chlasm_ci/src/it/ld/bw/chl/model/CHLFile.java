@@ -34,7 +34,7 @@ import it.ld.utils.EndianDataInputStream;
 import it.ld.utils.EndianDataOutputStream;
 
 
-public class CHLFile {
+public class CHLFile extends Struct {
 	public static boolean traceEnabled = false;
 	
 	private static final Map<String, String[]> defaultScripts = new HashMap<>();
@@ -46,193 +46,67 @@ public class CHLFile {
 		defaultScripts.put("CitadelSaveGameRoomHelp", null);
 	}
 	
-	private Header header = new Header();
-	private GlobalVariables globalVariables = new GlobalVariables();
-	private Code code = new Code(this);
-	private AutoStartScripts autoStartScripts = new AutoStartScripts();
-	private Scripts scriptsSection = new Scripts(this);
-	private DataSection data = new DataSection();
-	private NullSection nullSection = new NullSection(4100);	//struct {DWORD count; struct {DWORD, DWORD} items[512];}
-	private InitGlobals initGlobals = new InitGlobals();
-	
-	public Header getHeader() {
-		return header;
-	}
-	
-	public void setHeader(Header header) {
-		this.header = header;
-	}
-	
-	public GlobalVariables getGlobalVariables() {
-		return globalVariables;
-	}
-	
-	public void setGlobalVariables(GlobalVariables globalVariables) {
-		this.globalVariables = globalVariables;
-	}
-	
-	public Code getCode() {
-		return code;
-	}
-	
-	public void setCode(Code code) {
-		this.code = code;
-	}
-	
-	public AutoStartScripts getAutoStartScripts() {
-		return autoStartScripts;
-	}
-	
-	public void setAutoStartScripts(AutoStartScripts autoStartScripts) {
-		this.autoStartScripts = autoStartScripts;
-	}
-	
-	public Scripts getScriptsSection() {
-		return scriptsSection;
-	}
-	
-	public void setScriptsSection(Scripts scripts) {
-		this.scriptsSection = scripts;
-	}
-	
-	public DataSection getDataSection() {
-		return data;
-	}
-	
-	public void setDataSection(DataSection data) {
-		this.data = data;
-	}
-	
-	public InitGlobals getInitGlobals() {
-		return initGlobals;
-	}
-	
-	public void setInitGlobals(InitGlobals initData) {
-		this.initGlobals = initData;
-	}
+	public final Header header = new Header();
+	public final GlobalVariables globalVars = new GlobalVariables();
+	public final Code code = new Code(this);
+	public final AutoStartScripts autoStartScripts = new AutoStartScripts();
+	public final Scripts scripts = new Scripts(this);
+	public final DataSection data = new DataSection();
+	public final TaskVarsSection taskVars = new TaskVarsSection(512);
+	public final InitGlobals initGlobals = new InitGlobals();
 	
 	public void read(File file) throws Exception {
-		//# Profiler.start();
 		try (EndianDataInputStream str = new EndianDataInputStream(new BufferedInputStream(new FileInputStream(file)));) {
+			read(str);
+		} catch (Exception e) {
+			throw new Exception(e.getMessage() + ", reading " + file.getName(), e);
+		}
+	}
+	
+	@Override
+	public void read(EndianDataInputStream str) throws Exception {
+		//# Profiler.start();
+		try {
 			str.order(ByteOrder.LITTLE_ENDIAN);
 			if (traceEnabled && !str.markSupported()) {
 				System.out.println("NOTICE: input stream doesn't support mark, tracing will be weak");
 			}
-			int offset = 0;
 			if (traceEnabled) System.out.println("Reading header...");
 			//# Profiler.start(ProfilerSections.PF_HEADER);
 			header.read(str);
 			//# Profiler.end(ProfilerSections.PF_HEADER);
-			offset += header.getLength();
 			//
 			if (traceEnabled) System.out.println("Reading global vars...");
 			//# Profiler.start(ProfilerSections.PF_GLOBALS);
-			globalVariables.setOffset(offset);
-			globalVariables.read(str);
+			globalVars.read(str);
 			//# Profiler.end(ProfilerSections.PF_GLOBALS);
-			offset += globalVariables.getLength();
 			//
-			if (traceEnabled && str.markSupported()) {
-				System.out.println("Reading of code section postponed to empower tracing!");
-				str.mark((int)file.length());
-				final int codeOffset = offset;
-				final int codeSize = str.readInt() * Instruction.LENGTH;
-				offset += 4;
-				int n = str.skipBytes(codeSize);
-				if (n < codeSize) throw new IOException("Unexpected end of code section");
-				offset += n;
-				//
-				System.out.println("Reading autostart scripts...");
-				//# Profiler.start(ProfilerSections.PF_AUTOSTART);
-				autoStartScripts.setOffset(offset);
-				autoStartScripts.read(str);
-				//# Profiler.end(ProfilerSections.PF_AUTOSTART);
-				offset += autoStartScripts.getLength();
-				//
-				System.out.println("Reading scripts...");
-				//# Profiler.start(ProfilerSections.PF_SCRIPTS);
-				scriptsSection.setOffset(offset);
-				scriptsSection.read(str);
-				//# Profiler.end(ProfilerSections.PF_SCRIPTS);
-				offset += scriptsSection.getLength();
-				//
-				System.out.println("Reading data...");
-				//# Profiler.start(ProfilerSections.PF_DATA);
-				data.setOffset(offset);
-				data.read(str);
-				//# Profiler.end(ProfilerSections.PF_DATA);
-				offset += data.getLength();
-				//
-				System.out.println("Reading null section...");
-				//# Profiler.start(ProfilerSections.PF_NULL);
-				nullSection.setOffset(offset);
-				nullSection.read(str);
-				//# Profiler.end(ProfilerSections.PF_NULL);
-				offset += nullSection.getLength();
-				//
-				System.out.println("Reading global vars initialization...");
-				//# Profiler.start(ProfilerSections.PF_INIT);
-				initGlobals.setOffset(offset);
-				initGlobals.read(str);
-				//# Profiler.end(ProfilerSections.PF_INIT);
-				offset += initGlobals.getLength();
-				//
-				final int endOffset = offset;
-				//
-				System.out.println("Now reading code...");
-				//# Profiler.start(ProfilerSections.PF_CODE);
-				str.reset();
-				offset = codeOffset;
-				code.setOffset(offset);
-				code.read(str);
-				//# Profiler.end(ProfilerSections.PF_CODE);
-				offset += code.getLength();
-				//
-				System.out.println("Skipping to previous point...");
-				n = str.skipBytes(endOffset - offset);
-				offset += n;
-				if (offset < endOffset) throw new IOException("Failed to skip past data section");
-			} else {
-				//# Profiler.start(ProfilerSections.PF_CODE);
-				code.setOffset(offset);
-				code.read(str);
-				//# Profiler.end(ProfilerSections.PF_CODE);
-				offset += code.getLength();
-				//
-				//# Profiler.start(ProfilerSections.PF_AUTOSTART);
-				autoStartScripts.setOffset(offset);
-				autoStartScripts.read(str);
-				//# Profiler.end(ProfilerSections.PF_AUTOSTART);
-				offset += autoStartScripts.getLength();
-				//
-				//# Profiler.start(ProfilerSections.PF_SCRIPTS);
-				scriptsSection.setOffset(offset);
-				scriptsSection.read(str);
-				//# Profiler.end(ProfilerSections.PF_SCRIPTS);
-				offset += scriptsSection.getLength();
-				//
-				//# Profiler.start(ProfilerSections.PF_DATA);
-				data.setOffset(offset);
-				data.read(str);
-				//# Profiler.start(ProfilerSections.PF_DATA);
-				offset += data.getLength();
-				//
-				//# Profiler.start(ProfilerSections.PF_NULL);
-				nullSection.setOffset(offset);
-				nullSection.read(str);
-				//# Profiler.end(ProfilerSections.PF_NULL);
-				offset += nullSection.getLength();
-				//
-				//# Profiler.start(ProfilerSections.PF_INIT);
-				initGlobals.setOffset(offset);
-				initGlobals.read(str);
-				//# Profiler.end(ProfilerSections.PF_INIT);
-				offset += initGlobals.getLength();
-			}
+			//# Profiler.start(ProfilerSections.PF_CODE);
+			code.read(str);
+			//# Profiler.end(ProfilerSections.PF_CODE);
+			//
+			//# Profiler.start(ProfilerSections.PF_AUTOSTART);
+			autoStartScripts.read(str);
+			//# Profiler.end(ProfilerSections.PF_AUTOSTART);
+			//
+			//# Profiler.start(ProfilerSections.PF_SCRIPTS);
+			scripts.read(str);
+			//# Profiler.end(ProfilerSections.PF_SCRIPTS);
+			//
+			//# Profiler.start(ProfilerSections.PF_DATA);
+			data.read(str);
+			//# Profiler.start(ProfilerSections.PF_DATA);
+			//
+			//# Profiler.start(ProfilerSections.PF_NULL);
+			taskVars.read(str);
+			//# Profiler.end(ProfilerSections.PF_NULL);
+			//# Profiler.start(ProfilerSections.PF_INIT);
+			initGlobals.read(str);
+			//# Profiler.end(ProfilerSections.PF_INIT);
 			//
 			byte[] t = str.readAllBytes();
 			if (t.length > 0) {
-				throw new IOException("There are "+t.length+" bytes after the last section (at offset "+offset+")");
+				throw new IOException("There are "+t.length+" bytes after the last section");
 			}
 		} finally {
 			//# Profiler.end();
@@ -241,53 +115,47 @@ public class CHLFile {
 	}
 	
 	public void write(File file) throws Exception {
-		//# Profiler.start();
 		try (EndianDataOutputStream str = new EndianDataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));) {
+			write(str);
+		} catch (Exception e) {
+			throw new Exception(e.getMessage() + ", writing " + file.getName(), e);
+		}
+	}
+	
+	@Override
+	public void write(EndianDataOutputStream str) throws Exception {
+		//# Profiler.start();
+		try {
 			str.order(ByteOrder.LITTLE_ENDIAN);
-			int offset = 0;
 			//# Profiler.start(ProfilerSections.PF_HEADER);
 			header.write(str);
 			//# Profiler.end(ProfilerSections.PF_HEADER);
-			offset += header.getLength();
 			//
 			//# Profiler.start(ProfilerSections.PF_GLOBALS);
-			globalVariables.setOffset(offset);
-			globalVariables.write(str);
+			globalVars.write(str);
 			//# Profiler.end(ProfilerSections.PF_GLOBALS);
-			offset += globalVariables.getLength();
 			//
 			//# Profiler.start(ProfilerSections.PF_CODE);
-			code.setOffset(offset);
 			code.write(str);
 			//# Profiler.end(ProfilerSections.PF_CODE);
-			offset += code.getLength();
 			//
 			//# Profiler.start(ProfilerSections.PF_AUTOSTART);
-			autoStartScripts.setOffset(offset);
 			autoStartScripts.write(str);
 			//# Profiler.end(ProfilerSections.PF_AUTOSTART);
-			offset += autoStartScripts.getLength();
 			//
 			//# Profiler.start(ProfilerSections.PF_SCRIPTS);
-			scriptsSection.setOffset(offset);
-			scriptsSection.write(str);
+			scripts.write(str);
 			//# Profiler.end(ProfilerSections.PF_SCRIPTS);
-			offset += scriptsSection.getLength();
 			//
 			//# Profiler.start(ProfilerSections.PF_DATA);
-			data.setOffset(offset);
 			data.write(str);
 			//# Profiler.end(ProfilerSections.PF_DATA);
-			offset += data.getLength();
 			//
 			//# Profiler.start(ProfilerSections.);
-			nullSection.setOffset(offset);
-			nullSection.write(str);
-			offset += nullSection.getLength();
+			taskVars.write(str);
 			//# Profiler.end(ProfilerSections.);
 			//
 			//# Profiler.start(ProfilerSections.);
-			initGlobals.setOffset(offset);
 			initGlobals.write(str);
 			//# Profiler.end(ProfilerSections.);
 		} finally {
@@ -301,7 +169,7 @@ public class CHLFile {
 		//Code
 		Set<String> missingScripts = new HashSet<>(defaultScripts.keySet());
 		List<Instruction> instructions = code.getItems();
-		for (Script script : scriptsSection.getItems()) {
+		for (Script script : scripts.getItems()) {
 			if (defaultScripts.containsKey(script.getName())) {
 				missingScripts.remove(script.getName());
 				String[] requiredParameters = defaultScripts.get(script.getName());
@@ -315,9 +183,8 @@ public class CHLFile {
 					instr.validate(this, script, i);
 				} catch (Exception e) {
 					res = false;
-					int offset = code.getOffset() + 4 + i * Instruction.LENGTH;
-					String fmt = "WARNING: %1$s in %2$s at %3$s:%4$d (0x%5$08X)\r\n";
-					out.printf(fmt, e.getMessage(), script.getName(), script.getSourceFilename(), instr.lineNumber, offset);
+					String fmt = "WARNING: %1$s in %2$s at %3$s:%4$d\r\n";
+					out.printf(fmt, e.getMessage(), script.getName(), script.getSourceFilename(), instr.lineNumber);
 				}
 				if (instr.opcode == OPCode.END) break;
 			}
@@ -342,7 +209,7 @@ public class CHLFile {
 		boolean res = true;
 		List<Instruction> instructions = code.getItems();
 		int index = 0;
-		for (Script script : scriptsSection.getItems()) {
+		for (Script script : scripts.getItems()) {
 			if (index != script.getInstructionAddress()) {
 				out.println("WARNING: there are unused instructions before script "+script.getName());
 				res = false;
@@ -360,7 +227,7 @@ public class CHLFile {
 	public List<String> getSourceFilenames() {
 		List<String> res = new ArrayList<String>();
 		String prev = "";
-		for (Script script : scriptsSection.getItems()) {
+		for (Script script : scripts.getItems()) {
 			String scrName = script.getSourceFilename();
 			if (!scrName.equals(prev)) {
 				res.add(scrName);
@@ -372,7 +239,7 @@ public class CHLFile {
 	
 	public List<Script> getScripts(String sourceFilename) {
 		List<Script> res = new ArrayList<Script>();
-		for (Script script : scriptsSection.getItems()) {
+		for (Script script : scripts.getItems()) {
 			if (sourceFilename.equals(script.getSourceFilename())) {
 				res.add(script);
 			}
@@ -386,10 +253,10 @@ public class CHLFile {
 		int[][] map = new int[codes.length][3 + types.length];
 		for (Instruction instr : code.getItems()) {
 			int c = instr.opcode.ordinal();
-			if (instr.flags == 0) map[c][0] |= 1;
-			if (instr.flags == 1) map[c][1] |= 1;
-			if (instr.flags == 2) map[c][2] |= 1;
-			int flags = instr.flags == 0 ? 1 : (instr.flags << 1);
+			if (instr.mode == 0) map[c][0] |= 1;
+			if (instr.mode == 1) map[c][1] |= 1;
+			if (instr.mode == 2) map[c][2] |= 1;
+			int flags = instr.mode == 0 ? 1 : (instr.mode << 1);
 			map[c][3 + instr.dataType.ordinal()] |= flags;
 		}
 		out.print("OPCode\t0\t1\t2");

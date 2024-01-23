@@ -105,7 +105,7 @@ public enum OPCode {
 	BRKEXCEPT(),				//28 Alias: BRKEXCEPT, ENDC
 	SWAP(ARG|FINT|VSTACK),		//29 
 	DUP(0, 1, ARG),				//30 Arg=0 means duplicate the last value on the stack; 1 the previous one and so on
-	LINE(ARG),					//31
+	NOP(),						//31 Alias: LINE
 	REF_AND_OFFSET_PUSH(0, 1),	//32
 	REF_AND_OFFSET_POP(3, 0),	//33
 	REF_PUSH(1, 1),				//34
@@ -155,7 +155,7 @@ public enum OPCode {
 /*28*/	{null, {null, "BRKEXCEPT"}},
 /*29*/	{null, {null, "SWAP", "SWAPF"}},
 /*30*/	{{"DUP"}},
-/*31*/	{null, null, {null, null, "LINE"}},
+/*31*/	{null, null, {null, null, "NOP"}},
 /*32*/	{null, null, {null, null, null, null, null, null, null, "REF_AND_OFFSET_PUSH"}},
 /*33*/	{null, null, {null, null, "REF_AND_OFFSET_POP"}},
 /*34*/	{null, {null, null, null, null, null, null, null, "REF_PUSH"}, {null, null, null, null, null, null, null, "REF_PUSH2"}},

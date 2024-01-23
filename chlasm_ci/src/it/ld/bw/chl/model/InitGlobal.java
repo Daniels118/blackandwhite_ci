@@ -62,11 +62,6 @@ public class InitGlobal extends Struct {
 	}
 	
 	@Override
-	public int getLength() {
-		return 8 + name.length() + 1;
-	}
-
-	@Override
 	public void read(EndianDataInputStream str) throws Exception {
 		int t = str.readInt();
 		if (t < 0 || t >= DataType.values().length) {

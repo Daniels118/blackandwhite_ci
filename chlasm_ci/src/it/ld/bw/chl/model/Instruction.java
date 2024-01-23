@@ -26,7 +26,7 @@ import it.ld.bw.chl.exceptions.InvalidVariableIdException;
 import it.ld.utils.EndianDataInputStream;
 import it.ld.utils.EndianDataOutputStream;
 
-import static it.ld.bw.chl.model.OPCodeFlag.*;
+import static it.ld.bw.chl.model.OPCodeMode.*;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -50,15 +50,15 @@ public class Instruction extends Struct {
 		for (int iCode = 0; iCode < OPCode.keywords.length; iCode++) {
 			final String[][] t = OPCode.keywords[iCode];
 			if (t != null) {
-				for (int flags = 0; flags < t.length; flags++) {
-					final String[] t2 = t[flags];
+				for (int mode = 0; mode < t.length; mode++) {
+					final String[] t2 = t[mode];
 					if (t2 != null) {
 						for (int iType = 0; iType < t2.length; iType++) {
 							final String keyword = t2[iType];
 							if (keyword != null) {
 								Instruction instr = new Instruction();
 								instr.opcode = OPCode.values()[iCode];
-								instr.flags = flags;
+								instr.mode = mode;
 								instr.dataType = DataType.values()[iType];
 								model.putIfAbsent(keyword, instr);
 							}
@@ -70,17 +70,12 @@ public class Instruction extends Struct {
 	}
 	
 	public OPCode opcode;
-	public int flags;
+	public int mode;
 	public DataType dataType;
 	public int intVal;
 	public float floatVal;
 	public boolean boolVal;
 	public int lineNumber;
-	
-	@Override
-	public int getLength() {
-		return LENGTH;
-	}
 	
 	@Override
 	public void read(EndianDataInputStream str) throws Exception {
@@ -93,7 +88,7 @@ public class Instruction extends Struct {
 		//# Profiler.end(ProfilerSections.PF_INSTR_OPCODE);
 		//
 		//# Profiler.start(ProfilerSections.PF_INSTR_FLAGS);
-		flags = str.readInt();
+		mode = str.readInt();
 		//# Profiler.end(ProfilerSections.PF_INSTR_FLAGS);
 		//
 		//# Profiler.start(ProfilerSections.PF_INSTR_DATATYPE);
@@ -134,8 +129,8 @@ public class Instruction extends Struct {
 		//# Profiler.end(ProfilerSections.PF_INSTR_LINENO);
 		//
 		if (!opcode.hasArg && (intVal != 0 || floatVal != 0 || boolVal != false)) {
-			System.out.println(this + " " + intVal + " " + floatVal + " " + boolVal);
-			throw new RuntimeException("Invalid operand for noarg opcode");
+			System.out.println(this+" "+intVal+"i "+floatVal+"f "+boolVal+" (line "+lineNumber+")");
+			throw new RuntimeException("Invalid operand for "+opcode.name());
 		}
 		if (opcode == OPCode.SYS) {
 			NativeFunction.fromCode(intVal);
@@ -145,7 +140,7 @@ public class Instruction extends Struct {
 	@Override
 	public void write(EndianDataOutputStream str) throws Exception {
 		str.writeInt(opcode.ordinal());
-		str.writeInt(flags);
+		str.writeInt(mode);
 		str.writeInt(dataType.ordinal());
 		if (isReference() || opcode.forceInt) {
 			//Address of variables, system functions index, and swap count are always int, regardless of the datatype
@@ -170,13 +165,21 @@ public class Instruction extends Struct {
 			}
 		}
 		str.writeInt(lineNumber);
+		//Validation
+		/*if (!opcode.hasArg && (intVal != 0 || floatVal != 0 || boolVal != false)) {
+			System.out.println(this+" "+intVal+"i "+floatVal+"f "+boolVal+" (line "+lineNumber+")");
+			throw new RuntimeException("Invalid operand for "+opcode.name());
+		}
+		if (opcode == OPCode.SYS) {
+			NativeFunction.fromCode(intVal);
+		}*/
 	}
 	
 	/**Gets the mnemonic used to code this instruction.
 	 * @return
 	 */
 	public String getKeyword() {
-		return OPCode.getKeyword(opcode.ordinal(), flags, dataType.ordinal());
+		return OPCode.getKeyword(opcode.ordinal(), mode, dataType.ordinal());
 	}
 	
 	/**Gets the number of values this instruction pops from the stack.
@@ -192,7 +195,7 @@ public class Instruction extends Struct {
 				if (func.varargs) return -1;	//Cannot determine the number of parameter for varargs
 				return func.pop;
 			case CALL:
-				return chl.getScriptsSection().getScript(intVal).getParameterCount();
+				return chl.scripts.getScript(intVal).getParameterCount();
 			case SWAP:
 				return dataType == DataType.COORDS ? 6 : 2;
 			case ADD:
@@ -242,7 +245,7 @@ public class Instruction extends Struct {
 		String s = getKeyword();
 		boolean popNull = opcode == OPCode.POP && intVal == 0;
 		boolean swapZero = opcode == OPCode.SWAP && intVal == 0;
-		if (opcode.hasArg && !popNull && !swapZero || isZero()) {
+		if (opcode.hasArg && !popNull && !swapZero) {
 			s += " ";
 			if (opcode == OPCode.SYS) {
 				try {
@@ -253,7 +256,7 @@ public class Instruction extends Struct {
 				}
 			} else if (opcode == OPCode.CALL && chl != null) {
 				try {
-					Script calledScript = chl.getScriptsSection().getScript(intVal);
+					Script calledScript = chl.scripts.getScript(intVal);
 					s += calledScript.getName();
 				} catch (InvalidScriptIdException e) {
 					s += intVal;
@@ -329,7 +332,7 @@ public class Instruction extends Struct {
 			names = script.getVariables();
 		} else {
 			id--;
-			names = chl.getGlobalVariables().getNames();
+			names = chl.globalVars.getNames();
 		}
 		if (id < 0 || id >= names.size()) {
 			throw new InvalidVariableIdException(id);
@@ -374,15 +377,15 @@ public class Instruction extends Struct {
 	public void validate(CHLFile chl, Script script, int index) throws InvalidInstructionAddressException, InvalidScriptIdException, InvalidNativeFunctionException, InvalidInstructionException {
 		boolean popNull = opcode == OPCode.POP && intVal == 0;
 		boolean swapZero = opcode == OPCode.SWAP && intVal == 0;
-		if (opcode.hasArg && !popNull && !swapZero || isZero()) {
+		if (opcode.hasArg && !popNull && !swapZero) {
 			if (opcode == OPCode.SYS) {
 				NativeFunction.fromCode(intVal);
 			}
 			if (chl != null) {
 				if (opcode == OPCode.CALL) {
-					chl.getScriptsSection().getScript(intVal);
+					chl.scripts.getScript(intVal);
 				} else if (opcode.isIP) {
-					if (intVal < 0 || intVal >= chl.getCode().getItems().size()) {
+					if (intVal < 0 || intVal >= chl.code.getItems().size()) {
 						throw new InvalidInstructionAddressException(intVal);
 					}
 					if (opcode.isJump) {
@@ -407,14 +410,14 @@ public class Instruction extends Struct {
 	 * @return
 	 */
 	public boolean isReference() {
-		return (opcode == OPCode.PUSH || opcode == OPCode.POP || opcode == OPCode.CAST) && (flags & REF) == REF;
+		return (opcode == OPCode.PUSH || opcode == OPCode.POP || opcode == OPCode.CAST) && mode == REF;
 	}
 	
 	/**For a jump instruction, tells if the target address is greater than the current address.
 	 * @return
 	 */
 	public boolean isForward() {
-		return opcode.isJump && (flags & FORWARD) == FORWARD;
+		return opcode.isJump && mode == FORWARD;
 	}
 	
 	/**Tells if this is a START instruction. This is a shorthand to test if the opcode is CALL and
@@ -422,15 +425,7 @@ public class Instruction extends Struct {
 	 * @return
 	 */
 	public boolean isStart() {
-		return opcode == OPCode.CALL && (flags & ASYNC) == ASYNC;
-	}
-	
-	/**Tells if this is a ZERO instruction. This is a shorthand to test if the opcode is CAST and
-	 * the ZERO flag is set.
-	 * @return
-	 */
-	public boolean isZero() {
-		return opcode == OPCode.CAST && (flags & ZERO) == ZERO;
+		return opcode == OPCode.CALL && mode == ASYNC;
 	}
 	
 	/**Tells if this is a FREE instruction. This is a shorthand to test if the opcode is ENDEXCEPT and
@@ -438,7 +433,7 @@ public class Instruction extends Struct {
 	 * @return
 	 */
 	public boolean isFree() {
-		return opcode == OPCode.ENDEXCEPT && (flags & FREE) == FREE;
+		return opcode == OPCode.ENDEXCEPT && mode == FREE;
 	}
 	
 	public boolean is(NativeFunction func) {
@@ -456,7 +451,7 @@ public class Instruction extends Struct {
 		if (m == null) throw new IllegalArgumentException("Unknown opcode: "+keyword);
 		Instruction r = new Instruction();
 		r.opcode = m.opcode;
-		r.flags = m.flags;
+		r.mode = m.mode;
 		r.dataType = m.dataType;
 		return r;
 	}

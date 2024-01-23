@@ -27,11 +27,11 @@ public class EndianDataInputStream extends InputStream implements DataInput {
     private ByteBuffer buffer = ByteBuffer.allocate(8);
     private byte[] raw = new byte[8];
     
-    public EndianDataInputStream(InputStream stream){
+    public EndianDataInputStream(InputStream stream) {
         dataIn = new DataInputStream(stream);
     }
     
-    public EndianDataInputStream order(ByteOrder o){
+    public EndianDataInputStream order(ByteOrder o) {
         buffer.order(o);
         return this;
     }

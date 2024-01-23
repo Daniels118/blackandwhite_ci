@@ -22,7 +22,7 @@ import java.util.List;
 import it.ld.utils.EndianDataInputStream;
 import it.ld.utils.EndianDataOutputStream;
 
-public class DataSection extends Section {
+public class DataSection extends Struct {
 	private byte[] data;
 	
 	public byte[] getData() {
@@ -31,11 +31,6 @@ public class DataSection extends Section {
 	
 	public void setData(byte[] data) {
 		this.data = data;
-	}
-	
-	@Override
-	public int getLength() {
-		return 4 + data.length;
 	}
 	
 	@Override
@@ -64,21 +59,14 @@ public class DataSection extends Section {
 		return new String(data, offset, n, ASCII);
 	}
 	
-	public List<Const> analyze() {
-		List<Const> res = new LinkedList<Const>();
+	public List<StringData> getStrings() {
+		List<StringData> res = new LinkedList<StringData>();
 		int offset = 0;
 		while (offset < data.length) {
 			int n = getZString(data, offset);
-			if (n > 0) {
-				Const c = new Const(data, offset, n, ConstType.STRING);
-				res.add(c);
-				offset += n + 1;
-			} else {
-				n = 1;
-				Const c = new Const(data, offset, 1, ConstType.BYTE);
-				res.add(c);
-				offset += n;
-			}
+			StringData c = new StringData(data, offset, n);
+			res.add(c);
+			offset += n + 1;
 		}
 		return res;
 	}
@@ -103,70 +91,54 @@ public class DataSection extends Section {
 		return n;
 	}
 	
-	public enum ConstType {
-		BYTE("byte"),
-		STRING("string");
-		
-		public final String keyword;
-		
-		ConstType(String keyword) {
-			this.keyword = keyword;
-		}
-	}
-	
-	public static class Const {
+	public static class StringData {
 		private final byte[] data;
 		public final int offset;
 		public final int length;
-		public final ConstType type;
 		
-		public Const(byte[] data, int offset, int length, ConstType type) {
+		private String str = null;
+		
+		public StringData(byte[] data, int offset, int length) {
 			this.data = data;
 			this.offset = offset;
 			this.length = length;
-			this.type = type;
 		}
 		
-		public byte getByte() {
-			return data[offset];
+		public byte[] getBytes() {
+			byte[] bytes = new byte[length + 1];
+			System.arraycopy(data,  offset, bytes, 0, length + 1);
+			return bytes;
 		}
 		
 		public String getString() {
-			return new String(data, offset, length, ASCII);
+			if (str == null) {
+				str = new String(data, offset, length, ASCII);
+			}
+			return str;
 		}
 		
 		public String getDeclaration() {
-			return String.format("%1$s c%2$d = ", type.keyword, offset) + toString();
+			return String.format("string c%d = ", offset) + toString();
 		}
 		
 		@Override
 		public boolean equals(Object obj) {
-			if (!(obj instanceof Const)) return false;
-			Const other = (Const) obj;
-			if (this.type != other.type) return false;
-			switch (type) {
-				case BYTE:
-					return this.getByte() == other.getByte();
-				case STRING:
-					return this.getString().equals(other.getString());
-				default:
-					throw new RuntimeException("Unsupported constant type: "+type);
-			}
+			if (!(obj instanceof StringData)) return false;
+			StringData other = (StringData) obj;
+			return this.getString().equals(other.getString());
+		}
+		
+		@Override
+		public int hashCode() {
+			return getString().hashCode();
 		}
 		
 		@Override
 		public String toString() {
-			switch (type) {
-				case BYTE:
-					return String.valueOf(getByte());
-				case STRING:
-					String t = getString();
-					//t = t.replace("\\", "\\\\");
-					t = t.replace("\"", "\\\"");
-					return "\"" + t + "\"";
-				default:
-					throw new RuntimeException("Unsupported constant type: "+type);
-			}
+			String t = getString();
+			//t = t.replace("\\", "\\\\");
+			t = t.replace("\"", "\\\"");
+			return "\"" + t + "\"";
 		}
 	}
 }

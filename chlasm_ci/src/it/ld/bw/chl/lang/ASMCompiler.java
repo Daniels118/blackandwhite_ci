@@ -15,7 +15,7 @@
  */
 package it.ld.bw.chl.lang;
 
-import static it.ld.bw.chl.model.OPCodeFlag.*;
+import static it.ld.bw.chl.model.OPCodeMode.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -41,13 +41,13 @@ import it.ld.bw.chl.model.InitGlobal;
 import it.ld.bw.chl.model.Instruction;
 import it.ld.bw.chl.model.NativeFunction;
 import it.ld.bw.chl.model.OPCode;
-import it.ld.bw.chl.model.OPCodeFlag;
+import it.ld.bw.chl.model.OPCodeMode;
 import it.ld.bw.chl.model.Script;
 import it.ld.bw.chl.model.ScriptType;
 
 import static it.ld.bw.chl.lang.Utils.*;
 
-public class ASMCompiler implements Compiler {
+public class ASMCompiler {
 	private static final Charset ASCII = Charset.forName("windows-1252");
 	private static final int INITIAL_BUFFER_SIZE = 16 * 1024;
 	private static final int MAX_BUFFER_SIZE = 2 * 1024 * 1024;
@@ -82,16 +82,15 @@ public class ASMCompiler implements Compiler {
 	public ASMCompiler(PrintStream out) {
 		this.out = out;
 		//
-		globalVariables = chl.getGlobalVariables().getNames();
-		instructions = chl.getCode().getItems();
-		scripts = chl.getScriptsSection().getItems();
-		autoStartScripts = chl.getAutoStartScripts().getScripts();
-		dataSection = chl.getDataSection();
-		initGlobals = chl.getInitGlobals().getItems();
+		globalVariables = chl.globalVars.getNames();
+		instructions = chl.code.getItems();
+		scripts = chl.scripts.getItems();
+		autoStartScripts = chl.autoStartScripts.getScripts();
+		dataSection = chl.data;
+		initGlobals = chl.initGlobals.getItems();
 		initGlobals.add(new InitGlobal("Null variable", 0));
 		dataBuffer.order(ByteOrder.LITTLE_ENDIAN);
-		chl.getHeader().setVersion(Header.BWCI);
-		chl.getGlobalVariables().setOffset(chl.getHeader().getLength());
+		chl.header.setVersion(Header.BWCI);
 	}
 	
 	public boolean isVerboseEnabled() {
@@ -148,7 +147,7 @@ public class ASMCompiler implements Compiler {
 				}
 				label.instr.intVal = ip;
 				if (label.instr.opcode.isJump && ip > label.index) {
-					label.instr.flags = FORWARD;
+					label.instr.mode = FORWARD;
 				}
 			}
 			//Resolve scripts
@@ -176,7 +175,6 @@ public class ASMCompiler implements Compiler {
 			//
 			chl.checkCodeCoverage(out);
 			sealed = true;
-			info("done.");
 		}
 		return chl;
 	}
@@ -301,7 +299,7 @@ public class ASMCompiler implements Compiler {
 									if (tks.length < 2) {
 										throw new ParseException("Expected script type after 'begin'", file, lineno);
 									}
-									script = new Script();
+									script = new Script(chl);
 									script.setScriptID(scripts.size() + 1);	//Script IDs must start from 1
 									script.setGlobalCount(globalVariables.size());
 									script.setSourceFilename(sourceFilename);
@@ -384,11 +382,11 @@ public class ASMCompiler implements Compiler {
 										throw new ParseException(e.getMessage(), file, lineno);
 									}
 									instr.lineNumber = lineno;
-									if (instr.opcode.hasArg || instr.isZero()) {
+									if (instr.opcode.hasArg) {
 										if (instr.opcode == OPCode.POP) {
 											if (operand != null) {
 												if (instr.dataType == DataType.FLOAT) {
-													instr.flags = OPCodeFlag.REF;	//Weird, but it works this way...
+													instr.mode = OPCodeMode.REF;	//Weird, but it works this way...
 												}
 												if (!isValidIdentifier(operand)) {
 													throw new ParseException("Invalid variable name", file, lineno);
@@ -434,7 +432,7 @@ public class ASMCompiler implements Compiler {
 												if (ip != null) {
 													instr.intVal = ip;
 													if (instr.opcode.isJump && ip > instructions.size()) {
-														instr.flags = FORWARD;
+														instr.mode = FORWARD;
 													}
 												} else if (!isValidIdentifier(operand)) {
 													throw new ParseException("Invalid label", file, lineno);
@@ -454,7 +452,7 @@ public class ASMCompiler implements Compiler {
 												if (!operand.endsWith("]")) {
 													throw new ParseException("Expected ']'", file, lineno);
 												}
-												instr.flags = REF;
+												instr.mode = REF;
 												String v = operand.substring(1, operand.length() - 1);
 												String base = v;
 												int offset = 0;
@@ -579,9 +577,7 @@ public class ASMCompiler implements Compiler {
 								}
 								while (true) {
 									try {
-										if (DataSection.ConstType.BYTE.keyword.equals(keyword)) {
-											dataBuffer.put(Byte.valueOf(expr));
-										} else if (DataSection.ConstType.STRING.keyword.equals(keyword)) {
+										if ("string".equals(keyword)) {
 											String value = expr.substring(1, expr.length() - 1);
 											value = value.replace("\\\"", "\"");
 											value = value.replace("\\\\", "\\");

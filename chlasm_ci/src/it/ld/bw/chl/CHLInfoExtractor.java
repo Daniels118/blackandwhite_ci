@@ -25,7 +25,6 @@ import it.ld.bw.chl.model.DataSection;
 import it.ld.bw.chl.model.Instruction;
 import it.ld.bw.chl.model.Script;
 import it.ld.bw.chl.model.Scripts;
-import it.ld.bw.chl.model.Section;
 
 public class CHLInfoExtractor {
 	private PrintStream out;
@@ -40,24 +39,14 @@ public class CHLInfoExtractor {
 	
 	public void printInfo(CHLFile chl) {
 		//File version
-		int ver = chl.getHeader().getVersion();
+		int ver = chl.header.getVersion();
 		out.println("Version: "+ver);
 		out.println();
-		//Section sizes
-		out.println("Section sizes");
-		out.println(String.format("Globals:   %10d", chl.getGlobalVariables().getLength()));
-		out.println(String.format("Code:      %10d", chl.getCode().getLength()));
-		out.println(String.format("Autostart: %10d", chl.getAutoStartScripts().getLength()));
-		out.println(String.format("Scripts:   %10d", chl.getScriptsSection().getLength()));
-		out.println(String.format("Data:      %10d", chl.getDataSection().getLength()));
-		out.println(String.format("Init:      %10d", chl.getInitGlobals().getLength()));
-		out.println();
 		//Number of global variables
-		List<String> globalVars = chl.getGlobalVariables().getNames();
+		List<String> globalVars = chl.globalVars.getNames();
 		out.println("Number of globals: "+globalVars.size());
 		//Scripts offset
-		Scripts scriptsSection = chl.getScriptsSection();
-		out.println("Scripts section offset: "+getOffset(scriptsSection));
+		Scripts scriptsSection = chl.scripts;
 		//Scripts count
 		List<Script> scripts = scriptsSection.getItems();
 		out.println("Scripts count: "+scripts.size());
@@ -70,8 +59,7 @@ public class CHLInfoExtractor {
 					+", locals: "+s1.getVariables()+"]");
 		}
 		//Autostart scripts offset
-		AutoStartScripts autostartSection = chl.getAutoStartScripts();
-		out.println("Autostart scripts offset: "+getOffset(autostartSection));
+		AutoStartScripts autostartSection = chl.autoStartScripts;
 		//Autostart scripts count
 		List<Integer> autostartScripts = autostartSection.getScripts();
 		out.println("Autostart scripts count: "+autostartScripts.size());
@@ -81,20 +69,14 @@ public class CHLInfoExtractor {
 			out.println("  Autostart scripts["+i+"]: "+scriptId);
 		}
 		//Data offset
-		DataSection dataSection = chl.getDataSection();
-		out.println("Data offset: "+getOffset(dataSection));
+		DataSection dataSection = chl.data;
 		//Data length
 		byte[] data = dataSection.getData();
 		out.println("Data length: "+data.length);
 		//Code offset
-		Code code = chl.getCode();
-		out.println("Code offset: "+getOffset(code));
+		Code code = chl.code;
 		//Number of instructions
 		List<Instruction> instructions = code.getItems();
 		out.println("Number of instructions: "+instructions.size());
-	}
-	
-	private static String getOffset(Section section) {
-		return String.format("0x%1$08X", section.getOffset());
 	}
 }
