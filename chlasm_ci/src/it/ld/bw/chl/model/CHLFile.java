@@ -41,9 +41,10 @@ public class CHLFile extends Struct {
 	
 	static {
 		defaultScripts.put("IsleControl", new String[] {});
-		defaultScripts.put("HelpForCreatureJustText", new String[] {"WhichText"});
-		defaultScripts.put("CitadelWorldRoomHelp", null);
-		defaultScripts.put("CitadelSaveGameRoomHelp", null);
+		//defaultScripts.put("HelpForCreatureJustText", new String[] {"WhichText"});
+		//defaultScripts.put("CitadelWorldRoomHelp", null);
+		//defaultScripts.put("CitadelSaveGameRoomHelp", null);
+		//defaultScripts.put("MultiHelpJustTalkWithText", null);
 	}
 	
 	public final Header header = new Header();

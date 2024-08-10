@@ -49,6 +49,15 @@ _______________________
 ABOUT
 
 This project is a derived work of CHLASM for B&W1, see it for further references.
+_______________________
+
+CHANGELOG
+
+# Version 0.7
+- Added '//@noyield' annotation to speed up execution of short-living scripts
+- Fixed error on external all-caps global variables
+- Fixed .o filename collision when compiling multiple files with the same name in different folders
+- Removed warning for missing default scripts
 
 _______________________
 

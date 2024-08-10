@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
@@ -90,6 +91,9 @@ public class CHLCompiler {
 	private boolean dontRequireEol = false;
 	private boolean implicitVarDecl = false;
 	
+	private boolean noYield = false;
+	private Set<String> externalVars = new LinkedHashSet<>();
+	
 	private ParseException lastParseException = null;
 	
 	private Map<String, String> properties = new HashMap<>();
@@ -151,6 +155,14 @@ public class CHLCompiler {
 	
 	public void addConstants(Map<String, Integer> constants) {
 		this.constants.putAll(constants);
+	}
+	
+	public Set<String> getDefinedGlobalVars() {
+		return externalVars;
+	}
+	
+	public void addGlobalVars(Set<String> vars) {
+		this.externalVars.addAll(vars);
 	}
 	
 	public void loadHeader(File headerFile) throws FileNotFoundException, IOException, ParseException {
@@ -285,6 +297,8 @@ public class CHLCompiler {
 				parseScript();
 			} else if (symbol.is("source")) {	// <- custom statement
 				parseSource();
+			} else if (symbol.is(TokenType.ANNOTATION)) {	// <- custom statement
+				parseFileAnnotation();
 			} else {
 				break;
 			}
@@ -308,6 +322,22 @@ public class CHLCompiler {
 		accept(TokenType.EOL);
 		info("Source filename set to: "+sourceFilename);
 		return replace(start, "source STRING EOL");
+	}
+	
+	private SymbolInstance parseFileAnnotation() throws ParseException {
+		final int start = it.nextIndex();
+		String text = accept(TokenType.ANNOTATION).toString().trim().substring(3);	//Get rid of //@
+		String[] tokens = text.split(" ");
+		String cls = tokens[0];
+		if ("extern".equals(cls)) {
+			if (tokens.length != 2) {
+				throw new ParseError("@extern expects 1 parameter", file, line, col);
+			}
+			externalVars.add(tokens[1]);
+		} else {
+			throw new ParseError("Unknown annotation: "+cls, file, line, col);
+		}
+		return replace(start, "ANNOTATION");
 	}
 	
 	private SymbolInstance parseChallenge() throws ParseException {
@@ -337,6 +367,7 @@ public class CHLCompiler {
 			//
 			var = new Var(null, name, varId, size, val);
 			globalMap.put(name, var);
+			externalVars.add(name);
 		} else {
 			throw new ParseError("Redeclaration of global var "+name, file, line, col);
 		}
@@ -481,8 +512,18 @@ public class CHLCompiler {
 			if (!symbol.is("start")) {
 				parseLocals();
 			}
+			//Check for #noyield
+			symbol = peek();
+			if (symbol.is(TokenType.ANNOTATION) && "//@noyield".equals(symbol.toString().trim())) {
+				noYield = true;
+				next();
+			}
 			parse("start EOL");
-			free();
+			if (noYield || scriptType == ScriptType.FUNCTION) {
+				noYield = false;
+			} else {
+				free();
+			}
 			chl.scripts.getItems().add(script);
 			//STATEMENTS
 			parseStatements();
@@ -722,7 +763,17 @@ public class CHLCompiler {
 	}
 	
 	private SymbolInstance parseStatement() throws ParseException {
+		noYield = false;
+		//
 		SymbolInstance symbol = peek();
+		if (symbol.is(TokenType.ANNOTATION)) {
+			if ("//@noyield".equals(symbol.toString().trim())) {
+				noYield = true;
+				next();
+				symbol = peek();
+			}
+		}
+		//
 		if (symbol.is("challenge")) {
 			return parseChallenge();
 		} else if (symbol.is("remove")) {
@@ -863,7 +914,8 @@ public class CHLCompiler {
 		parseStatements();
 		instructions.addAll(iterStatement);
 		parse("end for EOL");
-		jmp(lblCheckCond);
+		jmp(lblCheckCond)
+		.mode = OPCodeMode.FORWARD;	//Avoid yielding
 		int lblEndFor = getIp();
 		jz_lblEndFor.intVal = lblEndFor;
 		return replace(start, "FOR");
@@ -3284,6 +3336,7 @@ public class CHLCompiler {
 	
 	private SymbolInstance parseWhile() throws ParseException {
 		final int start = it.nextIndex();
+		final boolean noYield = this.noYield;
 		//WHILE
 		Instruction except_lblExceptionHandler = except();
 		int lblStartWhile = getIp();
@@ -3292,6 +3345,9 @@ public class CHLCompiler {
 		//STATEMENTS
 		parseStatements();
 		Instruction jmp_lblStartWhile = jmp(lblStartWhile);
+		if (noYield || currentScript.getScriptType() == ScriptType.FUNCTION) {
+			jmp_lblStartWhile.mode = OPCodeMode.FORWARD;
+		}
 		int lblEndWhile = getIp();
 		jz_lblEndWhile.intVal = lblEndWhile;
 		endexcept();
@@ -5708,7 +5764,7 @@ public class CHLCompiler {
 			var = globalMap.get(name);
 		}
 		if (var == null) {
-			if (!name.equals(name.toUpperCase())) {
+			if (!name.equals(name.toUpperCase()) || externalVars.contains(name)) {
 				return -objcode.getExternalVarId(name, index);
 			}
 			throw new ParseException("Undefined variable: "+name, file, line, col);
@@ -6134,6 +6190,9 @@ public class CHLCompiler {
 				break;
 			case KEYWORD:
 				sInst = new SymbolInstance(Syntax.getSymbol(token.value), token);
+				break;
+			case ANNOTATION:
+				sInst = new SymbolInstance(Syntax.ANNOTATION, token);
 				break;
 			default:
 				throw new ParseException("Unrecognized symbol: "+token.value, file, token.line, token.col);

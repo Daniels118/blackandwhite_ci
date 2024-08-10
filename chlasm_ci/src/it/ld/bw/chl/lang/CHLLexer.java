@@ -32,7 +32,7 @@ public class CHLLexer {
 	private static final char EOF = 0xFFFF;
 	
 	private enum Status {
-		DEFAULT, IDENTIFIER, NUMBER, STRING, COMMENT, BLOCK_COMMENT, BLANK
+		DEFAULT, IDENTIFIER, NUMBER, STRING, ANNOTATION, COMMENT, BLOCK_COMMENT, BLANK
 	}
 	
 	private boolean extendedSyntaxEnabled;
@@ -124,9 +124,17 @@ public class CHLLexer {
 								col++;
 							} else if (c2 == '/') {
 								col++;
-								status = Status.COMMENT;
-								token = new Token(line, col, TokenType.COMMENT);
-								buffer.append("//");
+								char c3 = (char) str.read();
+								if (c3 == '@') {
+									status = Status.ANNOTATION;
+									token = new Token(line, col, TokenType.ANNOTATION);
+									buffer.append("//@");
+								} else {
+									str.unread(c3);
+									status = Status.COMMENT;
+									token = new Token(line, col, TokenType.COMMENT);
+									buffer.append("//");
+								}
 							} else if (c2 == '*') {
 								status = Status.BLOCK_COMMENT;
 								depth++;
@@ -221,6 +229,7 @@ public class CHLLexer {
 						}
 						break;
 					case COMMENT:
+					case ANNOTATION:
 						if (c == '\n') {
 							add(tokens, token.setValue(buffer.toString()));
 							buffer.setLength(0);
