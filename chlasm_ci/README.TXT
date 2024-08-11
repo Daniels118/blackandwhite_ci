@@ -53,6 +53,9 @@ _______________________
 
 CHANGELOG
 
+# Version 0.8
+- Accept gfx keyword as abbreviation of graphics
+
 # Version 0.7
 - Added '//@noyield' annotation to speed up execution of short-living scripts
 - Fixed error on external all-caps global variables
