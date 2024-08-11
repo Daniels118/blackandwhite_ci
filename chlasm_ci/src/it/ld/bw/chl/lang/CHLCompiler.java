@@ -4868,10 +4868,10 @@ public class CHLCompiler {
 						sys(CALL_BUILDING_WOODPILE_IN_TOWN);
 						return replace(start, "OBJECT");
 					} else {
-						//get building TYPE in OBJECT [excluding scripted]
-						parse("CONST_EXPR in OBJECT [excluding scripted]");
-						throw new ParseException("Statement not implemented", lastParseException, file, line, col);
-						//return replace(start, "OBJECT");
+						//get building ABODE_NUMBER in OBJECT [min built EXPRESSION] [excluding scripted]
+						parse("CONST_EXPR in OBJECT [min built EXPRESSION] [excluding scripted]");
+						sys(CALL_BUILDING_IN_TOWN);
+						return replace(start, "OBJECT");
 					}
 				} else if (symbol.is("poisoned")) {
 					//get poisoned TYPE [SCRIPT_OBJECT_SUBTYPE] in OBJECT

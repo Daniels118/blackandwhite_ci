@@ -53,6 +53,9 @@ _______________________
 
 CHANGELOG
 
+# Version 0.9
+- Implemented statement 'get building ABODE_NUMBER in OBJECT [min built EXPRESSION] [excluding scripted]'
+
 # Version 0.8
 - Accept gfx keyword as abbreviation of graphics
 

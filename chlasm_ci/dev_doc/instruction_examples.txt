@@ -4801,7 +4801,7 @@ Villager = get VILLAGER in NorseTown excluding scripted		//#followus.txt:654
 	POPF Villager
 ___________________________________________
 
-9.6 get building ABODE_NUMBER in OBJECT min built EXPRESSION [excluding scripted]
+9.6 get building ABODE_NUMBER in OBJECT [min built EXPRESSION] [excluding scripted]
 
 Gets a building of a certain type in a town.
 
