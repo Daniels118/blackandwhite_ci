@@ -6026,7 +6026,7 @@ public class CHLCompiler {
 					r[i] = sInst;
 				} else if ("graphics|gfx".equals(symbol)) {
 					SymbolInstance sInst = next();
-					if (!sInst.is("graphics") && sInst.is("gfx")) {
+					if (!sInst.is("graphics") && !sInst.is("gfx")) {
 						lastParseException = new ParseException("Unexpected token: "+sInst+". Expected: graphics|gfx", lastParseException, file, sInst.token.line, sInst.token.col);
 						throw lastParseException;
 					}
