@@ -34,7 +34,7 @@ To see all the available options run `chlasm -help compile`.
 
 To compile, you have to prepare a project file where you declare the C headers to be included, and the list of source files to compile. The release zip contains a sample project which should be self explanatory. Then open a command prompt and run the command:
 ```batch
-chlasm -compile -p _project.txt -o _challenge.chl
+chlasm_ci -compile -p _project.txt -o _challenge.chl
 ```
 Be aware that the output file will be overwritten without prompting, so be sure to backup your original CHL or work in another directory.
 
