@@ -5328,6 +5328,11 @@ public class CHLCompiler {
 				parse("VARIABLE");
 				//VARIABLE
 				return replace(start, "OBJECT");
+			} else if (symbol.is(TokenType.NUMBER) && "0".equals(symbol.token.value)) {
+				next();
+				//0
+				pushf(0f);
+				return replace(start, "OBJECT");
 			}
 		} catch (ParseException e) {
 			lastParseException = e;
