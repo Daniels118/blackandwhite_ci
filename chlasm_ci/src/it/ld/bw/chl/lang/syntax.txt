@@ -173,8 +173,8 @@ STATEMENT: {
 	set computer player EXPRESSION personality STRING EXPRESSION EOL
 	set computer player EXPRESSION suppression STRING EXPRESSION EOL
 	set computer player EXPRESSION speed EXPRESSION EOL
-	force computer player EXPRESSION action STRING OBJECT OBJECT EOL
-	queue computer player EXPRESSION action STRING OBJECT OBJECT EOL
+	force computer player EXPRESSION action STRING OBJECT [OBJECT] EOL
+	queue computer player EXPRESSION action STRING OBJECT [OBJECT] EOL
 	release computer player EXPRESSION EOL
 	set computer player EXPRESSION attitude to player EXPRESSION to EXPRESSION EOL
 	load computer player EXPRESSION personality STRING EOL
@@ -799,6 +799,7 @@ HELP_SPIRIT_TYPE: {
 }
 
 PLAYING_SIDE: {
+	home
 	away
 }
 
@@ -856,6 +857,8 @@ CREATURE_ACTION_LEARNING_TYPE: CONST_EXPR
 CREATURE_ACTION_SUBTYPE: CONST_EXPR
 
 CREATURE_ACTION_KNOWN_ABOUT: CONST_EXPR
+
+SCRIPT_PERFORMED_ACTION: CONST_EXPR
 
 SCRIPT_BOOL: CONST_EXPR
 
