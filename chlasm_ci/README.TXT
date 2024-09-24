@@ -53,6 +53,11 @@ _______________________
 
 CHANGELOG
 
+# Version 0.10
+- Accept 0 as object
+- Second object is optional in 'force computer player' and 'queue computer player' statements 
+- Skip empty lines in input files
+
 # Version 0.9
 - Implemented statement 'get building ABODE_NUMBER in OBJECT [min built EXPRESSION] [excluding scripted]'
 
