@@ -180,7 +180,7 @@ public class Main {
 					try (BufferedReader reader = new BufferedReader(new FileReader(inputfile));) {
 						String line;
 						while ((line = reader.readLine()) != null) {
-							if (!line.startsWith("//")) {
+							if (!line.startsWith("//") && !line.isBlank()) {
 								project.sources.add(new File(scriptpath, line));
 							}
 						}
