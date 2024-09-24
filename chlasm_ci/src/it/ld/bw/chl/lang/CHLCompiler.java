@@ -2165,8 +2165,15 @@ public class CHLCompiler {
 			throw new ParseException("Statement not implemented", file, line, col);
 			//return replace(start, "STATEMENT");
 		} else if (symbol.is("computer")) {
-			parse("computer player EXPRESSION action STRING OBJECT OBJECT EOL");
-			//force computer player EXPRESSION action STRING OBJECT OBJECT
+			//force computer player EXPRESSION action STRING OBJECT [OBJECT]
+			parse("computer player EXPRESSION action STRING OBJECT");
+			symbol = peek(false);
+			if (symbol.is(TokenType.EOL)) {
+				pusho(0);
+			} else {
+				parseObject(true);
+			}
+			accept(TokenType.EOL);
 			sys(FORCE_COMPUTER_PLAYER_ACTION);
 			return replace(start, "STATEMENT");
 		} else {
@@ -2425,8 +2432,15 @@ public class CHLCompiler {
 		accept("queue");
 		SymbolInstance symbol = peek();
 		if (symbol.is("computer")) {
-			parse("computer player EXPRESSION action STRING OBJECT OBJECT EOL");
-			//queue computer player EXPRESSION action STRING OBJECT OBJECT
+			//queue computer player EXPRESSION action STRING OBJECT [OBJECT]
+			parse("computer player EXPRESSION action STRING OBJECT");
+			symbol = peek(false);
+			if (symbol.is(TokenType.EOL)) {
+				pusho(0);
+			} else {
+				parseObject(true);
+			}
+			accept(TokenType.EOL);
 			sys(QUEUE_COMPUTER_PLAYER_ACTION);
 			return replace(start, "STATEMENT");
 		} else {
@@ -5327,6 +5341,11 @@ public class CHLCompiler {
 			} else if (symbol.is(TokenType.IDENTIFIER)) {
 				parse("VARIABLE");
 				//VARIABLE
+				return replace(start, "OBJECT");
+			} else if (symbol.is(TokenType.NUMBER) && "0".equals(symbol.token.value)) {
+				next();
+				//0
+				pushf(0f);
 				return replace(start, "OBJECT");
 			}
 		} catch (ParseException e) {
