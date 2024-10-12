@@ -19,7 +19,7 @@ Optionally add the extracted folder to the PATH environment variable.
 ## Usage
 
 This tool supports 2 syntax styles to compile CHL scripts, one similar to the original scripting tool from Lionhead, and a custom one more structured.
-To see all the available commands and options run the `chlasm` program without any argument.
+To see all the available commands and options run the `chlasm_ci` program without any argument.
 
 ### LH style
 
@@ -28,7 +28,7 @@ chlasm_ci -compile -path "%BWPATH%" -scriptpath "Scripts\CreatureIsles\sources" 
 ```
 `BWPATH` must point to the game folder. Be aware that the output file will be overwritten without prompting, so be sure to backup your original CHL or work in another directory.
 
-To see all the available options run `chlasm -help compile`.
+To see all the available options run `chlasm_ci -help compile`.
 
 ### Structured style
 
@@ -38,7 +38,7 @@ chlasm_ci -compile -p _project.txt -o _challenge.chl
 ```
 Be aware that the output file will be overwritten without prompting, so be sure to backup your original CHL or work in another directory.
 
-To see all the available options run `chlasm -help compile`.
+To see all the available options run `chlasm_ci -help compile`.
 
 ## Next steps
 
